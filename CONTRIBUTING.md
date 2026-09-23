@@ -49,6 +49,13 @@ with `Depends`.
   Where only `>= 0` makes sense, the type that owns the value calls `Money.require_non_negative`
   in its `__post_init__`.
 
+## Language
+
+- Code, comments, commits and the README are in English.
+- Text shown on screen is in Spanish: fee labels and notes, route names, step labels and warnings
+  in the YAML config, and the frontend copy. The API returns error codes, not sentences, and the
+  frontend writes the message.
+
 ## Types
 
 - Make invalid states unrepresentable. Use separate types in a union (`FixedFee | PercentFee`),
@@ -65,9 +72,12 @@ with `Depends`.
 ## Fees
 
 - Defaults live in `backend/config/fees.yaml`, versioned in git, never in the database.
-- Every fee in `fees.yaml` has `source_url`, `verified_at` and `status: verified | pending`. These
-  are metadata for the app, not fields of the domain types.
-- Never invent a value. An unconfirmed value is `pending` and the app shows it as an estimate.
+- Every fee in `fees.yaml` has `source_url`, `verified_at` and
+  `status: verified | pending | user_defined`. These are metadata for the app, not fields of the
+  domain types.
+- Never invent a value. An unconfirmed value is `pending` and the app shows it as an estimate. A
+  value no source can give is `user_defined`: the user sets it, and `source_url` points at the
+  reference price it applies to.
 - For an "up to X" fee, X is the default and the fee sets `upper_bound: true`.
 - Users can edit every fee. The application layer validates overrides before they reach the
   domain: the id must exist, the value must be non-negative, and it must be at most the caps in
