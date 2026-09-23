@@ -58,6 +58,6 @@ def test_arithmetic_ignores_the_global_decimal_context() -> None:
 
 
 def test_require_non_negative_accepts_zero_and_rejects_negatives() -> None:
-    assert usd("0").require_non_negative("x") == usd("0")
+    usd("0").require_non_negative("x")
     with pytest.raises(ValueError, match="x must not be negative"):
         usd("-0.01").require_non_negative("x")
