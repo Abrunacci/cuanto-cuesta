@@ -7,7 +7,8 @@
 #   verified_at  when it was last checked against that page (for user_defined, when the reference
 #                price was checked)
 #   status       verified: the source states this value
-#                pending: an estimate (a cap, a range or a contradiction); shown as such
+#                pending: an estimate (a cap, a range, a contradiction, or an assumption no source
+#                confirms); shown as such
 #                user_defined: no source can give it; the user sets it
 #   upper_bound  pending fees only: the source only gives a cap ("up to X") and X is the default
 #
@@ -116,6 +117,21 @@ fees:
     status: verified
     verified_at: 2026-09-23
     source_url: https://help.arqfinance.com/es/articles/13532861-cuenta-sin-fronteras-recarga-en-multiples-monedas
+
+  - id: arq_usd_usdc_conversion
+    label: Conversión USD→USDc en ARQ
+    kind: percent
+    value: 0
+    upper_bound: false
+    status: pending
+    verified_at: 2026-09-23
+    source_url: https://help.arqfinance.com/es/articles/13901700-recargar-mi-cuenta-con-dolares-usd
+    note: >-
+      ARQ acredita los USD que llegan por ACH directamente como USDc, pero no publica la tasa
+      de esa conversión y no se encontró ningún spread documentado. La única comisión publicada
+      para depósitos en USD es la fija de 3 USDc, en el plan Standard (https://help.arqfinance.com/es/articles/16785194-costes-y-comisiones-de-arq-argentina);
+      los términos dicen "al valor equivalente en Dólares Digitales", sin dar la tasa
+      (https://www.arqfinance.com/es-AR/legal/terminos_y_condiciones_cuenta_global_arg, punto 3.1).
 
   - id: arq_ars_withdrawal
     label: Retiro de ARS de ARQ a CBU
