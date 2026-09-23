@@ -55,3 +55,9 @@ def test_arithmetic_ignores_the_global_decimal_context() -> None:
         ctx.prec = 3
         assert mul(Decimal("1596.21"), Decimal("951.38")) == Decimal("1518602.2698")
         assert div(Decimal("1"), Decimal("3")) == Decimal("0.3333333333333333333333333333333333")
+
+
+def test_require_non_negative_accepts_zero_and_rejects_negatives() -> None:
+    usd("0").require_non_negative("x")
+    with pytest.raises(ValueError, match="x must not be negative"):
+        usd("-0.01").require_non_negative("x")

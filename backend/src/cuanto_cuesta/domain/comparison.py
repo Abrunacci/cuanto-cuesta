@@ -15,11 +15,10 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
-from decimal import Decimal
 
 from cuanto_cuesta.domain.calculation import RouteResult, run_route
 from cuanto_cuesta.domain.errors import CurrencyMismatchError
-from cuanto_cuesta.domain.fees import Fee
+from cuanto_cuesta.domain.fees import Fee, without_charge
 from cuanto_cuesta.domain.money import Money
 from cuanto_cuesta.domain.rates import Rate
 from cuanto_cuesta.domain.routes import Route
@@ -81,6 +80,4 @@ def _compare_one(
 
 def _zeroed(fees: Mapping[str, Fee], route: Route) -> dict[str, Fee]:
     """The route's fees set to zero; missing ids are left for run_route to report."""
-    return {
-        fee_id: fees[fee_id].with_value(Decimal(0)) for fee_id in route.fee_ids() if fee_id in fees
-    }
+    return {fee_id: without_charge(fees[fee_id]) for fee_id in route.fee_ids() if fee_id in fees}

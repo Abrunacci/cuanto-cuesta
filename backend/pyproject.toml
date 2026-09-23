@@ -30,6 +30,7 @@ select = ["E", "W", "F", "I", "B", "UP", "SIM", "RUF", "N", "C4", "PT", "RET", "
 
 [tool.mypy]
 strict = true
+enable_error_code = ["exhaustive-match"]
 python_version = "3.13"
 mypy_path = "src"
 files = ["src", "tests"]

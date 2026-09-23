@@ -9,8 +9,9 @@ from cuanto_cuesta.domain.errors import (
     UnknownFeeError,
     UnknownRateError,
 )
-from cuanto_cuesta.domain.fees import Fee, FeeKind
+from cuanto_cuesta.domain.fees import Fee, FixedFee, PercentFee, charge, without_charge
 from cuanto_cuesta.domain.money import Currency, Money
+from cuanto_cuesta.domain.percentage import Percentage
 from cuanto_cuesta.domain.rates import Rate
 from cuanto_cuesta.domain.routes import Conversion, Route, Step
 
@@ -22,9 +23,11 @@ __all__ = [
     "CurrencyMismatchError",
     "DomainError",
     "Fee",
-    "FeeKind",
+    "FixedFee",
     "InvalidRouteError",
     "Money",
+    "PercentFee",
+    "Percentage",
     "Rate",
     "Route",
     "RouteComparison",
@@ -33,6 +36,8 @@ __all__ = [
     "StepResult",
     "UnknownFeeError",
     "UnknownRateError",
+    "charge",
     "compare_routes",
     "run_route",
+    "without_charge",
 ]

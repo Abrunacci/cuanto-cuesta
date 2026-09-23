@@ -5,15 +5,26 @@ The values are test inputs, not the defaults used by the app.
 
 from decimal import Decimal
 
-from cuanto_cuesta.domain import Conversion, Currency, Fee, FeeKind, Rate, Route, Step
+from cuanto_cuesta.domain import (
+    Conversion,
+    Currency,
+    Fee,
+    FixedFee,
+    Money,
+    Percentage,
+    PercentFee,
+    Rate,
+    Route,
+    Step,
+)
 
 
 def _fixed(fee_id: str, value: str, currency: Currency) -> Fee:
-    return Fee(fee_id, FeeKind.FIXED, Decimal(value), currency)
+    return FixedFee(fee_id, Money(Decimal(value), currency))
 
 
-def _percent(fee_id: str, value: str) -> Fee:
-    return Fee(fee_id, FeeKind.PERCENT, Decimal(value))
+def _percent(fee_id: str, value: str, minimum: Money | None = None) -> Fee:
+    return PercentFee(fee_id, Percentage(Decimal(value)), minimum)
 
 
 FEES: dict[str, Fee] = {
@@ -25,13 +36,14 @@ FEES: dict[str, Fee] = {
         _fixed("binance_withdrawal_polygon", "0.07", Currency.USDT),
         _percent("bitso_taker", "0.6"),
         _fixed("bitso_ars_withdrawal", "0", Currency.ARS),
-        _percent("payoneer_us_withdrawal", "4"),
+        _percent("payoneer_us_withdrawal", "4", minimum=Money(Decimal("20"), Currency.USD)),
         _fixed("arq_ach_deposit", "3", Currency.USD),
         _fixed("arq_ars_withdrawal", "0", Currency.ARS),
         _percent("payoneer_ar_withdrawal", "2"),
         _fixed("bank_usd_credit", "0", Currency.USD),
         _percent("broker", "0.05"),
-        _percent("byma", "0.02"),
+        _percent("byma_buy", "0.01"),
+        _percent("byma_sell", "0.01"),
     )
 }
 
@@ -91,7 +103,7 @@ MEP_ROUTE = Route(
         Step("Bank credits the transfer", fee_ids=("bank_usd_credit",)),
         Step(
             "Sell through MEP",
-            fee_ids=("broker", "byma"),
+            fee_ids=("broker", "byma_buy", "byma_sell"),
             conversion=Conversion("mep", Currency.ARS),
         ),
     ),

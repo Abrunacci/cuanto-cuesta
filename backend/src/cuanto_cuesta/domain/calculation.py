@@ -4,7 +4,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 
 from cuanto_cuesta.domain.errors import CurrencyMismatchError, UnknownFeeError, UnknownRateError
-from cuanto_cuesta.domain.fees import Fee, FeeKind
+from cuanto_cuesta.domain.fees import Fee, FixedFee, PercentFee, charge
 from cuanto_cuesta.domain.money import Money
 from cuanto_cuesta.domain.rates import Rate
 from cuanto_cuesta.domain.routes import Route, Step
@@ -67,23 +67,31 @@ def _run_step(
     before: list[Fee] = []
     after: list[Fee] = []
     for fee in step_fees:
-        if fee.kind is FeeKind.PERCENT or fee.currency is amount_in.currency:
-            before.append(fee)
-        elif fee.currency is target:
-            after.append(fee)
-        else:
-            raise CurrencyMismatchError(
-                f"Step {step.label!r}: fee {fee.id!r} is in {fee.currency}, "
-                f"expected {amount_in.currency} or {target}"
-            )
+        match fee:
+            case PercentFee(minimum=Money(currency=currency)) if currency is not amount_in.currency:
+                raise CurrencyMismatchError(
+                    f"Step {step.label!r}: fee {fee.id!r} has its minimum in {currency}, "
+                    f"expected {amount_in.currency}"
+                )
+            case PercentFee():
+                before.append(fee)
+            case FixedFee(amount=Money(currency=currency)) if currency is amount_in.currency:
+                before.append(fee)
+            case FixedFee(amount=Money(currency=currency)) if currency is target:
+                after.append(fee)
+            case FixedFee(amount=Money(currency=currency)):
+                raise CurrencyMismatchError(
+                    f"Step {step.label!r}: fee {fee.id!r} is in {currency}, "
+                    f"expected {amount_in.currency} or {target}"
+                )
 
     charged: list[ChargedFee] = []
     exhausted = False
     current = amount_in
     for fee in before:
-        charge = fee.charge_on(amount_in)
-        charged.append(ChargedFee(fee, charge))
-        current -= charge
+        amount = charge(fee, amount_in)
+        charged.append(ChargedFee(fee, amount))
+        current -= amount
     current, exhausted = _clamp(current, exhausted)
 
     rate: Rate | None = None
@@ -92,9 +100,9 @@ def _run_step(
         current = rate.convert(current, step.conversion.target)
 
     for fee in after:
-        charge = fee.charge_on(current)
-        charged.append(ChargedFee(fee, charge))
-        current -= charge
+        amount = charge(fee, current)
+        charged.append(ChargedFee(fee, amount))
+        current -= amount
     current, exhausted = _clamp(current, exhausted)
 
     return StepResult(step, amount_in, tuple(charged), rate, current.rounded_down()), exhausted
