@@ -114,6 +114,11 @@ class TestFeesInsideAStep:
         with pytest.raises(CurrencyMismatchError):
             self.run(FixedFee("f", ars("3")))
 
+    def test_percent_fee_minimum_in_another_currency_is_rejected(self) -> None:
+        fee = PercentFee("m", Percentage(Decimal("1")), minimum=ars("1"))
+        with pytest.raises(CurrencyMismatchError, match=r"Step 's'.*minimum in ARS"):
+            self.run(fee)
+
     def test_fees_larger_than_the_amount_leave_zero(self) -> None:
         fee = FixedFee("f", usd("20"))
         step = Step("s", ("f",))

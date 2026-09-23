@@ -68,6 +68,11 @@ def _run_step(
     after: list[Fee] = []
     for fee in step_fees:
         match fee:
+            case PercentFee(minimum=Money(currency=currency)) if currency is not amount_in.currency:
+                raise CurrencyMismatchError(
+                    f"Step {step.label!r}: fee {fee.id!r} has its minimum in {currency}, "
+                    f"expected {amount_in.currency}"
+                )
             case PercentFee():
                 before.append(fee)
             case FixedFee(amount=Money(currency=currency)) if currency is amount_in.currency:
