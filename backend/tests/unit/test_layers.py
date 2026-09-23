@@ -16,12 +16,13 @@ IO_STDLIB = {"socket", "http", "urllib", "sqlite3", "asyncio", "subprocess", "os
 
 
 def _imported_modules(path: Path) -> set[str]:
+    """Absolute imports by name; a relative import shows up as ``.`` so it is always flagged."""
     modules: set[str] = set()
     for node in ast.walk(ast.parse(path.read_text())):
         if isinstance(node, ast.Import):
             modules.update(alias.name for alias in node.names)
-        elif isinstance(node, ast.ImportFrom) and node.module and node.level == 0:
-            modules.add(node.module)
+        elif isinstance(node, ast.ImportFrom):
+            modules.add(node.module if node.level == 0 and node.module else ".")
     return modules
 
 
@@ -38,7 +39,7 @@ def test_layer_imports_only_stdlib_and_inner_layers(
     allowed = tuple(f"cuanto_cuesta.{name}" for name in allowed_layers)
     offending = {
         f"{path.name}: {module}"
-        for path in (PACKAGE_DIR / layer).glob("*.py")
+        for path in (PACKAGE_DIR / layer).rglob("*.py")
         for module in _imported_modules(path)
         if not module.startswith(allowed)
         and (
