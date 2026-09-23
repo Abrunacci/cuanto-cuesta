@@ -79,11 +79,16 @@ class TestRoutesStepByStep:
         sale = result.steps[2]
 
         # 1000.00 - 2 % = 980.00
-        # broker 0.05 % = 0.49; BYMA 0.01 % per side = 0.098 -> 0.10 twice
-        # 979.31 x 1536.16 = 1504376.8496
-        assert [c.amount for c in sale.fees] == [usd("0.49"), usd("0.10"), usd("0.10")]
+        # broker 0.05 % per side = 0.49 twice; BYMA 0.01 % per side = 0.098 -> 0.10 twice
+        # 978.82 x 1536.16 = 1503624.1312
+        assert [c.amount for c in sale.fees] == [
+            usd("0.49"),
+            usd("0.49"),
+            usd("0.10"),
+            usd("0.10"),
+        ]
         assert sale.amount_in == usd("980.00")
-        assert result.final == ars("1504376.84")
+        assert result.final == ars("1503624.13")
 
 
 class TestFeesInsideAStep:
