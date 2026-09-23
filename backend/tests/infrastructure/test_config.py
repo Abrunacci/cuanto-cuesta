@@ -129,12 +129,24 @@ class TestInvalidFiles:
         with pytest.raises(ConfigError, match="cannot read"):
             load_catalog(tmp_path / "nope.yaml", tmp_path / "routes.yaml")
 
+    def test_a_file_that_is_not_utf8(self, tmp_path: Path) -> None:
+        fees_path, routes_path = tmp_path / "fees.yaml", tmp_path / "routes.yaml"
+        fees_path.write_bytes(b"\xff\xfe" + FEES.encode())
+        routes_path.write_text(ROUTES)
+        with pytest.raises(ConfigError, match="not UTF-8"):
+            load_catalog(fees_path, routes_path)
+
+    def test_an_empty_file(self, tmp_path: Path) -> None:
+        assert "(root): Input should be a valid dictionary" in _error(tmp_path, fees="")
+
     def test_invalid_yaml(self, tmp_path: Path) -> None:
         assert "invalid YAML" in _error(tmp_path, fees="fees: [")
 
     def test_a_duplicate_key(self, tmp_path: Path) -> None:
         fees = FEES.replace("    value: 3.00\n", "    value: 3.00\n    value: 0\n")
-        assert "duplicate key 'value'" in _error(tmp_path, fees=fees)
+        message = _error(tmp_path, fees=fees)
+        assert "duplicate key 'value'" in message
+        assert "line 6" in message  # the repeated key, not the start of the mapping
 
     def test_a_float_that_is_not_a_decimal(self, tmp_path: Path) -> None:
         fees = FEES.replace("value: 3.00", "value: .inf")

@@ -66,12 +66,14 @@ def _construct_decimal(loader: yaml.SafeLoader, node: yaml.ScalarNode) -> Decima
 
 
 def _construct_mapping(loader: yaml.SafeLoader, node: yaml.MappingNode) -> dict[Any, Any]:
-    keys = [loader.construct_object(key_node) for key_node, _ in node.value]
-    for key in keys:
-        if keys.count(key) > 1:
+    seen: set[Any] = set()
+    for key_node, _ in node.value:
+        key = loader.construct_object(key_node)
+        if key in seen:
             raise yaml.constructor.ConstructorError(
-                None, None, f"duplicate key {key!r}", node.start_mark
+                None, None, f"duplicate key {key!r}", key_node.start_mark
             )
+        seen.add(key)
     return loader.construct_mapping(node)
 
 
@@ -85,6 +87,8 @@ def _parse[T: BaseModel](path: Path, schema: type[T]) -> T:
         return schema.model_validate(data)
     except OSError as exc:
         raise ConfigError(f"{path}: cannot read: {exc}") from exc
+    except UnicodeDecodeError as exc:
+        raise ConfigError(f"{path}: not UTF-8: {exc}") from exc
     except yaml.YAMLError as exc:
         raise ConfigError(f"{path}: invalid YAML: {exc}") from exc
     except ValidationError as exc:
@@ -93,7 +97,8 @@ def _parse[T: BaseModel](path: Path, schema: type[T]) -> T:
 
 def _describe(exc: ValidationError) -> str:
     return "; ".join(
-        f"{'.'.join(str(part) for part in error['loc'])}: {error['msg']}" for error in exc.errors()
+        f"{'.'.join(str(part) for part in error['loc']) or '(root)'}: {error['msg']}"
+        for error in exc.errors()
     )
 
 
