@@ -42,7 +42,8 @@ FEES: dict[str, Fee] = {
         _percent("payoneer_ar_withdrawal", "2"),
         _fixed("bank_usd_credit", "0", Currency.USD),
         _percent("broker", "0.05"),
-        _percent("byma", "0.02"),
+        _percent("byma_buy", "0.01"),
+        _percent("byma_sell", "0.01"),
     )
 }
 
@@ -102,7 +103,7 @@ MEP_ROUTE = Route(
         Step("Bank credits the transfer", fee_ids=("bank_usd_credit",)),
         Step(
             "Sell through MEP",
-            fee_ids=("broker", "byma"),
+            fee_ids=("broker", "byma_buy", "byma_sell"),
             conversion=Conversion("mep", Currency.ARS),
         ),
     ),
