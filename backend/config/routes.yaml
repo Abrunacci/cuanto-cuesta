@@ -35,8 +35,8 @@ routes:
       - label: Retirar de Payoneer a ARQ
         fees: [payoneer_us_withdrawal]
       - label: ARQ recibe la transferencia ACH
-        fees: [arq_ach_deposit]
-      - label: Convertir USD a ARS en ARQ
+        fees: [arq_ach_deposit, arq_usd_usdc_conversion]
+      - label: Convertir USDc a ARS en ARQ
         conversion: {rate: arq_usd_ars, to: ARS}
       - label: Retirar ARS al banco
         fees: [arq_ars_withdrawal]

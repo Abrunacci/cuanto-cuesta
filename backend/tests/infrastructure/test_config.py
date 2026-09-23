@@ -11,7 +11,16 @@ from cuanto_cuesta.application import (
     Verified,
     apply_overrides,
 )
-from cuanto_cuesta.domain import Conversion, Currency, FixedFee, Money, Percentage, PercentFee
+from cuanto_cuesta.domain import (
+    Conversion,
+    Currency,
+    FixedFee,
+    Money,
+    Percentage,
+    PercentFee,
+    Rate,
+    run_route,
+)
 from cuanto_cuesta.infrastructure.config import ConfigError, load_catalog
 
 CONFIG_DIR = Path(__file__).parents[2] / "config"
@@ -104,6 +113,41 @@ class TestTheShippedConfig:
             Percentage(Decimal(4)),
             Money(Decimal(0), Currency.USD),
         )
+
+    def test_arq_usd_to_usdc_is_an_editable_estimate_at_par(self) -> None:
+        conversion = next(d for d in self.CATALOG.fees if d.id == "arq_usd_usdc_conversion")
+        assert conversion.fee == PercentFee("arq_usd_usdc_conversion", Percentage(Decimal(0)))
+        assert conversion.provenance == Estimate(
+            "https://help.arqfinance.com/es/articles/13901700-recargar-mi-cuenta-con-dolares-usd",
+            date(2026, 9, 23),
+            upper_bound=False,
+        )
+        arq = next(r for r in self.CATALOG.routes if r.id == "arq")
+        receive = next(s for s in arq.steps if "arq_ach_deposit" in s.fee_ids)
+        assert "arq_usd_usdc_conversion" in receive.fee_ids
+
+    def test_the_arq_conversion_is_charged_on_what_arq_receives(self) -> None:
+        arq = next(r for r in self.CATALOG.routes if r.id == "arq")
+        rates = {
+            "arq_usd_ars": Rate(
+                "arq_usd_ars", Currency.USD, Currency.ARS, Decimal(1500), Decimal(1500)
+            )
+        }
+        amount = Money(Decimal("1000.00"), Currency.USD)
+        at_par = run_route(arq, amount, apply_overrides(self.CATALOG, {}, {}), rates)
+        with_spread = run_route(
+            arq,
+            amount,
+            apply_overrides(self.CATALOG, {"arq_usd_usdc_conversion": Decimal("0.5")}, {}),
+            rates,
+        )
+        receive = with_spread.steps[1]
+        # 1000.00 - 4 % Payoneer = 960.00 reaches ARQ; 0.5 % of 960.00 = 4.80, plus 3.00 ACH
+        assert receive.amount_in == Money(Decimal("960.00"), Currency.USD)
+        assert [c.amount.amount for c in receive.fees] == [Decimal("3.00"), Decimal("4.80")]
+        # 957.00 x 1500 = 1435500.00 at par; 952.20 x 1500 = 1428300.00 with the spread
+        assert at_par.final == Money(Decimal("1435500.00"), Currency.ARS)
+        assert with_spread.final == Money(Decimal("1428300.00"), Currency.ARS)
 
     def test_the_p2p_premium_is_set_by_the_user(self) -> None:
         premium = next(d for d in self.CATALOG.fees if d.id == "p2p_premium")
