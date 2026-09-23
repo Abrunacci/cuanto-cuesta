@@ -148,6 +148,9 @@ class TestInvalidFiles:
         assert "duplicate key 'value'" in message
         assert "line 6" in message  # the repeated key, not the start of the mapping
 
+    def test_an_unhashable_key(self, tmp_path: Path) -> None:
+        assert "found unhashable key" in _error(tmp_path, fees="fees:\n  ? [a]\n  : x\n")
+
     def test_a_float_that_is_not_a_decimal(self, tmp_path: Path) -> None:
         fees = FEES.replace("value: 3.00", "value: .inf")
         assert "cannot read '.inf' as a decimal number" in _error(tmp_path, fees=fees)

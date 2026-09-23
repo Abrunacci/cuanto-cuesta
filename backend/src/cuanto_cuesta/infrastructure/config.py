@@ -8,6 +8,7 @@ YAML floats are read as ``Decimal`` from their source text, so ``0.6`` is exactl
 
 from __future__ import annotations
 
+from collections.abc import Hashable
 from datetime import date
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
@@ -69,6 +70,8 @@ def _construct_mapping(loader: yaml.SafeLoader, node: yaml.MappingNode) -> dict[
     seen: set[Any] = set()
     for key_node, _ in node.value:
         key = loader.construct_object(key_node)
+        if not isinstance(key, Hashable):
+            continue  # construct_mapping reports it as "found unhashable key"
         if key in seen:
             raise yaml.constructor.ConstructorError(
                 None, None, f"duplicate key {key!r}", key_node.start_mark
