@@ -11,7 +11,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import assert_never
 
 from cuanto_cuesta.domain.errors import CurrencyMismatchError
 from cuanto_cuesta.domain.money import Currency, Money
@@ -55,8 +54,6 @@ def charge(fee: Fee, amount: Money) -> Money:
             _require_currency(fee.id, minimum.currency, amount.currency)
             floor = minimum.rounded_up()
             return floor if share < floor else share
-        case _:
-            assert_never(fee)
 
 
 def without_charge(fee: Fee) -> Fee:
@@ -66,8 +63,6 @@ def without_charge(fee: Fee) -> Fee:
             return FixedFee(fee.id, Money.zero(fixed.currency))
         case PercentFee():
             return PercentFee(fee.id, Percentage(Decimal(0)))
-        case _:
-            assert_never(fee)
 
 
 def _require_currency(fee_id: str, fee_currency: Currency, amount_currency: Currency) -> None:
