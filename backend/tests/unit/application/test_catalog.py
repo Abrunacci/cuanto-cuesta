@@ -76,6 +76,10 @@ class TestCaps:
                 percent("fee", "1", minimum=usd("100.01")),
                 "Fee 'fee': minimum must be at most 100",
             ),
+            (
+                percent("fee", "1", minimum=Money(Decimal("150000.01"), Currency.ARS)),
+                "Fee 'fee': minimum must be at most 150000",
+            ),
         ],
     )
     def test_rejects_a_default_above_its_cap(self, fee: Fee, expected: str) -> None:

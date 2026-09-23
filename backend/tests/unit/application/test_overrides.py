@@ -9,7 +9,16 @@ from cuanto_cuesta.application import (
     OverrideProblem,
     apply_overrides,
 )
-from cuanto_cuesta.domain import Currency, Money, Rate, run_route
+from cuanto_cuesta.domain import (
+    Conversion,
+    Currency,
+    Fee,
+    Money,
+    Rate,
+    Route,
+    Step,
+    run_route,
+)
 from tests.unit.application.factories import default, fixed, percent, route, usd
 
 CATALOG = Catalog(
@@ -18,8 +27,18 @@ CATALOG = Catalog(
         default(percent("withdrawal", "4", minimum=usd("20"))),
         default(percent("spread", "1")),
         default(fixed("payout", "0", Currency.ARS)),
+        default(fixed("usdt_fee", "0", Currency.USDT)),
     ),
-    (route("r", "wire", "withdrawal", "spread", "payout"),),
+    (
+        route("r", "wire", "withdrawal", "spread", "payout"),
+        Route(
+            "usdt",
+            "usdt",
+            Currency.USD,
+            Currency.USDT,
+            (Step("Buy USDT", ("usdt_fee",), Conversion("usd_usdt", Currency.USDT)),),
+        ),
+    ),
 )
 
 
@@ -76,17 +95,24 @@ class TestApplying:
 
 class TestCaps:
     @pytest.mark.parametrize(
-        ("fee_id", "value"),
-        [("spread", "0"), ("spread", "20"), ("wire", "100"), ("payout", "150000")],
+        ("fee_id", "value", "expected"),
+        [
+            ("spread", "0", percent("spread", "0")),
+            ("spread", "20", percent("spread", "20")),
+            ("wire", "100", fixed("wire", "100")),
+            ("usdt_fee", "100", fixed("usdt_fee", "100", Currency.USDT)),
+            ("payout", "150000", fixed("payout", "150000", Currency.ARS)),
+        ],
     )
-    def test_accepts_zero_and_the_cap(self, fee_id: str, value: str) -> None:
-        apply_overrides(CATALOG, {fee_id: dec(value)}, {})
+    def test_accepts_zero_and_the_cap(self, fee_id: str, value: str, expected: Fee) -> None:
+        assert apply_overrides(CATALOG, {fee_id: dec(value)}, {})[fee_id] == expected
 
     @pytest.mark.parametrize(
         ("fee_id", "value", "message"),
         [
             ("spread", "20.01", "must be at most 20, got 20.01"),
             ("wire", "100.01", "must be at most 100, got 100.01"),
+            ("usdt_fee", "100.01", "must be at most 100, got 100.01"),
             ("payout", "150000.01", "must be at most 150000, got 150000.01"),
             ("wire", "-0.01", "must not be negative, got -0.01"),
             ("spread", "NaN", "must be a finite number, got NaN"),
