@@ -7,12 +7,15 @@ from cuanto_cuesta.domain.errors import (
     UnknownFeeError,
     UnknownRateError,
 )
+from cuanto_cuesta.domain.fees import Fee, FeeKind
 from cuanto_cuesta.domain.money import Currency, Money
 
 __all__ = [
     "Currency",
     "CurrencyMismatchError",
     "DomainError",
+    "Fee",
+    "FeeKind",
     "InvalidRouteError",
     "Money",
     "UnknownFeeError",
