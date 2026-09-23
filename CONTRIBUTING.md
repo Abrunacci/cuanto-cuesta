@@ -81,7 +81,8 @@ with `Depends`.
   value no source can give is `user_defined`: the user sets it, its default is the neutral value
   (0), `source_url` points at the reference price it applies to, and `verified_at` is when that
   reference was checked.
-- For an "up to X" fee, X is the default and the fee sets `upper_bound: true`.
+- For an "up to X" fee, X is the default, the fee is `pending` and it sets `upper_bound: true`;
+  only pending fees can.
 - Users can edit every fee. The application layer validates overrides before they reach the
   domain: the id must exist, the value must be non-negative, and it must be at most the caps in
   `application/limits.py`.
