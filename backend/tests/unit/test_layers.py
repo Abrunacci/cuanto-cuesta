@@ -38,7 +38,7 @@ def test_layer_imports_only_stdlib_and_inner_layers(
 ) -> None:
     allowed = tuple(f"cuanto_cuesta.{name}" for name in allowed_layers)
     offending = {
-        f"{path.name}: {module}"
+        f"{path.relative_to(PACKAGE_DIR)}: {module}"
         for path in (PACKAGE_DIR / layer).rglob("*.py")
         for module in _imported_modules(path)
         if not module.startswith(allowed)
