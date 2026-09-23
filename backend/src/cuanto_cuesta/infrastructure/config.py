@@ -12,12 +12,27 @@ from collections.abc import Hashable
 from datetime import date
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any, Literal, Self
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field, HttpUrl, ValidationError
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    HttpUrl,
+    ValidationError,
+    model_validator,
+)
 
-from cuanto_cuesta.application import Catalog, FeeDefault, FeeStatus, InvalidCatalogError
+from cuanto_cuesta.application import (
+    Catalog,
+    Estimate,
+    FeeDefault,
+    InvalidCatalogError,
+    Provenance,
+    UserDefined,
+    Verified,
+)
 from cuanto_cuesta.domain import (
     Conversion,
     Currency,
@@ -127,11 +142,18 @@ class _MoneySpec(_Schema):
 class _FeeSpec(_Schema):
     id: _Id
     label: _Text
+    status: Literal["verified", "pending", "user_defined"]
     source_url: HttpUrl
     verified_at: date
-    status: FeeStatus
     upper_bound: bool = False
     note: _Text | None = None
+
+    def _check_provenance(self, *, neutral: bool) -> None:
+        """Reject the fields that do not fit the fee's status."""
+        if "upper_bound" in self.model_fields_set and self.status != "pending":
+            raise ValueError("upper_bound: only a pending fee can be an upper bound")
+        if self.status == "user_defined" and not neutral:
+            raise ValueError("a user_defined fee must default to 0, with no minimum")
 
 
 class _FixedFeeSpec(_FeeSpec):
@@ -139,11 +161,21 @@ class _FixedFeeSpec(_FeeSpec):
     value: _NonNegative
     currency: Currency
 
+    @model_validator(mode="after")
+    def _provenance_fits(self) -> Self:
+        self._check_provenance(neutral=self.value == 0)
+        return self
+
 
 class _PercentFeeSpec(_FeeSpec):
     kind: Literal["percent"]
     value: Annotated[_NonNegative, Field(le=100)]
     minimum: _MoneySpec | None = None
+
+    @model_validator(mode="after")
+    def _provenance_fits(self) -> Self:
+        self._check_provenance(neutral=self.value == 0 and self.minimum is None)
+        return self
 
 
 class _FeesFile(_Schema):
@@ -161,15 +193,18 @@ def _fee_default(spec: _FixedFeeSpec | _PercentFeeSpec) -> FeeDefault:
                 Percentage(value),
                 minimum.to_domain() if minimum is not None else None,
             )
-    return FeeDefault(
-        fee=fee,
-        label=spec.label,
-        source_url=str(spec.source_url),
-        verified_at=spec.verified_at,
-        status=spec.status,
-        upper_bound=spec.upper_bound,
-        note=spec.note,
-    )
+    return FeeDefault(fee=fee, label=spec.label, provenance=_provenance(spec), note=spec.note)
+
+
+def _provenance(spec: _FeeSpec) -> Provenance:
+    url = str(spec.source_url)
+    match spec.status:
+        case "verified":
+            return Verified(url, spec.verified_at)
+        case "pending":
+            return Estimate(url, spec.verified_at, upper_bound=spec.upper_bound)
+        case "user_defined":
+            return UserDefined(url, spec.verified_at)
 
 
 class _ConversionSpec(_Schema):
