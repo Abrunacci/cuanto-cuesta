@@ -20,6 +20,7 @@ from pydantic import (
     ConfigDict,
     Field,
     HttpUrl,
+    StrictBool,
     ValidationError,
     model_validator,
 )
@@ -145,7 +146,7 @@ class _FeeSpec(_Schema):
     status: Literal["verified", "pending", "user_defined"]
     source_url: HttpUrl
     verified_at: date
-    upper_bound: bool = False
+    upper_bound: StrictBool = False
     note: _Text | None = None
 
     def _check_provenance(self, *, neutral: bool) -> None:

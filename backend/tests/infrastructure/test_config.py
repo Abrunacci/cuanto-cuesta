@@ -182,6 +182,12 @@ class TestProvenance:
             "https://example.com/wire", date(2026, 9, 23)
         )
 
+    @pytest.mark.parametrize("value", ["1", "0", '"true"', '"yes"'])
+    def test_upper_bound_must_be_a_yaml_boolean(self, tmp_path: Path, value: str) -> None:
+        fees = FEES.replace("upper_bound: true", f"upper_bound: {value}")
+        message = _error(tmp_path, fees=fees)
+        assert "fees.1.percent.upper_bound: Input should be a valid boolean" in message
+
     def test_a_pending_fee_is_not_an_upper_bound_by_default(self, tmp_path: Path) -> None:
         fees = FEES.replace("    upper_bound: true\n", "")
         assert _load(tmp_path, fees=fees).fees[1].provenance == Estimate(
