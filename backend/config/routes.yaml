@@ -4,6 +4,7 @@
 # then the conversion (if any), then fixed fees in the conversion's target currency.
 # The rate side (bid or ask) follows from the direction of the conversion.
 # Fee ids refer to fees.yaml; every fee there must be used by some route.
+# name, label and warnings are shown on screen, so they are in Spanish.
 
 routes:
   - id: binance_bitso
@@ -12,32 +13,32 @@ routes:
     target: ARS
     warnings:
       - >-
-        The P2P price is the generic USDT/USD offer, not one filtered by Payoneer. Set the P2P
-        premium to what you actually pay.
+        El precio P2P es el de la oferta genérica USDT/USD, no uno filtrado por Payoneer. Ajustá
+        el recargo P2P a lo que pagás realmente.
     steps:
-      - label: Sell USD for USDT on Binance P2P
+      - label: Vender USD por USDT en Binance P2P
         fees: [payoneer_p2p_transfer, p2p_premium, binance_p2p_taker]
         conversion: {rate: p2p_usdt_usd, to: USDT}
-      - label: Withdraw USDT to Bitso over Polygon
+      - label: Retirar USDT a Bitso por Polygon
         fees: [binance_withdrawal_polygon, bitso_usdt_deposit]
-      - label: Sell USDT for ARS on Bitso
+      - label: Vender USDT por ARS en Bitso
         fees: [bitso_taker]
         conversion: {rate: bitso_usdt_ars, to: ARS}
-      - label: Withdraw ARS to the bank
+      - label: Retirar ARS al banco
         fees: [bitso_ars_withdrawal]
 
   - id: arq
-    name: ARQ (formerly DolarApp)
+    name: ARQ (ex DolarApp)
     source: USD
     target: ARS
     steps:
-      - label: Withdraw from Payoneer to ARQ
+      - label: Retirar de Payoneer a ARQ
         fees: [payoneer_us_withdrawal]
-      - label: ARQ receives the ACH transfer
+      - label: ARQ recibe la transferencia ACH
         fees: [arq_ach_deposit]
-      - label: Convert USD to ARS in ARQ
+      - label: Convertir USD a ARS en ARQ
         conversion: {rate: arq_usd_ars, to: ARS}
-      - label: Withdraw ARS to the bank
+      - label: Retirar ARS al banco
         fees: [arq_ars_withdrawal]
 
   - id: mep
@@ -46,13 +47,13 @@ routes:
     target: ARS
     warnings:
       - >-
-        You cannot buy MEP if you bought official dollars in the last 90 days (BCRA "restricción
-        cruzada").
+        No podés comprar dólar MEP si compraste dólar oficial en los últimos 90 días
+        (restricción cruzada del BCRA).
     steps:
-      - label: Withdraw from Payoneer to an Argentine USD account
+      - label: Retirar de Payoneer a una cuenta argentina en USD
         fees: [payoneer_ar_withdrawal]
-      - label: Bank credits the transfer
+      - label: El banco acredita la transferencia
         fees: [bank_usd_credit]
-      - label: Buy AL30D and sell AL30
+      - label: Comprar AL30D y vender AL30
         fees: [broker_buy, broker_sell, byma_buy, byma_sell]
         conversion: {rate: mep, to: ARS}

@@ -105,6 +105,12 @@ class TestTheShippedConfig:
             Money(Decimal(0), Currency.USD),
         )
 
+    def test_the_p2p_premium_is_set_by_the_user(self) -> None:
+        premium = next(d for d in self.CATALOG.fees if d.id == "p2p_premium")
+        assert premium.provenance == UserDefined(
+            "https://docs.criptoya.com/argentina/", date(2026, 9, 23)
+        )
+
 
 class TestLoading:
     def test_builds_fees_with_their_metadata(self, tmp_path: Path) -> None:
