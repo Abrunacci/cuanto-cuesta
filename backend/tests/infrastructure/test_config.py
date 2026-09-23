@@ -4,7 +4,13 @@ from pathlib import Path
 
 import pytest
 
-from cuanto_cuesta.application import Catalog, FeeStatus, apply_overrides
+from cuanto_cuesta.application import (
+    Catalog,
+    Estimate,
+    UserDefined,
+    Verified,
+    apply_overrides,
+)
 from cuanto_cuesta.domain import Conversion, Currency, FixedFee, Money, Percentage, PercentFee
 from cuanto_cuesta.infrastructure.config import ConfigError, load_catalog
 
@@ -68,7 +74,13 @@ class TestTheShippedConfig:
         assert [r.id for r in self.CATALOG.routes] == ["binance_bitso", "arq", "mep"]
 
     def test_every_fee_links_to_an_https_source(self) -> None:
-        assert all(d.source_url.startswith("https://") for d in self.CATALOG.fees)
+        for default in self.CATALOG.fees:
+            match default.provenance:
+                case Verified(source_url=url) | Estimate(source_url=url):
+                    pass
+                case UserDefined(reference_url=url):
+                    pass
+            assert url.startswith("https://"), default.id
 
     def test_charges_the_broker_and_byma_on_each_side_of_the_mep(self) -> None:
         mep = next(r for r in self.CATALOG.routes if r.id == "mep")
@@ -81,8 +93,9 @@ class TestTheShippedConfig:
             Percentage(Decimal(4)),
             Money(Decimal("20.00"), Currency.USD),
         )
-        assert withdrawal.status is FeeStatus.PENDING
-        assert withdrawal.upper_bound
+        assert withdrawal.provenance == Estimate(
+            "https://www.payoneer.com/pricing/", date(2026, 9, 23), upper_bound=True
+        )
 
     def test_the_payoneer_us_withdrawal_minimum_can_be_set_to_zero(self) -> None:
         fees = apply_overrides(self.CATALOG, {}, {"payoneer_us_withdrawal": Decimal(0)})
@@ -98,17 +111,15 @@ class TestLoading:
         catalog = _load(tmp_path)
         wire, spread = catalog.fees
         assert wire.fee == FixedFee("wire", Money(Decimal("3.00"), Currency.USD))
-        assert (wire.status, wire.upper_bound, wire.note) == (FeeStatus.VERIFIED, False, None)
+        assert wire.provenance == Verified("https://example.com/wire", date(2026, 9, 23))
+        assert wire.note is None
         assert spread.fee == PercentFee(
             "spread", Percentage(Decimal("0.1")), Money(Decimal(20), Currency.USD)
         )
-        assert spread.verified_at == date(2026, 9, 23)
-        assert spread.source_url == "https://example.com/spread"
-        assert (spread.status, spread.upper_bound, spread.note) == (
-            FeeStatus.PENDING,
-            True,
-            "Up to 0.1 %.",
+        assert spread.provenance == Estimate(
+            "https://example.com/spread", date(2026, 9, 23), upper_bound=True
         )
+        assert spread.note == "Up to 0.1 %."
 
     def test_reads_yaml_floats_as_exact_decimals(self, tmp_path: Path) -> None:
         catalog = _load(tmp_path)
@@ -154,6 +165,72 @@ class TestInvalidFiles:
     def test_a_float_that_is_not_a_decimal(self, tmp_path: Path) -> None:
         fees = FEES.replace("value: 3.00", "value: .inf")
         assert "cannot read '.inf' as a decimal number" in _error(tmp_path, fees=fees)
+
+
+class TestProvenance:
+    def test_reads_user_defined(self, tmp_path: Path) -> None:
+        fees = FEES.replace("value: 3.00", "value: 0").replace(
+            "status: verified", "status: user_defined"
+        )
+        assert _load(tmp_path, fees=fees).fees[0].provenance == UserDefined(
+            "https://example.com/wire", date(2026, 9, 23)
+        )
+
+    def test_a_pending_fee_is_not_an_upper_bound_by_default(self, tmp_path: Path) -> None:
+        fees = FEES.replace("    upper_bound: true\n", "")
+        assert _load(tmp_path, fees=fees).fees[1].provenance == Estimate(
+            "https://example.com/spread", date(2026, 9, 23), upper_bound=False
+        )
+
+    @pytest.mark.parametrize("status", ["verified", "user_defined"])
+    @pytest.mark.parametrize("upper_bound", ["true", "false"])
+    def test_only_a_pending_fee_can_be_an_upper_bound(
+        self, tmp_path: Path, status: str, upper_bound: str
+    ) -> None:
+        fees = FEES.replace("status: pending", f"status: {status}").replace(
+            "upper_bound: true", f"upper_bound: {upper_bound}"
+        )
+        message = _error(tmp_path, fees=fees)
+        assert "fees.1.percent: Value error, upper_bound: only a pending fee" in message
+
+    def test_an_upper_bound_with_an_invalid_status_reports_only_the_status(
+        self, tmp_path: Path
+    ) -> None:
+        message = _error(tmp_path, fees=FEES.replace("status: pending", "status: maybe"))
+        assert "fees.1.percent.status" in message
+        assert "only a pending fee can be an upper bound" not in message
+
+    # Both sample fees as user_defined at their neutral value; each case breaks one of them.
+    USER_DEFINED = (
+        FEES.replace("value: 3.00", "value: 0")
+        .replace("value: 0.1\n    minimum: {amount: 20, currency: USD}", "value: 0")
+        .replace("    upper_bound: true\n", "")
+        .replace("status: verified", "status: user_defined")
+        .replace("status: pending", "status: user_defined")
+    )
+
+    def test_a_user_defined_fee_at_zero_loads(self, tmp_path: Path) -> None:
+        catalog = _load(tmp_path, fees=self.USER_DEFINED)
+        assert all(isinstance(d.provenance, UserDefined) for d in catalog.fees)
+
+    @pytest.mark.parametrize(
+        ("old", "new", "where"),
+        [
+            ("kind: fixed\n    value: 0", "kind: fixed\n    value: 1", "fees.0.fixed"),
+            ("kind: percent\n    value: 0", "kind: percent\n    value: 0.1", "fees.1.percent"),
+            (
+                "kind: percent\n    value: 0",
+                "kind: percent\n    value: 0\n    minimum: {amount: 20, currency: USD}",
+                "fees.1.percent",
+            ),
+        ],
+    )
+    def test_a_user_defined_fee_must_default_to_zero(
+        self, tmp_path: Path, old: str, new: str, where: str
+    ) -> None:
+        assert old in self.USER_DEFINED
+        message = _error(tmp_path, fees=self.USER_DEFINED.replace(old, new))
+        assert f"{where}: Value error, a user_defined fee must default to 0" in message
 
 
 class TestInvalidFees:

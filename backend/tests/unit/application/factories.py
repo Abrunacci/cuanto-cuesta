@@ -3,7 +3,7 @@
 from datetime import date
 from decimal import Decimal
 
-from cuanto_cuesta.application import FeeDefault, FeeStatus
+from cuanto_cuesta.application import FeeDefault, Verified
 from cuanto_cuesta.domain import (
     Conversion,
     Currency,
@@ -33,9 +33,7 @@ def default(fee: Fee) -> FeeDefault:
     return FeeDefault(
         fee=fee,
         label=fee.id,
-        source_url="https://example.com/fees",
-        verified_at=date(2026, 9, 23),
-        status=FeeStatus.VERIFIED,
+        provenance=Verified("https://example.com/fees", date(2026, 9, 23)),
     )
 
 

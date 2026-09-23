@@ -12,7 +12,6 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
-from enum import StrEnum
 
 from cuanto_cuesta.application.limits import fee_problems
 from cuanto_cuesta.domain import DomainError, Fee, Money, Rate, Route, run_route
@@ -22,10 +21,34 @@ class InvalidCatalogError(Exception):
     """The fees and routes do not fit together."""
 
 
-class FeeStatus(StrEnum):
-    VERIFIED = "verified"
-    PENDING = "pending"
-    """Not confirmed by the source: shown to the user as an estimate."""
+@dataclass(frozen=True, slots=True)
+class Verified:
+    """The source states this value."""
+
+    source_url: str
+    verified_at: date
+
+
+@dataclass(frozen=True, slots=True)
+class Estimate:
+    """The source does not confirm this value (a cap, a range or a contradiction)."""
+
+    source_url: str
+    verified_at: date
+    upper_bound: bool = False
+    """The source only gives a cap ("up to X"); the default is that cap."""
+
+
+@dataclass(frozen=True, slots=True)
+class UserDefined:
+    """No source can give this value; the user sets it and the default is neutral."""
+
+    reference_url: str
+    """The reference price the fee applies to, not a source for the value."""
+    checked_at: date
+
+
+type Provenance = Verified | Estimate | UserDefined
 
 
 @dataclass(frozen=True, slots=True)
@@ -34,11 +57,7 @@ class FeeDefault:
 
     fee: Fee
     label: str
-    source_url: str
-    verified_at: date
-    status: FeeStatus
-    upper_bound: bool = False
-    """The source only gives a cap ("up to X"); the default is that cap."""
+    provenance: Provenance
     note: str | None = None
 
     @property
