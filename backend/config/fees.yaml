@@ -1,0 +1,183 @@
+# Default fees. Every one is editable by the user; these are the starting values.
+#
+# Each fee carries where its value comes from:
+#   source_url   the page the value was read from
+#   verified_at  when it was last checked against that page
+#   status       verified: the source states this value
+#                pending: an estimate (a cap, a range or a contradiction); shown as such
+#   upper_bound  the source only gives a cap ("up to X") and X is the default
+#
+# kind: fixed   -> value + currency
+# kind: percent -> value in percent (0.6 means 0.6 %), optional minimum {amount, currency}
+
+fees:
+  # --- Payoneer -> Binance P2P -> Bitso -> bank ---------------------------------------------
+
+  - id: payoneer_p2p_transfer
+    label: Payoneer transfer to the P2P buyer
+    kind: fixed
+    value: 4.00
+    currency: USD
+    upper_bound: true
+    status: pending
+    verified_at: 2026-09-23
+    source_url: https://www.payoneer.com/pricing/
+    note: >-
+      "Up to 4.00 USD" when both accounts are in the same country; "up to 1 % + up to
+      4.00 USD" across countries.
+
+  - id: p2p_premium
+    label: P2P price premium for Payoneer offers
+    kind: percent
+    value: 0
+    status: pending
+    verified_at: 2026-09-23
+    source_url: https://docs.criptoya.com/argentina/
+    note: >-
+      The live P2P price is not filtered by payment method and no public offer accepting
+      Payoneer was found. Set the extra you actually pay over that price.
+
+  - id: binance_p2p_taker
+    label: Binance P2P taker fee
+    kind: fixed
+    value: 0.08
+    currency: USDT
+    upper_bound: true
+    status: pending
+    verified_at: 2026-09-23
+    source_url: https://www.binance.com/en/support/announcement/detail/70c92ace9acb45529cd4541195248c91
+    note: 0.06 to 0.08 USDT per order; the announcement does not say which applies to USD.
+
+  - id: binance_withdrawal_polygon
+    label: Binance USDT withdrawal over Polygon
+    kind: fixed
+    value: 0.07
+    currency: USDT
+    status: verified
+    verified_at: 2026-09-23
+    source_url: https://www.binance.com/bapi/capital/v1/public/capital/getNetworkCoinAll
+    note: The cheapest network Bitso accepts. Binance changes it often.
+
+  - id: bitso_usdt_deposit
+    label: Bitso USDT deposit
+    kind: fixed
+    value: 0
+    currency: USDT
+    status: verified
+    verified_at: 2026-09-23
+    source_url: https://bitso.com/ar/fees/transactions
+
+  - id: bitso_taker
+    label: Bitso order book taker fee
+    kind: percent
+    value: 0.60
+    status: verified
+    verified_at: 2026-09-23
+    source_url: https://bitso.com/ar/fees
+    note: Base tier, under ARS 1,625,000 of 30-day volume; lower tiers go down to 0.15 %.
+
+  - id: bitso_ars_withdrawal
+    label: Bitso ARS withdrawal to CBU/CVU
+    kind: fixed
+    value: 0
+    currency: ARS
+    status: verified
+    verified_at: 2026-09-23
+    source_url: https://bitso.com/ar/fees/transactions
+
+  # --- Payoneer -> ARQ (formerly DolarApp) -> bank -------------------------------------------
+
+  - id: payoneer_us_withdrawal
+    label: Payoneer withdrawal to a US account
+    kind: percent
+    value: 4
+    minimum:
+      amount: 20.00
+      currency: USD
+    upper_bound: true
+    status: pending
+    verified_at: 2026-09-23
+    source_url: https://www.payoneer.com/pricing/
+    note: >-
+      1.2 % to 4 % for an Argentine account holder, with a minimum fee of up to 20.00 USD. The
+      exact values only show inside the account; set the minimum to 0 if you do not pay one.
+
+  - id: arq_ach_deposit
+    label: ARQ incoming ACH
+    kind: fixed
+    value: 3.00
+    currency: USD
+    status: verified
+    verified_at: 2026-09-23
+    source_url: https://help.arqfinance.com/es/articles/13532861-cuenta-sin-fronteras-recarga-en-multiples-monedas
+
+  - id: arq_ars_withdrawal
+    label: ARQ ARS withdrawal to CBU
+    kind: fixed
+    value: 0
+    currency: ARS
+    status: verified
+    verified_at: 2026-09-23
+    source_url: https://help.arqfinance.com/es/articles/13532861-cuenta-sin-fronteras-recarga-en-multiples-monedas
+
+  # --- Payoneer -> USD bank account -> MEP -----------------------------------------------------
+
+  - id: payoneer_ar_withdrawal
+    label: Payoneer withdrawal to an Argentine USD account
+    kind: percent
+    value: 2
+    upper_bound: true
+    status: pending
+    verified_at: 2026-09-23
+    source_url: https://www.payoneer.com/es/resources/estrategias-para-usar-y-mover-tus-fondos-en-argentina/
+    note: >-
+      "Up to 2 %" on this page; another Payoneer page quotes 3.3 % end to end for Santander
+      (https://pages.payoneer.com/es/withdrawal-of-funds/).
+
+  - id: bank_usd_credit
+    label: Bank fee for crediting the transfer
+    kind: fixed
+    value: 0
+    currency: USD
+    status: verified
+    verified_at: 2026-09-23
+    source_url: https://www.bcra.gob.ar/Pdfs/comytexord/A8481.pdf
+    note: Banks may not charge for these operations (in force since 2026-09-15).
+
+  - id: broker_buy
+    label: Broker fee, buying AL30D
+    kind: percent
+    value: 0.05
+    upper_bound: true
+    status: pending
+    verified_at: 2026-09-23
+    source_url: https://balanz.com/comisiones/
+    note: Balanz, "up to 0.05 %" on sovereign bonds. Depends on your broker or bank.
+
+  - id: broker_sell
+    label: Broker fee, selling AL30
+    kind: percent
+    value: 0.05
+    upper_bound: true
+    status: pending
+    verified_at: 2026-09-23
+    source_url: https://balanz.com/comisiones/
+    note: Balanz, "up to 0.05 %" on sovereign bonds. Depends on your broker or bank.
+
+  - id: byma_buy
+    label: BYMA market fee, buying AL30D
+    kind: percent
+    value: 0.01
+    status: verified
+    verified_at: 2026-09-23
+    source_url: https://cdn.prod.website-files.com/6697a441a50c6b926e1972e0/6a2875749a418f0439d7de8f_BYMA-Derechos-Mercado-sobre-Operaciones_2026-06-09.pdf
+    note: Charged on each side of the MEP operation.
+
+  - id: byma_sell
+    label: BYMA market fee, selling AL30
+    kind: percent
+    value: 0.01
+    status: verified
+    verified_at: 2026-09-23
+    source_url: https://cdn.prod.website-files.com/6697a441a50c6b926e1972e0/6a2875749a418f0439d7de8f_BYMA-Derechos-Mercado-sobre-Operaciones_2026-06-09.pdf
+    note: Charged on each side of the MEP operation.

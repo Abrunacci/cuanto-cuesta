@@ -39,7 +39,7 @@ def test_losses_split_into_fees_and_exchange_rate() -> None:
 
     # The MEP route converts at the reference itself, so it has no FX loss.
     mep = by_id["mep"]
-    assert mep.fee_loss == ars("31783.16")
+    assert mep.fee_loss == ars("32535.87")  # 1536160.00 - 1503624.13
     assert mep.fx_loss == ars("0.00")
 
 
