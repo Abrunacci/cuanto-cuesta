@@ -81,6 +81,12 @@ class Money:
     def is_negative(self) -> bool:
         return self.amount < 0
 
+    def require_non_negative(self, what: str) -> Money:
+        """Money is signed (a loss can be a gain); call this where only >= 0 makes sense."""
+        if self.is_negative():
+            raise ValueError(f"{what} must not be negative, got {self}")
+        return self
+
     def rounded_down(self) -> Money:
         """Round an amount credited to the user."""
         return self._quantize(ROUND_DOWN)

@@ -5,15 +5,26 @@ The values are test inputs, not the defaults used by the app.
 
 from decimal import Decimal
 
-from cuanto_cuesta.domain import Conversion, Currency, Fee, FeeKind, Rate, Route, Step
+from cuanto_cuesta.domain import (
+    Conversion,
+    Currency,
+    Fee,
+    FixedFee,
+    Money,
+    Percentage,
+    PercentFee,
+    Rate,
+    Route,
+    Step,
+)
 
 
 def _fixed(fee_id: str, value: str, currency: Currency) -> Fee:
-    return Fee(fee_id, FeeKind.FIXED, Decimal(value), currency)
+    return FixedFee(fee_id, Money(Decimal(value), currency))
 
 
 def _percent(fee_id: str, value: str) -> Fee:
-    return Fee(fee_id, FeeKind.PERCENT, Decimal(value))
+    return PercentFee(fee_id, Percentage(Decimal(value)))
 
 
 FEES: dict[str, Fee] = {

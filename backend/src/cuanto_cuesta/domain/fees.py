@@ -1,55 +1,66 @@
+"""Fees are one of two types, so an invalid combination cannot be built.
+
+* ``FixedFee``: a fixed amount of money.
+* ``PercentFee``: a percentage of the amount.
+
+Value rules live in ``Money`` and ``Percentage``; ``charge`` rounds every fee
+up to the minor unit, as the rounding policy in ``money`` requires.
+"""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
 from decimal import Decimal
-from enum import StrEnum
+from typing import assert_never
 
 from cuanto_cuesta.domain.errors import CurrencyMismatchError
-from cuanto_cuesta.domain.money import Currency, Money, div, mul
-
-HUNDRED = Decimal(100)
-
-
-class FeeKind(StrEnum):
-    FIXED = "fixed"
-    PERCENT = "percent"
+from cuanto_cuesta.domain.money import Currency, Money
+from cuanto_cuesta.domain.percentage import Percentage
 
 
 @dataclass(frozen=True, slots=True)
-class Fee:
-    """A fee as the user sees it.
-
-    ``value`` is an amount in ``currency`` for fixed fees, and a percentage
-    (``Decimal("0.6")`` means 0.6 %) for percent fees, which have no currency.
-    """
-
+class FixedFee:
     id: str
-    kind: FeeKind
-    value: Decimal
-    currency: Currency | None = None
+    amount: Money
 
     def __post_init__(self) -> None:
-        if not isinstance(self.value, Decimal) or not self.value.is_finite():
-            raise ValueError(f"Fee {self.id!r}: value must be a finite Decimal")
-        if self.value < 0:
-            raise ValueError(f"Fee {self.id!r}: value must not be negative")
-        if self.kind is FeeKind.FIXED and self.currency is None:
-            raise ValueError(f"Fee {self.id!r}: a fixed fee needs a currency")
-        if self.kind is FeeKind.PERCENT:
-            if self.currency is not None:
-                raise ValueError(f"Fee {self.id!r}: a percent fee has no currency")
-            if self.value > HUNDRED:
-                raise ValueError(f"Fee {self.id!r}: a percentage cannot exceed 100")
+        self.amount.require_non_negative(f"Fee {self.id!r}")
 
-    def with_value(self, value: Decimal) -> Fee:
-        return Fee(self.id, self.kind, value, self.currency)
 
-    def charge_on(self, amount: Money) -> Money:
-        """Return the fee charged on ``amount``, rounded up to the minor unit."""
-        if self.kind is FeeKind.PERCENT:
-            return Money(div(mul(amount.amount, self.value), HUNDRED), amount.currency).rounded_up()
-        if self.currency is not amount.currency:
-            raise CurrencyMismatchError(
-                f"Fee {self.id!r} is in {self.currency}, cannot charge it on {amount.currency}"
-            )
-        return Money(self.value, amount.currency).rounded_up()
+@dataclass(frozen=True, slots=True)
+class PercentFee:
+    id: str
+    rate: Percentage
+
+
+type Fee = FixedFee | PercentFee
+
+
+def charge(fee: Fee, amount: Money) -> Money:
+    """The fee charged on ``amount``, rounded up to the minor unit."""
+    match fee:
+        case FixedFee(amount=fixed):
+            _require_currency(fee.id, fixed.currency, amount.currency)
+            return fixed.rounded_up()
+        case PercentFee(rate=rate):
+            return rate.of(amount).rounded_up()
+        case _:
+            assert_never(fee)
+
+
+def without_charge(fee: Fee) -> Fee:
+    """The same fee set to zero."""
+    match fee:
+        case FixedFee(amount=fixed):
+            return FixedFee(fee.id, Money.zero(fixed.currency))
+        case PercentFee():
+            return PercentFee(fee.id, Percentage(Decimal(0)))
+        case _:
+            assert_never(fee)
+
+
+def _require_currency(fee_id: str, fee_currency: Currency, amount_currency: Currency) -> None:
+    if fee_currency is not amount_currency:
+        raise CurrencyMismatchError(
+            f"Fee {fee_id!r} is in {fee_currency}, cannot charge it on {amount_currency}"
+        )

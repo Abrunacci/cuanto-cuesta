@@ -7,8 +7,10 @@ from cuanto_cuesta.domain import (
     Currency,
     CurrencyMismatchError,
     Fee,
-    FeeKind,
+    FixedFee,
     Money,
+    Percentage,
+    PercentFee,
     Route,
     Step,
     UnknownFeeError,
@@ -84,27 +86,27 @@ class TestFeesInsideAStep:
         return run_route(route, usd(amount), {f.id: f for f in fees}, RATES).final
 
     def test_percent_fees_apply_to_the_step_input_not_to_each_other(self) -> None:
-        a = Fee("a", FeeKind.PERCENT, Decimal("10"))
-        b = Fee("b", FeeKind.PERCENT, Decimal("10"))
+        a = PercentFee("a", Percentage(Decimal("10")))
+        b = PercentFee("b", Percentage(Decimal("10")))
         # 100.00 - 10.00 - 10.00 = 80.00 USD; 80.00 / 1.03 = 77.669... -> 77.66
         assert self.run(a, b) == usdt("77.66")
 
     def test_fixed_fee_in_the_input_currency_is_charged_before_converting(self) -> None:
-        fee = Fee("f", FeeKind.FIXED, Decimal("3"), Currency.USD)
+        fee = FixedFee("f", usd("3"))
         # 97.00 / 1.03 = 94.174... -> 94.17
         assert self.run(fee) == usdt("94.17")
 
     def test_fixed_fee_in_the_target_currency_is_charged_after_converting(self) -> None:
-        fee = Fee("f", FeeKind.FIXED, Decimal("3"), Currency.USDT)
+        fee = FixedFee("f", usdt("3"))
         # 100.00 / 1.03 = 97.087... -> 97.08; - 3.00 = 94.08
         assert self.run(fee) == usdt("94.08")
 
     def test_fixed_fee_in_an_unrelated_currency_is_rejected(self) -> None:
         with pytest.raises(CurrencyMismatchError):
-            self.run(Fee("f", FeeKind.FIXED, Decimal("3"), Currency.ARS))
+            self.run(FixedFee("f", ars("3")))
 
     def test_fees_larger_than_the_amount_leave_zero(self) -> None:
-        fee = Fee("f", FeeKind.FIXED, Decimal("20"), Currency.USD)
+        fee = FixedFee("f", usd("20"))
         step = Step("s", ("f",))
         route = Route("r", "r", Currency.USD, Currency.USD, (step, Step("t", ("f",))))
         result = run_route(route, usd("5.00"), {"f": fee}, {})
