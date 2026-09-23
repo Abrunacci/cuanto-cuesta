@@ -23,8 +23,8 @@ def _fixed(fee_id: str, value: str, currency: Currency) -> Fee:
     return FixedFee(fee_id, Money(Decimal(value), currency))
 
 
-def _percent(fee_id: str, value: str) -> Fee:
-    return PercentFee(fee_id, Percentage(Decimal(value)))
+def _percent(fee_id: str, value: str, minimum: Money | None = None) -> Fee:
+    return PercentFee(fee_id, Percentage(Decimal(value)), minimum)
 
 
 FEES: dict[str, Fee] = {
@@ -36,7 +36,7 @@ FEES: dict[str, Fee] = {
         _fixed("binance_withdrawal_polygon", "0.07", Currency.USDT),
         _percent("bitso_taker", "0.6"),
         _fixed("bitso_ars_withdrawal", "0", Currency.ARS),
-        _percent("payoneer_us_withdrawal", "4"),
+        _percent("payoneer_us_withdrawal", "4", minimum=Money(Decimal("20"), Currency.USD)),
         _fixed("arq_ach_deposit", "3", Currency.USD),
         _fixed("arq_ars_withdrawal", "0", Currency.ARS),
         _percent("payoneer_ar_withdrawal", "2"),

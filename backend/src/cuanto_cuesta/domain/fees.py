@@ -1,7 +1,7 @@
 """Fees are one of two types, so an invalid combination cannot be built.
 
 * ``FixedFee``: a fixed amount of money.
-* ``PercentFee``: a percentage of the amount.
+* ``PercentFee``: a percentage of the amount, with an optional minimum.
 
 Value rules live in ``Money`` and ``Percentage``; ``charge`` rounds every fee
 up to the minor unit, as the rounding policy in ``money`` requires.
@@ -31,6 +31,12 @@ class FixedFee:
 class PercentFee:
     id: str
     rate: Percentage
+    minimum: Money | None = None
+    """Charged instead of the percentage when the percentage comes out lower."""
+
+    def __post_init__(self) -> None:
+        if self.minimum is not None:
+            self.minimum.require_non_negative(f"Fee {self.id!r} minimum")
 
 
 type Fee = FixedFee | PercentFee
@@ -42,14 +48,19 @@ def charge(fee: Fee, amount: Money) -> Money:
         case FixedFee(amount=fixed):
             _require_currency(fee.id, fixed.currency, amount.currency)
             return fixed.rounded_up()
-        case PercentFee(rate=rate):
-            return rate.of(amount).rounded_up()
+        case PercentFee(rate=rate, minimum=minimum):
+            share = rate.of(amount).rounded_up()
+            if minimum is None:
+                return share
+            _require_currency(fee.id, minimum.currency, amount.currency)
+            floor = minimum.rounded_up()
+            return floor if share < floor else share
         case _:
             assert_never(fee)
 
 
 def without_charge(fee: Fee) -> Fee:
-    """The same fee set to zero."""
+    """The same fee set to zero, minimum included."""
     match fee:
         case FixedFee(amount=fixed):
             return FixedFee(fee.id, Money.zero(fixed.currency))

@@ -66,6 +66,14 @@ class TestRoutesStepByStep:
             ars("1524869.44"),
         ]
 
+    def test_arq_below_the_payoneer_minimum(self) -> None:
+        result = run_route(ARQ, usd("100.00"), FEES, RATES)
+
+        # 4 % of 100.00 = 4.00, below the 20.00 minimum: 80.00; - 3.00 = 77.00
+        # 77.00 x 1593.385 = 122690.645
+        assert result.steps[0].fees[0].amount == usd("20.00")
+        assert result.final == ars("122690.64")
+
     def test_mep(self) -> None:
         result = run_route(MEP_ROUTE, usd("1000.00"), FEES, RATES)
         sale = result.steps[2]
