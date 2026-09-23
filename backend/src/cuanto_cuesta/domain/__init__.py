@@ -10,8 +10,10 @@ from cuanto_cuesta.domain.errors import (
 from cuanto_cuesta.domain.fees import Fee, FeeKind
 from cuanto_cuesta.domain.money import Currency, Money
 from cuanto_cuesta.domain.rates import Rate
+from cuanto_cuesta.domain.routes import Conversion, Route, Step
 
 __all__ = [
+    "Conversion",
     "Currency",
     "CurrencyMismatchError",
     "DomainError",
@@ -20,6 +22,8 @@ __all__ = [
     "InvalidRouteError",
     "Money",
     "Rate",
+    "Route",
+    "Step",
     "UnknownFeeError",
     "UnknownRateError",
 ]
