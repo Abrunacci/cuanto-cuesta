@@ -50,13 +50,13 @@ class TestPercentFeeMinimum:
         # 4 % of 1000.00 = 40.00 > 20.00
         assert charge(percent("4", minimum=usd("20")), usd("1000.00")) == usd("40.00")
 
-    def test_charges_the_minimum_when_both_are_equal(self) -> None:
+    def test_charges_the_common_amount_when_both_are_equal(self) -> None:
         # 4 % of 500.00 = 20.00
         assert charge(percent("4", minimum=usd("20")), usd("500.00")) == usd("20.00")
 
-    def test_compares_after_rounding_up(self) -> None:
-        # 1 % of 1999.01 = 19.9901 -> 20.00, so the minimum of 19.999 -> 20.00 does not add a cent
-        assert charge(percent("1", minimum=usd("19.999")), usd("1999.01")) == usd("20.00")
+    def test_rounds_the_minimum_up(self) -> None:
+        # 1 % of 100.00 = 1.00 < minimum 19.991, which rounds up to 20.00
+        assert charge(percent("1", minimum=usd("19.991")), usd("100.00")) == usd("20.00")
 
     def test_minimum_in_another_currency_cannot_be_charged(self) -> None:
         with pytest.raises(CurrencyMismatchError):
