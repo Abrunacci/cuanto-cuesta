@@ -84,7 +84,7 @@ with `Depends`.
 - For an "up to X" fee, X is the default, the fee is `pending` and it sets `upper_bound: true`;
   only pending fees can.
 - Users can edit every fee. The application layer validates overrides before they reach the
-  domain: the id must exist, the value must be non-negative, and it must be at most the caps in
+  domain: the id must exist, and the value must be finite, non-negative and at most the caps in
   `application/limits.py`.
 - Every route is always computed and shown, whatever the fees; none is hidden or filtered out.
 - Routes are data in `backend/config/routes.yaml`. Adding a route must not need code.
