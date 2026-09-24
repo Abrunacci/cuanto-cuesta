@@ -1,0 +1,126 @@
+name: Deploy
+
+# Publishes the frontend to https://cuanto-cuesta.abrunacci.dev on every push
+# to main, or by hand. The server side (deploy user, one key per project,
+# deploy.sh) lives in the infra repository: see "Deploying a project" in its
+# ansible/README.md.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Nothing by default; each job asks for what it needs.
+permissions: {}
+
+# One deploy at a time. A newer run waits instead of cancelling one that is
+# uploading.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Check and build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: frontend/.nvmrc
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      # Same checks as the frontend job in ci.yml: nothing that fails there
+      # can be deployed.
+      - run: npm ci
+      - run: npm run check
+      - run: npm run build
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: dist
+          path: frontend/dist/
+          if-no-files-found: error
+          retention-days: 1
+          # A re-run (redeploying an earlier commit) replaces its own artifact.
+          overwrite: true
+
+  deploy:
+    name: Deploy to production
+    needs: build
+    # The production environment only accepts main; this makes the intent
+    # explicit and skips the approval request for anything else.
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    # Required reviewers approve each run before this job starts, and only
+    # this job sees the environment's secrets.
+    environment:
+      name: production
+      url: https://cuanto-cuesta.abrunacci.dev
+    permissions: {}
+    env:
+      SITE_URL: https://cuanto-cuesta.abrunacci.dev/
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: dist
+          path: dist
+
+      - name: Deploy
+        shell: bash
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          ssh_dir="$RUNNER_TEMP/deploy-ssh"
+          # The key exists only while this step runs, readable only by us.
+          trap 'rm -rf "$ssh_dir"' EXIT
+          umask 077
+          mkdir "$ssh_dir"
+          printf '%s\n' "$DEPLOY_SSH_KEY" > "$ssh_dir/key"
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > "$ssh_dir/known_hosts"
+          # The server's identity is always checked against the pinned line.
+          tar -C dist -cz . \
+            | ssh -i "$ssh_dir/key" \
+                -o IdentitiesOnly=yes \
+                -o StrictHostKeyChecking=yes \
+                -o UserKnownHostsFile="$ssh_dir/known_hosts" \
+                -o GlobalKnownHostsFile=/dev/null \
+                -o BatchMode=yes \
+                -o ConnectTimeout=15 \
+                deploy@server.abrunacci.dev deploy "$GITHUB_SHA" "$GITHUB_RUN_ID"
+
+      # Also removes the key if the step above was killed before its trap ran.
+      - name: Remove the SSH key
+        if: always()
+        shell: bash
+        run: rm -rf "$RUNNER_TEMP/deploy-ssh"
+
+      # The site must serve exactly this build's index.html: not the
+      # placeholder, not the previous release. current switches atomically,
+      # so a few retries only cover the network.
+      - name: Check the published site
+        shell: bash
+        run: |
+          set -euo pipefail
+          for _ in 1 2 3 4 5; do
+            if curl -fsS --max-time 10 -o served.html "$SITE_URL" && cmp -s served.html dist/index.html; then
+              echo "$SITE_URL serves this build."
+              exit 0
+            fi
+            sleep 3
+          done
+          if grep -q 'en construcción' served.html 2>/dev/null; then
+            echo "::error::$SITE_URL still serves the placeholder."
+          else
+            echo "::error::$SITE_URL does not serve this build's index.html."
+          fi
+          exit 1
