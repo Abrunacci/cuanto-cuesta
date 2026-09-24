@@ -22,7 +22,8 @@ describe("the bundled routes and fees", () => {
   });
 
   it("use each fee in a single route, so each fee field has a unique id on the page", () => {
-    const uses = ROUTES.flatMap((r) => [...feeIds(r)]);
+    // Every step's fees, repeats kept: a fee twice in one route would also duplicate a field id.
+    const uses = ROUTES.flatMap((r) => r.steps.flatMap((step) => step.feeIds));
     expect(uses.filter((id, index) => uses.indexOf(id) !== index)).toEqual([]);
   });
 
