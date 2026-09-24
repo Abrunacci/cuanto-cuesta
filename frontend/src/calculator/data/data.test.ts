@@ -52,7 +52,8 @@ describe("the bundled routes and fees", () => {
   it("warn on the MEP route about selling dollars, citing the BCRA", () => {
     const [warning] = ROUTES.find((r) => r.id === "mep")?.warnings ?? [];
     expect(warning).toContain("no podés vender dólares por MEP");
-    expect(warning).toContain('Com. "A" 8336');
+    expect(warning).toContain("puntos 3.8.5 y 3.14.1.2");
+    expect(warning).toContain("cuenta bancaria tuya en el exterior");
     expect(warning).toContain("https://www.bcra.gob.ar/Pdfs/comytexord/A8481.pdf");
   });
 });

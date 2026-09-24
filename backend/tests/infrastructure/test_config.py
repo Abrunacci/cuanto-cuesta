@@ -152,10 +152,10 @@ class TestTheShippedConfig:
     def test_the_mep_warning_is_about_selling_dollars_and_cites_the_bcra(self) -> None:
         (warning,) = next(r for r in self.CATALOG.routes if r.id == "mep").warnings
         assert "no podés vender dólares por MEP" in warning
-        assert 'Com. "A" 8336' in warning
-        assert "https://www.bcra.gob.ar/Pdfs/comytexord/A8481.pdf" in warning
-        assert "a una cuenta tuya en el exterior" in warning
         assert "en los últimos 90 días" in warning
+        assert "a una cuenta bancaria tuya en el exterior" in warning
+        assert "puntos 3.8.5 y 3.14.1.2" in warning
+        assert "https://www.bcra.gob.ar/Pdfs/comytexord/A8481.pdf" in warning
 
     def test_the_p2p_premium_is_set_by_the_user(self) -> None:
         premium = next(d for d in self.CATALOG.fees if d.id == "p2p_premium")
