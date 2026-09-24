@@ -748,6 +748,15 @@ describe("the calculator page", () => {
       ).toHaveTextContent("Ajustar comisiones · 1 con tu valor");
     });
 
+    it("makes a fee the person's own when they type over it the value already there", async () => {
+      const { user, field, openCard } = setup();
+      await openCard("Binance P2P + Bitso");
+      await user.tripleClick(field(PREMIUM));
+      await user.keyboard("0");
+      expect(field(PREMIUM)).toHaveValue("0");
+      expect(premiumDetails("Tu valor")).toBeInTheDocument();
+    });
+
     it("makes a fee the person's own when only its minimum is edited", async () => {
       const { type, openCard } = setup();
       await openCard("ARQ (ex DolarApp)");
