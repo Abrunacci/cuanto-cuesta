@@ -7,7 +7,7 @@ export type TextPart =
   | { readonly kind: "text"; readonly text: string }
   | { readonly kind: "link"; readonly url: string; readonly text: string | null };
 
-/** A Markdown link, or a bare URL. */
+/** A Markdown link, or a bare URL. A Markdown link's URL cannot contain parentheses. */
 const LINK = /\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)|https?:\/\/[^\s]+/g;
 /** Punctuation that closes a sentence or a parenthesis right after a bare URL. */
 const TRAILING = /[).,;:]+$/;

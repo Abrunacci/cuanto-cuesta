@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import type { BarText } from "../form/summary.ts";
+import { RESULTS_TITLE_ID } from "./Results.tsx";
 
 interface ResultBarProps {
   readonly text: BarText;
@@ -14,26 +15,36 @@ interface ResultBarProps {
  */
 export function ResultBar({ text, onOpen }: ResultBarProps) {
   const keyboardInset = useKeyboardInset();
+  const bar = useRef<HTMLAnchorElement>(null);
+  useReserveHeight(bar);
+  const label =
+    text.kind === "best"
+      ? `Mejor ruta: ${text.route}. Llegan ${text.amount}. Ver resultado`
+      : `${text.text} Ver resultado`;
   return (
-    <a
-      className="result-bar"
-      href="#results-title"
-      style={{ bottom: `${String(keyboardInset)}px` }}
-      onClick={(event) => {
-        event.preventDefault();
-        onOpen();
-      }}
-    >
-      {text.kind === "best" ? (
-        <>
-          <span className="result-bar-label">Mejor ruta: {text.route}</span>
-          <span className="result-bar-amount">Llegan {text.amount}</span>
-        </>
-      ) : (
-        <span className="result-bar-label">{text.text}</span>
-      )}
-      <span className="result-bar-more">Ver resultado</span>
-    </a>
+    <aside aria-label="Resumen del resultado">
+      <a
+        ref={bar}
+        className="result-bar"
+        href={`#${RESULTS_TITLE_ID}`}
+        aria-label={label}
+        style={{ bottom: `${String(keyboardInset)}px` }}
+        onClick={(event) => {
+          event.preventDefault();
+          onOpen();
+        }}
+      >
+        {text.kind === "best" ? (
+          <>
+            <span className="result-bar-label">Mejor ruta: {text.route}</span>
+            <span className="result-bar-amount">Llegan {text.amount}</span>
+          </>
+        ) : (
+          <span className="result-bar-label">{text.text}</span>
+        )}
+        <span className="result-bar-more">Ver resultado</span>
+      </a>
+    </aside>
   );
 }
 
@@ -51,7 +62,11 @@ function useKeyboardInset(): number {
       return undefined;
     }
     const update = () => {
-      setInset(Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop));
+      // clientHeight is the layout viewport in every engine; iOS overscroll can make offsetTop
+      // negative for a moment, which must not move the bar.
+      const layout = document.documentElement.clientHeight;
+      const covered = layout - viewport.height - Math.max(0, viewport.offsetTop);
+      setInset(Math.max(0, Math.round(covered)));
     };
     update();
     viewport.addEventListener("resize", update);
@@ -62,4 +77,27 @@ function useKeyboardInset(): number {
     };
   }, []);
   return inset;
+}
+
+/**
+ * Keep `--bar-height` equal to the bar's real height: its text can wrap to several lines (a long
+ * message, a narrow phone, a larger system font), and the page reserves that much room so a
+ * focused field is never left under the bar.
+ */
+function useReserveHeight(bar: React.RefObject<HTMLAnchorElement | null>): void {
+  useEffect(() => {
+    const element = bar.current;
+    if (element === null || !("ResizeObserver" in window)) {
+      return undefined;
+    }
+    const root = document.documentElement;
+    const observer = new ResizeObserver(() => {
+      root.style.setProperty("--bar-height", `${String(element.offsetHeight)}px`);
+    });
+    observer.observe(element);
+    return () => {
+      observer.disconnect();
+      root.style.removeProperty("--bar-height");
+    };
+  }, [bar]);
 }

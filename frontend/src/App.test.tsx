@@ -1,6 +1,6 @@
-import { getDefaultNormalizer, render, screen, within } from "@testing-library/react";
+import { act, getDefaultNormalizer, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
 import { App } from "./App.tsx";
 
@@ -393,22 +393,25 @@ describe("the calculator page", () => {
 
   it("lists once what every route is missing, and under each route only its own", () => {
     const { ranking, results } = setup();
-    expect(within(results()).getByText(/^Para calcular falta:/)).toHaveTextContent(
-      "Para calcular falta: el monto en USD y dólar MEP (compra).",
+    // The block listed once comes before the ranking, so it is the first of its kind.
+    const [listedOnce] = within(results()).getAllByText(/^Falta completar o corregir:/);
+    expect(listedOnce).toHaveTextContent(
+      "Falta completar o corregir: monto en USD y dólar MEP (compra).",
     );
-    expect(within(results()).getAllByRole("link", { name: "el monto en USD" })).toHaveLength(1);
+    expect(within(results()).getAllByRole("link", { name: "monto en USD" })).toHaveLength(1);
     const binance = ranking().find((item) => item.includes("Binance"));
     expect(binance).toContain("precio P2P en Binance (USD por USDT)");
-    expect(binance).not.toContain("el monto en USD");
-    // ARQ and MEP need nothing beyond what is listed once, so they show no list of their own.
+    expect(binance).not.toContain("monto en USD");
+    // ARQ and MEP need nothing beyond what is listed once, so they only say they are waiting.
     const mep = ranking().find((item) => item.startsWith("Dólar MEP"));
     expect(mep).not.toContain("Falta completar o corregir");
+    expect(mep).toContain("Se calcula cuando completes lo de arriba.");
   });
 
   it("keeps the best route in a bar that updates as the person types", async () => {
     const { type } = setup();
     const bar = () => screen.getByRole("link", { name: /Ver resultado$/ });
-    expect(bar()).toHaveTextContent("Falta: el monto en USD y dólar MEP (compra).");
+    expect(bar()).toHaveTextContent("Falta completar: monto en USD y dólar MEP (compra).");
     await fillEverything(type);
     expect(plain(bar().textContent)).toBe(
       "Mejor ruta: Binance P2P + BitsoLlegan $ 1.534.005,69Ver resultado",
@@ -422,5 +425,108 @@ describe("the calculator page", () => {
     const { user } = setup();
     await user.click(screen.getByRole("link", { name: /Ver resultado$/ }));
     expect(screen.getByRole("heading", { name: "Resultado" })).toHaveFocus();
+  });
+
+  describe("with an on-screen keyboard that only shrinks the visual viewport (Safari on iOS)", () => {
+    function fakeViewport(height: number, offsetTop = 0) {
+      const target = new EventTarget() as EventTarget & { height: number; offsetTop: number };
+      target.height = height;
+      target.offsetTop = offsetTop;
+      Object.defineProperty(window, "visualViewport", { value: target, configurable: true });
+      Object.defineProperty(document.documentElement, "clientHeight", {
+        value: 800,
+        configurable: true,
+      });
+      return target;
+    }
+
+    afterEach(() => {
+      Reflect.deleteProperty(window, "visualViewport");
+      Reflect.deleteProperty(document.documentElement, "clientHeight");
+    });
+
+    const bar = () => screen.getByRole("link", { name: /Ver resultado$/ });
+
+    it("moves the bar up above the keyboard, and back down when it closes", () => {
+      const viewport = fakeViewport(800);
+      render(<App />);
+      expect(bar()).toHaveStyle({ bottom: "0px" });
+      viewport.height = 500;
+      act(() => {
+        viewport.dispatchEvent(new Event("resize"));
+      });
+      expect(bar()).toHaveStyle({ bottom: "300px" });
+      viewport.offsetTop = 100;
+      act(() => {
+        viewport.dispatchEvent(new Event("scroll"));
+      });
+      expect(bar()).toHaveStyle({ bottom: "200px" });
+      viewport.height = 800;
+      viewport.offsetTop = 0;
+      act(() => {
+        viewport.dispatchEvent(new Event("resize"));
+      });
+      expect(bar()).toHaveStyle({ bottom: "0px" });
+    });
+
+    it("never moves the bar below the screen or for overscroll", () => {
+      const viewport = fakeViewport(900, -40);
+      render(<App />);
+      act(() => {
+        viewport.dispatchEvent(new Event("resize"));
+      });
+      expect(bar()).toHaveStyle({ bottom: "0px" });
+    });
+
+    it("stops listening once the page is gone", () => {
+      const viewport = fakeViewport(800);
+      const removed: string[] = [];
+      const remove = viewport.removeEventListener.bind(viewport);
+      viewport.removeEventListener = (
+        type: string,
+        listener: EventListenerOrEventListenerObject | null,
+      ) => {
+        removed.push(type);
+        remove(type, listener);
+      };
+      const { unmount } = render(<App />);
+      unmount();
+      expect(removed.sort()).toEqual(["resize", "scroll"]);
+    });
+  });
+
+  it("reserves the bar's real height, so a focused field is never left under it", () => {
+    // jsdom has no layout: fake a bar that wrapped to 120px and an observer that reports it.
+    const callbacks: ResizeObserverCallback[] = [];
+    class FakeResizeObserver {
+      constructor(callback: ResizeObserverCallback) {
+        callbacks.push(callback);
+      }
+      observe() {
+        for (const callback of callbacks) {
+          callback([], this as unknown as ResizeObserver);
+        }
+      }
+      disconnect() {
+        callbacks.length = 0;
+      }
+    }
+    Object.defineProperty(window, "ResizeObserver", {
+      value: FakeResizeObserver,
+      configurable: true,
+    });
+    Object.defineProperty(HTMLElement.prototype, "offsetHeight", {
+      value: 120,
+      configurable: true,
+    });
+    try {
+      const { unmount } = render(<App />);
+      expect(document.documentElement.style.getPropertyValue("--bar-height")).toBe("120px");
+      unmount();
+      expect(document.documentElement.style.getPropertyValue("--bar-height")).toBe("");
+    } finally {
+      Reflect.deleteProperty(window, "ResizeObserver");
+      Reflect.deleteProperty(HTMLElement.prototype, "offsetHeight");
+    }
   });
 });

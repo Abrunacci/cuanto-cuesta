@@ -28,7 +28,7 @@ export function RouteFigures({
   if (entry.status === "incomplete") {
     const missing = entry.missing.filter((m) => !skip.has(missingKey(m)));
     if (missing.length === 0) {
-      return null;
+      return <p className="missing">Se calcula cuando completes lo de arriba.</p>;
     }
     return (
       <div className="missing">

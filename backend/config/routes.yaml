@@ -5,7 +5,7 @@
 # The rate side (bid or ask) follows from the direction of the conversion.
 # Fee ids refer to fees.yaml; every fee there must be used by some route.
 # name, label and warnings are shown on screen, so they are in Spanish. A warning may link a
-# phrase with [text](url).
+# phrase with [text](url); that URL cannot contain parentheses.
 
 routes:
   - id: binance_bitso

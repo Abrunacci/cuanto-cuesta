@@ -41,7 +41,7 @@ describe("barText", () => {
     const reading = read({});
     expect(barText(reading.comparison, [], reading.feeGaps)).toEqual({
       kind: "pending",
-      text: "Falta: el monto en USD y dólar MEP (compra).",
+      text: "Falta completar: monto en USD y dólar MEP (compra).",
     });
   });
 

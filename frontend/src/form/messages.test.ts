@@ -16,7 +16,7 @@ describe("missingInputLabel", () => {
 
   it("names the amount and prices in lower case, to read inside a sentence", () => {
     const gaps = new Map<string, FeeGap>();
-    expect(missingInputLabel({ kind: "amount" }, gaps)).toBe("el monto en USD");
+    expect(missingInputLabel({ kind: "amount" }, gaps)).toBe("monto en USD");
     expect(missingInputLabel({ kind: "rate", key: "mep" }, gaps)).toBe("dólar MEP (compra)");
   });
 });

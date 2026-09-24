@@ -55,7 +55,7 @@ export function barText(
     kind: "pending",
     text:
       missing.length > 0
-        ? `Falta: ${joinSpanish(missing)}.`
+        ? `Falta completar: ${joinSpanish(missing)}.`
         : "Todavía ninguna ruta se puede calcular: mirá qué le falta a cada una.",
   };
 }

@@ -56,14 +56,14 @@ export function didYouMean(value: Big): string {
   return `¿Quisiste poner ${formatExact(value)}?`;
 }
 
-/** What a route is missing, as it reads inside a sentence ("el monto en USD"). */
+/** What a route is missing, as it reads inside a list ("monto en USD", "dólar MEP (compra)"). */
 export function missingInputLabel(
   missing: MissingInput,
   feeGaps: ReadonlyMap<string, FeeGap>,
 ): string {
   switch (missing.kind) {
     case "amount":
-      return "el monto en USD";
+      return "monto en USD";
     case "rate":
       return lowerFirst(
         RATE_FIELDS.find((field) => field.key === missing.key)?.label ?? missing.key,

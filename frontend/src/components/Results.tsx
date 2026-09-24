@@ -36,6 +36,9 @@ export function Results({
   onGoToField,
 }: ResultsProps) {
   const common = commonMissing(comparison);
+  const listedOnce = new Set(common.map(missingKey));
+  // Common inputs are the amount and the prices at the top: every fee belongs to one route (a
+  // data test enforces it), so no route card needs opening from here.
   const [firstRoute] = comparison.routes;
   return (
     <section className="results" aria-labelledby={RESULTS_TITLE_ID}>
@@ -47,7 +50,7 @@ export function Results({
       </p>
       {common.length > 0 && firstRoute !== undefined && (
         <p className="missing">
-          Para calcular falta:{" "}
+          Falta completar o corregir:{" "}
           <LinkList
             links={common.map((missing) => {
               const id = missingFieldId(missing, feeGaps);
@@ -72,7 +75,7 @@ export function Results({
               entry={entry}
               feeGaps={feeGaps}
               unusualPrices={unusualPrices(entry.route, warnings)}
-              skip={new Set(common.map(missingKey))}
+              skip={listedOnce}
               onGoToField={onGoToField}
             />
             {entry.status === "complete" && (
