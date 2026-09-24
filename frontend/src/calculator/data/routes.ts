@@ -78,7 +78,7 @@ export const ROUTES: readonly Route[] = [
       },
     ],
     warnings: [
-      'Si compraste dólar oficial en los últimos 90 días, no podés vender dólares por MEP (BCRA, Com. "A" 8336). Tampoco durante los 90 días siguientes a transferir dólares de tu cuenta en un banco argentino a una cuenta bancaria tuya en el exterior. Texto ordenado vigente, puntos 3.8.5 y 3.14.1.2: https://www.bcra.gob.ar/Pdfs/comytexord/A8481.pdf',
+      'Si en los últimos 90 días compraste dólar oficial o pasaste dólares de tu cuenta en un banco argentino a una cuenta tuya en el exterior, no podés vender dólares por MEP (BCRA, Com. "A" 8336): https://www.bcra.gob.ar/Pdfs/comytexord/A8481.pdf',
     ],
   },
 ];

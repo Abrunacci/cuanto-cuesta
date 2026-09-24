@@ -154,7 +154,8 @@ class TestTheShippedConfig:
         assert "no podés vender dólares por MEP" in warning
         assert 'Com. "A" 8336' in warning
         assert "https://www.bcra.gob.ar/Pdfs/comytexord/A8481.pdf" in warning
-        assert "durante los 90 días siguientes a transferir" in warning
+        assert "a una cuenta tuya en el exterior" in warning
+        assert "en los últimos 90 días" in warning
 
     def test_the_p2p_premium_is_set_by_the_user(self) -> None:
         premium = next(d for d in self.CATALOG.fees if d.id == "p2p_premium")
