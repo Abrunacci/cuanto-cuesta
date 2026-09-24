@@ -81,7 +81,7 @@ describe("readForm", () => {
 
   it.each([
     ["amount", { amount: "0" }, fieldId.amount, "Tiene que ser mayor que 0."],
-    ["amount", { amount: "10,005" }, fieldId.amount, "Usá como mucho 2 decimales."],
+    ["amount", { amount: "10,5555" }, fieldId.amount, "Usá como mucho 2 decimales."],
     ["amount", { amount: "20.000.000" }, fieldId.amount, "No puede ser más de 10.000.000."],
     [
       "price",
@@ -118,7 +118,7 @@ describe("numbers read a thousand times off", () => {
     // Binance shows P2P prices like 1.030; typed that way it reads as one thousand thirty.
     const texts = filled({ prices: { ...PRICES, p2p_usdt_usd: "1.030" } });
     expect(priceOf(texts, "p2p_usdt_usd").problem).toBe(
-      "Leímos 1.030 USD por USDT, y lo esperable está entre 0,5 y 2. ¿Quisiste poner 1,03?",
+      "Leímos 1.030,00 USD por USDT, y lo esperable está entre 0,5 y 2. ¿Quisiste poner 1,03?",
     );
     const binance = readForm(texts).comparison.routes.find((r) => r.route.id === "binance_bitso");
     expect(binance?.status).toBe("incomplete");
@@ -127,13 +127,13 @@ describe("numbers read a thousand times off", () => {
   it("rejects a MEP pasted in English notation, suggesting the fix", () => {
     const texts = filled({ prices: { ...PRICES, mep: "1,536" } });
     expect(priceOf(texts, "mep").problem).toBe(
-      "Leímos 1,536 ARS por USD, y lo esperable está entre 100 y 100.000. ¿Quisiste poner 1.536?",
+      "Leímos 1,536 ARS por USD, y lo esperable está entre 500 y 50.000. ¿Quisiste poner 1.536?",
     );
   });
 
   it("rejects an amount with English thousands instead of reading it as 1 USD", () => {
     expect(readForm(filled({ amount: "1,000" })).problems.get(fieldId.amount)).toBe(
-      "Usá como mucho 2 decimales.",
+      "Usá como mucho 2 decimales. ¿Quisiste poner 1.000?",
     );
   });
 
@@ -143,12 +143,25 @@ describe("numbers read a thousand times off", () => {
     expect(echoes.get(fieldId.amount)).toBe("Leímos US$ 1.000,00.");
     expect(echoes.get(fieldId.price("p2p_usdt_usd"))).toBe("Leímos 1,03 USD por USDT.");
     expect(echoes.get(fieldId.price("mep"))).toBe("Leímos 1.536,16 ARS por USD.");
+    const integer = readForm(filled({ prices: { ...PRICES, mep: "1.540" } })).echoes;
+    // Two decimals, so "1.540" is not echoed back in a form that reads as 1,54.
+    expect(integer.get(fieldId.price("mep"))).toBe("Leímos 1.540,00 ARS por USD.");
+  });
+
+  it.each([
+    ["15", "Leímos 15,00 ARS por USD, y lo esperable está entre 500 y 50.000."],
+    ["154000", "Leímos 154.000,00 ARS por USD, y lo esperable está entre 500 y 50.000."],
+    ["99,9", "Leímos 99,90 ARS por USD, y lo esperable está entre 500 y 50.000."],
+    ["153.616", "Leímos 153.616,00 ARS por USD, y lo esperable está entre 500 y 50.000."],
+    ["1.536.160", "Leímos 1.536.160,00 ARS por USD, y lo esperable está entre 500 y 50.000."],
+  ])("never suggests a value the person did not type: MEP %s", (text, message) => {
+    expect(priceOf(filled({ prices: { ...PRICES, mep: text } }), "mep").problem).toBe(message);
   });
 
   it("gives up on a price with no plausible fix", () => {
     expect(
       priceOf(filled({ prices: { ...PRICES, p2p_usdt_usd: "50" } }), "p2p_usdt_usd").problem,
-    ).toBe("Leímos 50 USD por USDT, y lo esperable está entre 0,5 y 2.");
+    ).toBe("Leímos 50,00 USD por USDT, y lo esperable está entre 0,5 y 2.");
   });
 });
 

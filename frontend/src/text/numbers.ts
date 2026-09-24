@@ -16,7 +16,14 @@ export type ParsedNumber =
       readonly value: Big;
       /** Decimals as typed, trailing zeros included: "1,000" has 3 even though it is 1. */
       readonly typedDecimals: number;
+      /**
+       * The other reading of an ambiguous text: one separator followed by exactly three digits
+       * ("1.030" is read as 1030 but may mean 1,03; "1,536" is read as 1,536 but may mean 1536).
+       */
+      readonly alternative: Big | null;
     };
+
+const AMBIGUOUS = /^\d{1,3}[.,]\d{3}$/;
 
 const THOUSANDS_WITH_COMMA_DECIMALS = /^\d{1,3}(\.\d{3})+(,\d+)?$/;
 const COMMA_DECIMALS = /^\d+(,\d+)?$/;
@@ -40,11 +47,22 @@ export function parseNumber(text: string): ParsedNumber {
     return { kind: "invalid" };
   }
   const typedDecimals = normalized.includes(".") ? (normalized.split(".")[1] ?? "").length : 0;
+  const sign = negative ? "-" : "";
   return {
     kind: "number",
-    value: new Decimal(negative ? `-${normalized}` : normalized),
+    value: new Decimal(`${sign}${normalized}`),
     typedDecimals,
+    alternative: AMBIGUOUS.test(digits) ? new Decimal(`${sign}${otherReading(digits)}`) : null,
   };
+}
+
+/**
+ * The reading `parseNumber` did not choose, in JavaScript notation: "1,536" was read with a
+ * decimal comma, so the other reading drops it as a thousands separator ("1536"); "1.030" was
+ * read with a thousands dot, so the other reading keeps it as a decimal point ("1.030" = 1.03).
+ */
+function otherReading(digits: string): string {
+  return digits.includes(",") ? digits.replace(",", "") : digits;
 }
 
 /** A value as it goes back into an input: comma decimals, no thousands separator. */
@@ -61,10 +79,19 @@ export function formatNumber(value: Big, decimals: number): string {
   return `${negative ? "-" : ""}${grouped}${fraction === undefined ? "" : `,${fraction}`}`;
 }
 
-/** A number with exactly the decimals it has, for echoing back what was read: "1,03", "1.536". */
+/** A number with exactly the decimals it has: "1,03", "1.536", "0,00000001". */
 export function formatExact(value: Big): string {
   const [, fraction = ""] = value.abs().toFixed().split(".");
   return formatNumber(value, fraction.length);
+}
+
+/**
+ * A number echoed back to the person, with at least two decimals so it cannot be read two ways:
+ * "1.030,00" and "1,03" instead of "1.030", which reads as 1,03 to someone used to a decimal point.
+ */
+export function formatUnambiguous(value: Big): string {
+  const [, fraction = ""] = value.abs().toFixed().split(".");
+  return formatNumber(value, Math.max(2, fraction.length));
 }
 
 const CURRENCY_PREFIX: Record<Currency, string> = {

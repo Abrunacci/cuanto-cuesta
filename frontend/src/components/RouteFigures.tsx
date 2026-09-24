@@ -13,7 +13,14 @@ interface RouteFiguresProps {
 export function RouteFigures({ entry, feeGaps }: RouteFiguresProps) {
   if (entry.status === "incomplete") {
     const labels = entry.missing.map((missing) => missingInputLabel(missing, feeGaps));
-    return <p className="missing">Falta completar o corregir: {joinSpanish(labels)}.</p>;
+    const list = joinSpanish(labels);
+    // Some labels end in an abbreviation ("EE.UU."): do not add a second period.
+    return (
+      <p className="missing">
+        Falta completar o corregir: {list}
+        {list.endsWith(".") ? "" : "."}
+      </p>
+    );
   }
   const { final } = entry.result;
   const loss = entry.lossVsReference;

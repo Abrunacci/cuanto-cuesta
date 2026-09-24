@@ -1,8 +1,8 @@
 /**
  * The range each price can plausibly be in, to catch a number read a thousand times off: "1.030"
  * typed for a P2P price of 1.03, or "1,536" pasted in English notation for a MEP of 1536. These
- * are sanity bounds, not market data: far wider than any real price, they only reject what
- * cannot be right.
+ * are sanity bounds, not market data: in 2026 the peso prices are around 1,540, three times the
+ * lower bound and a thirtieth of the upper one. They need widening if prices move that far.
  */
 
 import { Decimal, type Big } from "../calculator/index.ts";
@@ -15,18 +15,12 @@ export interface PriceCheck {
 }
 
 export const PRICE_CHECKS: Readonly<Record<string, PriceCheck>> = {
-  mep: { min: new Decimal(100), max: new Decimal(100_000), unit: "ARS por USD" },
+  mep: { min: new Decimal(500), max: new Decimal(50_000), unit: "ARS por USD" },
   p2p_usdt_usd: { min: new Decimal("0.5"), max: new Decimal(2), unit: "USD por USDT" },
-  bitso_usdt_ars: { min: new Decimal(100), max: new Decimal(100_000), unit: "ARS por USDT" },
-  arq_usd_ars: { min: new Decimal(100), max: new Decimal(100_000), unit: "ARS por USDc" },
+  bitso_usdt_ars: { min: new Decimal(500), max: new Decimal(50_000), unit: "ARS por USDT" },
+  arq_usd_ars: { min: new Decimal(500), max: new Decimal(50_000), unit: "ARS por USDc" },
 };
 
-/** The value a thousand times smaller or larger, if that one is in range. */
-export function thousandfoldFix(value: Big, check: PriceCheck): Big | null {
-  for (const candidate of [value.div(1000), value.times(1000)]) {
-    if (candidate.gte(check.min) && candidate.lte(check.max)) {
-      return candidate;
-    }
-  }
-  return null;
+export function inRange(value: Big, check: PriceCheck): boolean {
+  return value.gte(check.min) && value.lte(check.max);
 }

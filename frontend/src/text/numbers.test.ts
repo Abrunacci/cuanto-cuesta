@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
 
 import { Decimal } from "../calculator/index.ts";
-import { formatMoney, formatNumber, parseNumber, toInputText } from "./numbers.ts";
+import {
+  formatMoney,
+  formatNumber,
+  formatUnambiguous,
+  parseNumber,
+  toInputText,
+} from "./numbers.ts";
 
 const read = (text: string) => {
   const parsed = parseNumber(text);
@@ -53,6 +59,29 @@ describe("typed decimals", () => {
   });
 });
 
+describe("the other reading of ambiguous text", () => {
+  const alternative = (text: string) => {
+    const parsed = parseNumber(text);
+    return parsed.kind === "number" ? (parsed.alternative?.toString() ?? null) : "not a number";
+  };
+
+  it.each([
+    ["1.030", "1.03"],
+    ["1,536", "1536"],
+    ["1,000", "1000"],
+    ["153.616", "153.616"],
+  ])("offers %s as %s too", (text, expected) => {
+    expect(alternative(text)).toBe(expected);
+  });
+
+  it.each(["1.536,16", "1.03", "1536", "15", "99,9", "1.000.000", "1,5"])(
+    "offers nothing for %s, which reads only one way",
+    (text) => {
+      expect(alternative(text)).toBeNull();
+    },
+  );
+});
+
 describe("formatting", () => {
   it("groups thousands with dots and uses a decimal comma", () => {
     expect(formatNumber(new Decimal("1534005.69"), 2)).toBe("1.534.005,69");
@@ -65,6 +94,12 @@ describe("formatting", () => {
     expect(formatMoney(new Decimal("-13552.4"), "ARS")).toBe("-$ 13.552,40");
     expect(formatMoney(new Decimal("1000"), "USD")).toBe("US$ 1.000,00");
     expect(formatMoney(new Decimal("0.08"), "USDT")).toBe("0,08 USDT");
+  });
+
+  it("echoes numbers with at least two decimals", () => {
+    expect(formatUnambiguous(new Decimal("1030"))).toBe("1.030,00");
+    expect(formatUnambiguous(new Decimal("1.03"))).toBe("1,03");
+    expect(formatUnambiguous(new Decimal("1593.385"))).toBe("1.593,385");
   });
 
   it("writes input values with a decimal comma and no grouping", () => {

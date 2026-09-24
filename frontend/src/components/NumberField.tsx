@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 
 interface NumberFieldProps {
   readonly id: string;
@@ -25,11 +25,15 @@ export function NumberField({
   help,
   placeholder,
 }: NumberFieldProps) {
+  // Show a problem once the person leaves the field, so typing "1540" does not flash an error
+  // at "1"; after that it updates as they fix it.
+  const [touched, setTouched] = useState(false);
+  const shownProblem = touched ? problem : null;
   const problemId = `${id}-problem`;
   const helpId = `${id}-help`;
   const echoId = `${id}-echo`;
   const describedBy = [
-    problem !== null ? problemId : null,
+    shownProblem !== null ? problemId : null,
     echo !== undefined ? echoId : null,
     help !== undefined ? helpId : null,
   ]
@@ -48,19 +52,22 @@ export function NumberField({
           autoComplete="off"
           value={value}
           placeholder={placeholder}
-          aria-invalid={problem !== null}
+          aria-invalid={shownProblem !== null}
           aria-describedby={describedBy === "" ? undefined : describedBy}
           onChange={(event) => {
             onChange(event.target.value);
+          }}
+          onBlur={() => {
+            setTouched(true);
           }}
         />
         <span className="unit" aria-hidden="true">
           {unit}
         </span>
       </div>
-      {problem !== null && (
+      {shownProblem !== null && (
         <p id={problemId} className="field-problem">
-          {problem}
+          {shownProblem}
         </p>
       )}
       {echo !== undefined && (

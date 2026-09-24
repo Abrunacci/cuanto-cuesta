@@ -25,14 +25,15 @@ import {
   type PositiveAmount,
   type PositivePrice,
 } from "../calculator/index.ts";
-import { formatExact, formatMoney, parseNumber, toInputText } from "../text/numbers.ts";
+import { formatMoney, formatUnambiguous, parseNumber, toInputText } from "../text/numbers.ts";
 import {
+  didYouMean,
   implausiblePriceMessage,
   inputProblemMessage,
   NOT_A_NUMBER,
   valueProblemMessage,
 } from "./messages.ts";
-import { PRICE_CHECKS } from "./plausible.ts";
+import { inRange, PRICE_CHECKS } from "./plausible.ts";
 
 export interface FormTexts {
   readonly amount: string;
@@ -141,7 +142,13 @@ type FieldRead<T> =
   | { readonly kind: "problem"; readonly message: string }
   | { readonly kind: "ok"; readonly value: T; readonly echo: string | null };
 
-type Check<T> = (value: Big, typedDecimals: number) => FieldRead<T>;
+interface Typed {
+  readonly value: Big;
+  readonly typedDecimals: number;
+  readonly alternative: Big | null;
+}
+
+type Check<T> = (typed: Typed) => FieldRead<T>;
 
 /** Parse a field's text and hand the number to `check`; empty and non-numeric text stop here. */
 function readField<T>(text: string, check: Check<T>): FieldRead<T> {
@@ -152,19 +159,20 @@ function readField<T>(text: string, check: Check<T>): FieldRead<T> {
     case "invalid":
       return { kind: "problem", message: NOT_A_NUMBER };
     case "number":
-      return check(parsed.value, parsed.typedDecimals);
+      return check(parsed);
   }
 }
 
 const AMOUNT_DECIMALS = 2;
 
 function readAmount(text: string): FieldRead<PositiveAmount> {
-  return readField(text, (value, typedDecimals) => {
+  return readField(text, ({ value, typedDecimals, alternative }) => {
     if (typedDecimals > AMOUNT_DECIMALS) {
-      return {
-        kind: "problem",
-        message: inputProblemMessage({ code: "too_many_decimals", max: AMOUNT_DECIMALS }),
-      };
+      const tooMany = inputProblemMessage({ code: "too_many_decimals", max: AMOUNT_DECIMALS });
+      // "1,000" typed for a thousand dollars: suggest the reading with a thousands separator.
+      const message =
+        alternative?.gt(0) === true ? `${tooMany} ${didYouMean(alternative)}` : tooMany;
+      return { kind: "problem", message };
     }
     const result = positiveAmount(value, "USD");
     return result.ok
@@ -179,34 +187,34 @@ function readAmount(text: string): FieldRead<PositiveAmount> {
 
 function readPrice(key: string, text: string): FieldRead<PositivePrice> {
   const check = PRICE_CHECKS[key];
-  return readField(text, (value, typedDecimals) => {
+  return readField(text, ({ value, typedDecimals, alternative }) => {
     if (typedDecimals > MAX_PRICE_DECIMALS) {
       return {
         kind: "problem",
         message: inputProblemMessage({ code: "too_many_decimals", max: MAX_PRICE_DECIMALS }),
       };
     }
+    // The plausible range goes before the calculator's own caps, so its message (with the
+    // suggestion) is the one the person sees.
+    if (check !== undefined && value.gt(0) && !inRange(value, check)) {
+      const fix = alternative !== null && positivePrice(alternative).ok ? alternative : null;
+      return { kind: "problem", message: implausiblePriceMessage(value, fix, check) };
+    }
     const result = positivePrice(value);
     if (!result.ok) {
       return { kind: "problem", message: inputProblemMessage(result.problem) };
     }
-    if (check === undefined) {
-      return { kind: "ok", value: result.value, echo: null };
-    }
-    if (value.lt(check.min) || value.gt(check.max)) {
-      return { kind: "problem", message: implausiblePriceMessage(value, check) };
-    }
     return {
       kind: "ok",
       value: result.value,
-      echo: `Leímos ${formatExact(value)} ${check.unit}.`,
+      echo: check === undefined ? null : `Leímos ${formatUnambiguous(value)} ${check.unit}.`,
     };
   });
 }
 
 /** A number between 0 and `cap`, or why it is not. */
 function readBounded(text: string, cap: Big, unit: string): FieldRead<Big> {
-  return readField(text, (value) => {
+  return readField(text, ({ value }) => {
     const problem = valueProblem(value, cap);
     return problem === null
       ? { kind: "ok", value, echo: null }

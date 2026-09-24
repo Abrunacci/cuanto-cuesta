@@ -2,9 +2,9 @@
 
 import type { Big, InputProblem, MissingInput, ValueProblem } from "../calculator/index.ts";
 import type { FeeGap } from "./form.ts";
-import { thousandfoldFix, type PriceCheck } from "./plausible.ts";
+import { inRange, type PriceCheck } from "./plausible.ts";
 import { FEE_DEFAULTS, RATE_FIELDS } from "../calculator/index.ts";
-import { formatExact, formatNumber } from "../text/numbers.ts";
+import { formatExact, formatNumber, formatUnambiguous } from "../text/numbers.ts";
 
 export const NOT_A_NUMBER = "Escribí un número, por ejemplo 1.234,56.";
 
@@ -29,11 +29,23 @@ export function valueProblemMessage(problem: ValueProblem, unit: string): string
   }
 }
 
-/** A price outside its plausible range, suggesting the thousandfold fix when there is one. */
-export function implausiblePriceMessage(value: Big, check: PriceCheck): string {
-  const read = `Leímos ${formatExact(value)} ${check.unit}, y lo esperable está entre ${formatExact(check.min)} y ${formatExact(check.max)}.`;
-  const fix = thousandfoldFix(value, check);
-  return fix === null ? read : `${read} ¿Quisiste poner ${formatExact(fix)}?`;
+/**
+ * A price outside its plausible range. When the text was ambiguous ("1.030") and its other reading
+ * is plausible, suggest that reading; never a value the person did not type.
+ */
+export function implausiblePriceMessage(
+  value: Big,
+  alternative: Big | null,
+  check: PriceCheck,
+): string {
+  const read = `Leímos ${formatUnambiguous(value)} ${check.unit}, y lo esperable está entre ${formatExact(check.min)} y ${formatExact(check.max)}.`;
+  return alternative !== null && inRange(alternative, check)
+    ? `${read} ${didYouMean(alternative)}`
+    : read;
+}
+
+export function didYouMean(value: Big): string {
+  return `¿Quisiste poner ${formatExact(value)}?`;
 }
 
 /** What a route is missing, as it reads inside a sentence ("el monto en USD"). */

@@ -110,23 +110,28 @@ describe("the calculator page", () => {
   });
 
   it("explains an invalid value next to its field", async () => {
-    const { type, field } = setup();
+    const { type, field, user } = setup();
     await type(/^Monto en Payoneer/, "0");
+    // Nothing is flagged while typing; the problem shows once the person leaves the field.
+    expect(field(/^Monto en Payoneer/)).toBeValid();
+    await user.tab();
     expect(field(/^Monto en Payoneer/)).toBeInvalid();
     expect(field(/^Monto en Payoneer/)).toHaveAccessibleDescription("Tiene que ser mayor que 0.");
     await type(/^Comisión taker del libro de órdenes de Bitso/, "25");
+    await user.tab();
     expect(field(/^Comisión taker del libro de órdenes de Bitso/)).toHaveAccessibleDescription(
       description("Como máximo 20 %."),
     );
   });
 
   it("catches a P2P price typed as Binance shows it, and says how it read each price", async () => {
-    const { type, field, ranking } = setup();
+    const { type, field, ranking, user } = setup();
     await fillEverything(type);
     expect(field(/^Precio P2P en Binance/)).toHaveAccessibleDescription(
       description("Leímos 1,03 USD por USDT."),
     );
     await type(/^Precio P2P en Binance/, "1.030");
+    await user.tab();
     expect(field(/^Precio P2P en Binance/)).toBeInvalid();
     expect(field(/^Precio P2P en Binance/)).toHaveAccessibleDescription(
       description("¿Quisiste poner 1,03?"),
@@ -141,7 +146,7 @@ describe("the calculator page", () => {
     await fillEverything(type);
     await user.clear(field(/^Retiro de Payoneer a una cuenta de EE.UU.: mínimo/));
     expect(ranking().find((item) => item.includes("ARQ"))).toContain(
-      "Falta completar o corregir: el mínimo de retiro de Payoneer a una cuenta de EE.UU..",
+      "Falta completar o corregir: el mínimo de retiro de Payoneer a una cuenta de EE.UU.",
     );
   });
 
