@@ -785,6 +785,11 @@ describe("the calculator page", () => {
       const again = setup();
       expect(again.field(/^Monto en Payoneer/)).toHaveValue("1000");
       expect(again.field(/^Dólar MEP \(compra\)/)).toHaveValue("");
+      expect(
+        screen.getByText(
+          "El monto queda guardado en este navegador; las cotizaciones no, cargá las del día.",
+        ),
+      ).toBeVisible();
       await again.openCard("Binance P2P + Bitso");
       expect(again.field(/^Comisión taker del libro de órdenes de Bitso/)).toHaveValue("0,5");
       expect(

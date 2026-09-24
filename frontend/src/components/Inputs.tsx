@@ -17,6 +17,9 @@ export function Inputs({ texts, reading, onAmount, onPrice }: InputsProps) {
       <p className="muted small">
         Podés usar punto para los miles y coma para los decimales: 1.536,16.
       </p>
+      <p className="muted small">
+        El monto queda guardado en este navegador; las cotizaciones no, cargá las del día.
+      </p>
       <NumberField
         id={fieldId.amount}
         label="Monto en Payoneer"
