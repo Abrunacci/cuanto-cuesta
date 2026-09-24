@@ -469,13 +469,23 @@ describe("the calculator page", () => {
       expect(bar()).toHaveStyle({ bottom: "0px" });
     });
 
-    it("never moves the bar below the screen or for overscroll", () => {
-      const viewport = fakeViewport(900, -40);
+    it("never moves the bar below the screen", () => {
+      const viewport = fakeViewport(900);
       render(<App />);
       act(() => {
         viewport.dispatchEvent(new Event("resize"));
       });
       expect(bar()).toHaveStyle({ bottom: "0px" });
+    });
+
+    it("ignores iOS overscroll and rounds to whole pixels", () => {
+      // 800 - 500.4 = 299.6 -> 300; a negative offsetTop from overscroll would make it 340.
+      const viewport = fakeViewport(500.4, -40);
+      render(<App />);
+      act(() => {
+        viewport.dispatchEvent(new Event("scroll"));
+      });
+      expect(bar()).toHaveStyle({ bottom: "300px" });
     });
 
     it("stops listening once the page is gone", () => {

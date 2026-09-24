@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type RefObject } from "react";
 
 import type { BarText } from "../form/summary.ts";
 import { RESULTS_TITLE_ID } from "./Results.tsx";
@@ -84,7 +84,7 @@ function useKeyboardInset(): number {
  * message, a narrow phone, a larger system font), and the page reserves that much room so a
  * focused field is never left under the bar.
  */
-function useReserveHeight(bar: React.RefObject<HTMLAnchorElement | null>): void {
+function useReserveHeight(bar: RefObject<HTMLAnchorElement | null>): void {
   useEffect(() => {
     const element = bar.current;
     if (element === null || !("ResizeObserver" in window)) {
