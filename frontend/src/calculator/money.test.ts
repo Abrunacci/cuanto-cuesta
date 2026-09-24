@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   add,
+  type Money,
   CurrencyMismatchError,
   Decimal,
   money,
@@ -47,5 +48,28 @@ describe("arithmetic", () => {
 
   it("refuses to mix currencies", () => {
     expect(() => add(money("1", "USD"), money("1", "ARS"))).toThrow(CurrencyMismatchError);
+  });
+});
+
+describe("Money", () => {
+  it("cannot be built from a plain object", () => {
+    // @ts-expect-error: only money() builds a Money
+    const plain: Money = { amount: new Decimal("1"), currency: "USD" };
+    expect(plain.currency).toBe("USD");
+  });
+
+  it("uses this module's settings even for a Big made elsewhere", async () => {
+    const { default: Big } = await import("big.js");
+    const Misconfigured = Big();
+    Misconfigured.DP = 0;
+    Misconfigured.RM = Big.roundUp;
+    const { convert, rate } = await import("./rates.ts");
+    // 1.00 / 1.03 = 0.9708... -> 0.97; with the other settings it would be 1.00
+    const result = convert(
+      rate("r", "USDT", "USD", "1.03"),
+      money(new Misconfigured("1.00"), "USD"),
+      "USDT",
+    );
+    expect(result.amount.toFixed(2)).toBe("0.97");
   });
 });

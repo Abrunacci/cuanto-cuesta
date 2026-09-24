@@ -67,10 +67,7 @@ export function charge(fee: Fee, amount: Money): Money {
       requireCurrency(fee.id, fee.amount.currency, amount.currency);
       return roundedUp(fee.amount);
     case "percent": {
-      const share = roundedUp({
-        amount: amount.amount.times(fee.rate).div(100),
-        currency: amount.currency,
-      });
+      const share = roundedUp(money(amount.amount.times(fee.rate).div(100), amount.currency));
       if (fee.minimum === null) {
         return share;
       }

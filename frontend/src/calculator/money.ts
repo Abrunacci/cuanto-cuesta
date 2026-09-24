@@ -3,7 +3,9 @@
  * `backend/src/cuanto_cuesta/domain/money.py`.
  *
  * - Intermediate arithmetic is exact for `+`, `-` and `*`. Division keeps 30 decimal places,
- *   rounding half-even, which matches the domain's 34 significant digits for these magnitudes.
+ *   rounding half-even. For the inputs `inputs.ts` accepts (prices with up to 8 decimals, amounts
+ *   in whole cents up to 10 million) it lands on the same cent as the domain's 34 significant
+ *   digits.
  * - An amount credited to the user (each conversion and each step output) is rounded down to
  *   the currency's minor unit: the calculator never promises more than a platform would credit.
  * - A fee charged to the user is rounded up to the minor unit, for the same reason.
@@ -30,13 +32,29 @@ const MINOR_UNIT_DECIMALS: Record<Currency, number> = {
   ARS: 2,
 };
 
-export interface Money {
+/**
+ * An amount in a currency. Only `money()` builds one, and it always converts the amount to
+ * `Decimal`, so every operation uses this module's settings even if the caller made its `Big`
+ * with the global big.js constructor.
+ */
+export class Money {
   readonly amount: Big;
   readonly currency: Currency;
+  /** Makes the type nominal: a plain `{ amount, currency }` object is not a `Money`. */
+  declare private readonly nominal: never;
+
+  private constructor(amount: Big, currency: Currency) {
+    this.amount = amount;
+    this.currency = currency;
+  }
+
+  static of(amount: Big | string, currency: Currency): Money {
+    return new Money(new Decimal(amount), currency);
+  }
 }
 
 export function money(amount: Big | string, currency: Currency): Money {
-  return { amount: new Decimal(amount), currency };
+  return Money.of(amount, currency);
 }
 
 export function zero(currency: Currency): Money {
@@ -45,12 +63,12 @@ export function zero(currency: Currency): Money {
 
 export function add(a: Money, b: Money): Money {
   requireSameCurrency(a, b);
-  return { amount: a.amount.plus(b.amount), currency: a.currency };
+  return money(a.amount.plus(b.amount), a.currency);
 }
 
 export function subtract(a: Money, b: Money): Money {
   requireSameCurrency(a, b);
-  return { amount: a.amount.minus(b.amount), currency: a.currency };
+  return money(a.amount.minus(b.amount), a.currency);
 }
 
 export function isNegative(value: Money): boolean {
@@ -78,11 +96,8 @@ export class CurrencyMismatchError extends Error {
 function round(
   value: Money,
   mode: typeof BigConstructor.roundDown | typeof BigConstructor.roundUp,
-) {
-  return {
-    amount: value.amount.round(MINOR_UNIT_DECIMALS[value.currency], mode),
-    currency: value.currency,
-  };
+): Money {
+  return money(value.amount.round(MINOR_UNIT_DECIMALS[value.currency], mode), value.currency);
 }
 
 function requireSameCurrency(a: Money, b: Money): void {
