@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   add,
-  type Money,
+  Money,
   CurrencyMismatchError,
   Decimal,
   money,
@@ -52,10 +52,12 @@ describe("arithmetic", () => {
 });
 
 describe("Money", () => {
-  it("cannot be built from a plain object", () => {
+  it("cannot be built from a plain object or its constructor", () => {
     // @ts-expect-error: only money() builds a Money
     const plain: Money = { amount: new Decimal("1"), currency: "USD" };
     expect(plain.currency).toBe("USD");
+    // @ts-expect-error: the constructor needs a key only money.ts has
+    expect(() => new Money(Symbol("Money"), new Decimal("1"), "USD")).toThrow(TypeError);
   });
 
   it("uses this module's settings even for a Big made elsewhere", async () => {

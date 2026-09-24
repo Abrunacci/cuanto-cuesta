@@ -32,6 +32,9 @@ const MINOR_UNIT_DECIMALS: Record<Currency, number> = {
   ARS: 2,
 };
 
+/** Only this module has it, so only `money()` can call the `Money` constructor. */
+const construct: unique symbol = Symbol("Money");
+
 /**
  * An amount in a currency. Only `money()` builds one, and it always converts the amount to
  * `Decimal`, so every operation uses this module's settings even if the caller made its `Big`
@@ -43,18 +46,21 @@ export class Money {
   /** Makes the type nominal: a plain `{ amount, currency }` object is not a `Money`. */
   declare private readonly nominal: never;
 
-  private constructor(amount: Big, currency: Currency) {
+  constructor(key: typeof construct, amount: Big, currency: Currency) {
+    if (key !== construct) {
+      throw new TypeError("Use money() to build a Money");
+    }
     this.amount = amount;
     this.currency = currency;
-  }
-
-  static of(amount: Big | string, currency: Currency): Money {
-    return new Money(new Decimal(amount), currency);
   }
 }
 
 export function money(amount: Big | string, currency: Currency): Money {
-  return Money.of(amount, currency);
+  return new Money(construct, new Decimal(amount), currency);
+}
+
+export function minorUnitDecimals(currency: Currency): number {
+  return MINOR_UNIT_DECIMALS[currency];
 }
 
 export function zero(currency: Currency): Money {
@@ -97,7 +103,7 @@ function round(
   value: Money,
   mode: typeof BigConstructor.roundDown | typeof BigConstructor.roundUp,
 ): Money {
-  return money(value.amount.round(MINOR_UNIT_DECIMALS[value.currency], mode), value.currency);
+  return money(value.amount.round(minorUnitDecimals(value.currency), mode), value.currency);
 }
 
 function requireSameCurrency(a: Money, b: Money): void {
