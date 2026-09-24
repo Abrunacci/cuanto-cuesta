@@ -9,8 +9,8 @@ export function RichText({ text }: { readonly text: string }) {
         part.kind === "text" ? (
           part.text
         ) : (
-          <ExternalLink key={index} href={part.url} label={linkText(part.url)}>
-            {linkText(part.url)}
+          <ExternalLink key={index} href={part.url} label={part.text ?? linkText(part.url)}>
+            {part.text ?? linkText(part.url)}
           </ExternalLink>
         ),
       )}

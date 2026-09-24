@@ -64,10 +64,100 @@ a {
   outline-offset: 2px;
 }
 
+/* Height the bottom result bar takes on a phone; the page keeps that much room free. */
+:root {
+  --bar-height: 4.5rem;
+}
+
+html {
+  /* A focused field scrolled into view stays above the bar. */
+  scroll-padding-bottom: calc(var(--bar-height) + 1rem);
+}
+
 .page {
   max-width: 48rem;
   margin: 0 auto;
-  padding: 1.5rem 1rem 3rem;
+  padding: 1.5rem 1rem calc(var(--bar-height) + 2rem);
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: "header" "inputs" "results" "fees";
+}
+
+.layout-header {
+  grid-area: header;
+}
+
+.layout-inputs {
+  grid-area: inputs;
+}
+
+.layout-results {
+  grid-area: results;
+}
+
+.layout-fees {
+  grid-area: fees;
+}
+
+/* Wide screens: data on the left, the result next to it on the right. */
+@media (min-width: 64rem) {
+  html {
+    scroll-padding-bottom: 0;
+  }
+
+  .page {
+    max-width: 72rem;
+    padding-bottom: 3rem;
+  }
+
+  .layout {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-areas: "header header" "inputs results" "fees results";
+    column-gap: 1.5rem;
+    align-items: start;
+  }
+}
+
+/* Phone: the best route, fixed at the bottom. */
+.result-bar {
+  position: fixed;
+  right: 0;
+  left: 0;
+  z-index: 10;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  column-gap: 0.75rem;
+  min-height: var(--bar-height);
+  padding: 0.5rem 1rem;
+  color: var(--text);
+  text-decoration: none;
+  background: var(--surface);
+  border-top: 1px solid var(--input-border);
+  box-shadow: 0 -2px 8px rgb(0 0 0 / 15%);
+}
+
+.result-bar-label {
+  grid-column: 1;
+  font-size: 0.875rem;
+}
+
+.result-bar-amount {
+  grid-column: 1;
+  font-size: 1.15rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.result-bar-more {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  color: var(--accent);
+  font-size: 0.875rem;
+  font-weight: 600;
 }
 
 h1 {
@@ -382,4 +472,11 @@ h3 {
 
 .review p {
   margin: 0.25rem 0;
+}
+
+/* Last, so it wins over the .result-bar rules above: wide screens show the result in a column. */
+@media (min-width: 64rem) {
+  .result-bar {
+    display: none;
+  }
 }

@@ -112,19 +112,21 @@ describe("the calculator page", () => {
     ).toBeGreaterThan(0);
   });
 
-  it("shows the MEP 90-day warning next to its result, with the BCRA link, without opening a card", () => {
+  it("shows the MEP warning next to its result as one line linking the BCRA rules", () => {
     const { results } = setup();
     const mep = within(results())
       .getAllByRole("listitem")
       .find((item) => item.textContent.includes("Dólar MEP"));
     expect(mep).toBeDefined();
     if (mep !== undefined) {
-      expect(within(mep).getByText(/no podés vender dólares por MEP/)).toBeVisible();
-      expect(
-        within(mep).getByRole("link", {
-          name: "A8481.pdf (www.bcra.gob.ar) (se abre en otra pestaña)",
-        }),
-      ).toHaveAttribute("href", "https://www.bcra.gob.ar/Pdfs/comytexord/A8481.pdf");
+      const link = within(mep).getByRole("link", {
+        name: "Verificá las restricciones sobre el dólar MEP (se abre en otra pestaña)",
+      });
+      expect(link).toBeVisible();
+      expect(link).toHaveAttribute("href", "https://www.bcra.gob.ar/Pdfs/comytexord/A8481.pdf");
+      expect(link.closest("p")).toHaveTextContent(
+        /^Atención: Verificá las restricciones sobre el dólar MEP$/,
+      );
     }
   });
 
@@ -274,12 +276,16 @@ describe("the calculator page", () => {
   });
 
   it("asks to review the reference fields that hold a wrong value", async () => {
-    const { type } = setup();
+    const { type, results } = setup();
     await type(/^Monto en Payoneer/, "0");
-    expect(screen.getByText("Revisá el monto: tiene un valor que no se puede usar.")).toBeVisible();
+    expect(
+      within(results()).getByText("Revisá el monto: tiene un valor que no se puede usar."),
+    ).toBeVisible();
     await type(/^Dólar MEP \(compra\)/, "-1");
     expect(
-      screen.getByText("Revisá el monto y el dólar MEP: tienen valores que no se pueden usar."),
+      within(results()).getByText(
+        "Revisá el monto y el dólar MEP: tienen valores que no se pueden usar.",
+      ),
     ).toBeVisible();
   });
 
@@ -383,5 +389,38 @@ describe("the calculator page", () => {
     await type(/^Retiro de Payoneer a una cuenta de EE.UU.: mínimo/, "0");
     // 100 USD: 4 % = 4.00; 96.00 - 3.00 = 93.00 x 1593.385 = 148184.805
     expect(ranking().find((item) => item.includes("ARQ"))).toContain("$ 148.184,80");
+  });
+
+  it("lists once what every route is missing, and under each route only its own", () => {
+    const { ranking, results } = setup();
+    expect(within(results()).getByText(/^Para calcular falta:/)).toHaveTextContent(
+      "Para calcular falta: el monto en USD y dólar MEP (compra).",
+    );
+    expect(within(results()).getAllByRole("link", { name: "el monto en USD" })).toHaveLength(1);
+    const binance = ranking().find((item) => item.includes("Binance"));
+    expect(binance).toContain("precio P2P en Binance (USD por USDT)");
+    expect(binance).not.toContain("el monto en USD");
+    // ARQ and MEP need nothing beyond what is listed once, so they show no list of their own.
+    const mep = ranking().find((item) => item.startsWith("Dólar MEP"));
+    expect(mep).not.toContain("Falta completar o corregir");
+  });
+
+  it("keeps the best route in a bar that updates as the person types", async () => {
+    const { type } = setup();
+    const bar = () => screen.getByRole("link", { name: /Ver resultado$/ });
+    expect(bar()).toHaveTextContent("Falta: el monto en USD y dólar MEP (compra).");
+    await fillEverything(type);
+    expect(plain(bar().textContent)).toBe(
+      "Mejor ruta: Binance P2P + BitsoLlegan $ 1.534.005,69Ver resultado",
+    );
+    await type(/^Dólar MEP \(compra\)/, "1.400");
+    await type(/^Precio P2P en Binance/, "1,5");
+    expect(bar()).toHaveTextContent("Mejor ruta: ARQ (ex DolarApp)");
+  });
+
+  it("takes the person to the full result from the bar", async () => {
+    const { user } = setup();
+    await user.click(screen.getByRole("link", { name: /Ver resultado$/ }));
+    expect(screen.getByRole("heading", { name: "Resultado" })).toHaveFocus();
   });
 });

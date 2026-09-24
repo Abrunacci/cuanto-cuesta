@@ -1,24 +1,37 @@
-/** Split text into plain parts and URLs, so the screen can render the URLs as links. */
+/**
+ * Split text into plain parts and links, so the screen can render the links. A link is either a
+ * bare URL or a phrase in Markdown form, "[texto](url)", when the text should read as the link.
+ */
 
 export type TextPart =
   | { readonly kind: "text"; readonly text: string }
-  | { readonly kind: "link"; readonly url: string };
+  | { readonly kind: "link"; readonly url: string; readonly text: string | null };
 
-const URL = /https?:\/\/[^\s]+/g;
-/** Punctuation that closes a sentence or a parenthesis right after a URL. */
+/** A Markdown link, or a bare URL. */
+const LINK = /\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)|https?:\/\/[^\s]+/g;
+/** Punctuation that closes a sentence or a parenthesis right after a bare URL. */
 const TRAILING = /[).,;:]+$/;
 
 export function splitLinks(text: string): TextPart[] {
   const parts: TextPart[] = [];
   let last = 0;
-  for (const match of text.matchAll(URL)) {
-    const trailing = TRAILING.exec(match[0])?.[0] ?? "";
-    const url = match[0].slice(0, match[0].length - trailing.length);
+  for (const match of text.matchAll(LINK)) {
+    const [whole, phrase, markdownUrl] = match;
+    let url: string;
+    let length: number;
+    if (phrase !== undefined && markdownUrl !== undefined) {
+      url = markdownUrl;
+      length = whole.length;
+    } else {
+      const trailing = TRAILING.exec(whole)?.[0] ?? "";
+      url = whole.slice(0, whole.length - trailing.length);
+      length = url.length;
+    }
     if (match.index > last) {
       parts.push({ kind: "text", text: text.slice(last, match.index) });
     }
-    parts.push({ kind: "link", url });
-    last = match.index + url.length;
+    parts.push({ kind: "link", url, text: phrase ?? null });
+    last = match.index + length;
   }
   if (last < text.length) {
     parts.push({ kind: "text", text: text.slice(last) });

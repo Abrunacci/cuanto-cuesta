@@ -1,5 +1,6 @@
-import type { MissingInput, RouteComparison } from "../calculator/index.ts";
-import { fieldId, type FeeGap } from "../form/form.ts";
+import type { RouteComparison } from "../calculator/index.ts";
+import type { FeeGap } from "../form/form.ts";
+import { missingFieldId, missingKey } from "../form/missing.ts";
 import { missingInputLabel } from "../form/messages.ts";
 import { joinSpanish } from "../text/lists.ts";
 import { formatMoney } from "../text/numbers.ts";
@@ -10,18 +11,30 @@ interface RouteFiguresProps {
   readonly feeGaps: ReadonlyMap<string, FeeGap>;
   /** Labels of the unusual prices this route was computed with, e.g. ["precio P2P…"]. */
   readonly unusualPrices: readonly string[];
+  /** Missing inputs already listed once for every route, left out here. */
+  readonly skip: ReadonlySet<string>;
   /** Take the person to a field, opening the route's card when the field is inside it. */
   readonly onGoToField: (routeId: string, id: string) => void;
 }
 
 /** A route's three figures, or what it still needs, each item a link to its field. */
-export function RouteFigures({ entry, feeGaps, unusualPrices, onGoToField }: RouteFiguresProps) {
+export function RouteFigures({
+  entry,
+  feeGaps,
+  unusualPrices,
+  skip,
+  onGoToField,
+}: RouteFiguresProps) {
   if (entry.status === "incomplete") {
+    const missing = entry.missing.filter((m) => !skip.has(missingKey(m)));
+    if (missing.length === 0) {
+      return null;
+    }
     return (
       <div className="missing">
         <p>Falta completar o corregir:</p>
         <ul>
-          {entry.missing.map((missing) => {
+          {missing.map((missing) => {
             const id = missingFieldId(missing, feeGaps);
             return (
               <li key={id}>
@@ -69,18 +82,4 @@ export function RouteFigures({ entry, feeGaps, unusualPrices, onGoToField }: Rou
       )}
     </>
   );
-}
-
-/** The field to fill for a missing input: for a fee, its value or its minimum. */
-function missingFieldId(missing: MissingInput, feeGaps: ReadonlyMap<string, FeeGap>): string {
-  switch (missing.kind) {
-    case "amount":
-      return fieldId.amount;
-    case "rate":
-      return fieldId.price(missing.key);
-    case "fee":
-      return feeGaps.get(missing.id) === "minimum"
-        ? fieldId.minimum(missing.id)
-        : fieldId.fee(missing.id);
-  }
 }

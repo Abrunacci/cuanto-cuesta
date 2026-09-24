@@ -1,8 +1,10 @@
 import { RATE_FIELDS, REFERENCE_KEY, type Comparison, type Route } from "../calculator/index.ts";
 import { fieldId, type FeeGap } from "../form/form.ts";
+import { missingInputLabel } from "../form/messages.ts";
+import { commonMissing, missingFieldId, missingKey } from "../form/missing.ts";
+import { summaryText, type ReferenceProblems } from "../form/summary.ts";
 import { lowerFirst } from "../text/case.ts";
-import { joinSpanish } from "../text/lists.ts";
-import { formatMoney } from "../text/numbers.ts";
+import { LinkList } from "./LinkList.tsx";
 import { RichText } from "./RichText.tsx";
 import { RouteFigures } from "./RouteFigures.tsx";
 import { RouteReview } from "./RouteReview.tsx";
@@ -10,8 +12,7 @@ import { RouteReview } from "./RouteReview.tsx";
 interface ResultsProps {
   readonly comparison: Comparison;
   readonly feeGaps: ReadonlyMap<string, FeeGap>;
-  /** Labels of the reference fields holding a value that cannot be used, e.g. ["el dólar MEP"]. */
-  readonly referenceProblems: readonly string[];
+  readonly referenceProblems: ReferenceProblems;
   /** Field ids whose value is used but looks wrong. */
   readonly warnings: ReadonlyMap<string, string>;
   /** Ids of the fees still at their researched value. */
@@ -19,10 +20,12 @@ interface ResultsProps {
   readonly onGoToField: (routeId: string, id: string) => void;
 }
 
+export const RESULTS_TITLE_ID = "results-title";
+
 /**
  * The ranking, best route first, each with its warnings so they are seen even while the route's
- * card is closed. Only the one-line summary is announced to screen readers, so typing in a field
- * does not read out every figure on each keystroke.
+ * card is closed. What every route is missing is listed once, above them. Only the one-line
+ * summary is announced to screen readers, so typing does not read out every figure.
  */
 export function Results({
   comparison,
@@ -32,12 +35,35 @@ export function Results({
   unchangedFees,
   onGoToField,
 }: ResultsProps) {
+  const common = commonMissing(comparison);
+  const [firstRoute] = comparison.routes;
   return (
-    <section className="results" aria-labelledby="results-title">
-      <h2 id="results-title">Resultado</h2>
+    <section className="results" aria-labelledby={RESULTS_TITLE_ID}>
+      <h2 id={RESULTS_TITLE_ID} tabIndex={-1}>
+        Resultado
+      </h2>
       <p className="summary" aria-live="polite" aria-atomic="true">
-        {summary(comparison, referenceProblems)}
+        {summaryText(comparison, referenceProblems)}
       </p>
+      {common.length > 0 && firstRoute !== undefined && (
+        <p className="missing">
+          Para calcular falta:{" "}
+          <LinkList
+            links={common.map((missing) => {
+              const id = missingFieldId(missing, feeGaps);
+              return {
+                key: missingKey(missing),
+                href: `#${id}`,
+                text: missingInputLabel(missing, feeGaps),
+                onClick: () => {
+                  onGoToField(firstRoute.route.id, id);
+                },
+              };
+            })}
+          />
+          .
+        </p>
+      )}
       <ol className="ranking">
         {comparison.routes.map((entry) => (
           <li key={entry.route.id}>
@@ -46,6 +72,7 @@ export function Results({
               entry={entry}
               feeGaps={feeGaps}
               unusualPrices={unusualPrices(entry.route, warnings)}
+              skip={new Set(common.map(missingKey))}
               onGoToField={onGoToField}
             />
             {entry.status === "complete" && (
@@ -65,29 +92,6 @@ export function Results({
       </ol>
     </section>
   );
-}
-
-function summary(
-  { atReference, routes }: Comparison,
-  referenceProblems: readonly string[],
-): string {
-  if (atReference === null) {
-    if (referenceProblems.length === 0) {
-      return "Completá el monto y el dólar MEP para comparar las rutas.";
-    }
-    const verb =
-      referenceProblems.length > 1
-        ? "tienen valores que no se pueden usar"
-        : "tiene un valor que no se puede usar";
-    return `Revisá ${joinSpanish(referenceProblems)}: ${verb}.`;
-  }
-  const best = routes[0];
-  const reference = `Al dólar MEP serían ${formatMoney(atReference.amount, atReference.currency)}.`;
-  if (best?.status !== "complete") {
-    return `${reference} Completá las cotizaciones de cada ruta para compararlas.`;
-  }
-  const { final } = best.result;
-  return `${reference} Mejor ruta: ${best.route.name}, llegan ${formatMoney(final.amount, final.currency)}.`;
 }
 
 /** The prices a route's result depends on (its conversions and the MEP) that look unusual. */

@@ -78,7 +78,7 @@ export const ROUTES: readonly Route[] = [
       },
     ],
     warnings: [
-      "Si en los últimos 90 días compraste dólar oficial o transferiste dólares de tu cuenta en un banco argentino a una cuenta bancaria tuya en el exterior, no podés vender dólares por MEP (BCRA, texto ordenado de Exterior y Cambios, puntos 3.8.5 y 3.14.1.2): https://www.bcra.gob.ar/Pdfs/comytexord/A8481.pdf",
+      "[Verificá las restricciones sobre el dólar MEP](https://www.bcra.gob.ar/Pdfs/comytexord/A8481.pdf)",
     ],
   },
 ];

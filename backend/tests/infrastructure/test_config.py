@@ -149,13 +149,12 @@ class TestTheShippedConfig:
         assert at_par.final == Money(Decimal("1435500.00"), Currency.ARS)
         assert with_spread.final == Money(Decimal("1428300.00"), Currency.ARS)
 
-    def test_the_mep_warning_is_about_selling_dollars_and_cites_the_bcra(self) -> None:
+    def test_the_mep_warning_links_the_bcra_rules(self) -> None:
         (warning,) = next(r for r in self.CATALOG.routes if r.id == "mep").warnings
-        assert "no podés vender dólares por MEP" in warning
-        assert "en los últimos 90 días" in warning
-        assert "a una cuenta bancaria tuya en el exterior" in warning
-        assert "puntos 3.8.5 y 3.14.1.2" in warning
-        assert "https://www.bcra.gob.ar/Pdfs/comytexord/A8481.pdf" in warning
+        assert warning == (
+            "[Verificá las restricciones sobre el dólar MEP]"
+            "(https://www.bcra.gob.ar/Pdfs/comytexord/A8481.pdf)"
+        )
 
     def test_the_p2p_premium_is_set_by_the_user(self) -> None:
         premium = next(d for d in self.CATALOG.fees if d.id == "p2p_premium")

@@ -10,9 +10,9 @@ describe("splitLinks", () => {
   it("keeps closing punctuation out of the URL", () => {
     expect(splitLinks("Ver (https://a.com/x); después https://b.com.")).toEqual([
       { kind: "text", text: "Ver (" },
-      { kind: "link", url: "https://a.com/x" },
+      { kind: "link", url: "https://a.com/x", text: null },
       { kind: "text", text: "); después " },
-      { kind: "link", url: "https://b.com" },
+      { kind: "link", url: "https://b.com", text: null },
       { kind: "text", text: "." },
     ]);
   });
@@ -20,7 +20,15 @@ describe("splitLinks", () => {
   it("handles a URL at the end", () => {
     expect(splitLinks("Texto: https://www.bcra.gob.ar/Pdfs/comytexord/A8481.pdf")).toEqual([
       { kind: "text", text: "Texto: " },
-      { kind: "link", url: "https://www.bcra.gob.ar/Pdfs/comytexord/A8481.pdf" },
+      { kind: "link", url: "https://www.bcra.gob.ar/Pdfs/comytexord/A8481.pdf", text: null },
+    ]);
+  });
+
+  it("reads a Markdown link as a phrase that links", () => {
+    expect(splitLinks("Atención: [Verificá las reglas](https://a.com/n.pdf). Fin")).toEqual([
+      { kind: "text", text: "Atención: " },
+      { kind: "link", url: "https://a.com/n.pdf", text: "Verificá las reglas" },
+      { kind: "text", text: ". Fin" },
     ]);
   });
 });
