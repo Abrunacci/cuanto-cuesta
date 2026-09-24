@@ -572,7 +572,7 @@ describe("the calculator page", () => {
       // jsdom has no layout: this checks the line that would cut with an ellipsis, not the cut.
       const line = within(bar()).getByText("Falta: monto, MEP");
       expect(line.parentElement).toHaveClass("result-bar-line");
-      expect(bar()).toHaveAccessibleName("Falta: monto, MEP Ver resultado");
+      expect(bar()).toHaveAccessibleName("Falta: monto, MEP. Ver resultado");
       await type(/^Monto en Payoneer/, "0");
       await type(/^Dólar MEP \(compra\)/, "1.536,16");
       expect(visible(bar())).toBe("Revisá: monto");

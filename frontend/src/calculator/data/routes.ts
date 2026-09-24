@@ -86,6 +86,8 @@ export const ROUTES: readonly Route[] = [
 export interface RateField extends RateDefinition {
   /** Shown on screen, in Spanish. */
   readonly label: string;
+  /** A word or two, where there is room for little: "MEP". */
+  readonly shortLabel: string;
   /** Where to find this price, in a line, shown on screen in Spanish. */
   readonly help: string;
 }
@@ -103,6 +105,7 @@ export const RATE_FIELDS: readonly RateField[] = [
     base: "USD",
     quote: "ARS",
     label: "Dólar MEP (compra)",
+    shortLabel: "MEP",
     help: "Lo que te pagan por cada dólar vendido por MEP. Lo ves en tu banco o broker.",
   },
   {
@@ -110,6 +113,7 @@ export const RATE_FIELDS: readonly RateField[] = [
     base: "USDT",
     quote: "USD",
     label: "Precio P2P en Binance (USD por USDT)",
+    shortLabel: "precio P2P",
     help: "En Binance P2P, cuántos USD cuesta cada USDT en los avisos para comprar.",
   },
   {
@@ -117,6 +121,7 @@ export const RATE_FIELDS: readonly RateField[] = [
     base: "USDT",
     quote: "ARS",
     label: "Precio de venta en Bitso (ARS por USDT)",
+    shortLabel: "precio Bitso",
     help: "En Bitso, cuántos pesos te dan por cada USDT que vendés.",
   },
   {
@@ -124,6 +129,7 @@ export const RATE_FIELDS: readonly RateField[] = [
     base: "USD",
     quote: "ARS",
     label: "Cotización de ARQ (ARS por USDc)",
+    shortLabel: "cotización ARQ",
     help: "En la app de ARQ, cuántos pesos te dan por cada dólar digital (USDc).",
   },
 ];

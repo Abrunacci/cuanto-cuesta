@@ -104,18 +104,29 @@ describe("barText", () => {
 
   it("names only the price missing when the amount is fine", () => {
     const reading = read({ amount: "1000" });
-    const text = barText(reading, referenceProblems(reading));
-    expect(text.kind === "pending" && text.short).toBe("Falta: MEP");
+    expect(barText(reading, referenceProblems(reading))).toMatchObject({
+      kind: "pending",
+      short: "Falta: MEP",
+    });
   });
 
   it("asks to review the amount and the MEP in a few words", () => {
     const reading = read({ amount: "0", prices: { ...PRICES, mep: "-1" } });
     expect(referenceProblems(reading)).toEqual(["amount", "reference"]);
-    const text = barText(reading, referenceProblems(reading));
-    expect(text.kind === "pending" && [text.text, text.short]).toEqual([
-      "Revisá el monto y el dólar MEP: tienen valores que no se pueden usar.",
-      "Revisá: monto, MEP",
-    ]);
+    expect(barText(reading, referenceProblems(reading))).toEqual({
+      kind: "pending",
+      text: "Revisá el monto y el dólar MEP: tienen valores que no se pueden usar.",
+      short: "Revisá: monto, MEP",
+    });
+  });
+
+  it("asks to review only the MEP when only the MEP is wrong", () => {
+    const reading = read({ amount: "1000", prices: { ...PRICES, mep: "-1" } });
+    expect(barText(reading, referenceProblems(reading))).toEqual({
+      kind: "pending",
+      text: "Revisá el dólar MEP: tiene un valor que no se puede usar.",
+      short: "Revisá: MEP",
+    });
   });
 
   it("points to each route when none can be computed and nothing is missing in all", () => {

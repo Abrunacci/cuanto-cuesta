@@ -1,6 +1,6 @@
 /** The one-line summary of the results, and the shorter text of the bar that keeps it in view. */
 
-import { REFERENCE_KEY, type Comparison } from "../calculator/index.ts";
+import { RATE_FIELDS, REFERENCE_KEY, type Comparison } from "../calculator/index.ts";
 import { joinSpanish } from "../text/lists.ts";
 import { formatMoney, formatMoneyWhole } from "../text/numbers.ts";
 import { fieldId, type FormReading } from "./form.ts";
@@ -23,7 +23,10 @@ export function referenceProblems({ problems }: FormReading): ReferenceProblems 
 
 const REFERENCE_LABELS: Readonly<Record<ReferenceField, { long: string; short: string }>> = {
   amount: { long: "el monto", short: "monto" },
-  reference: { long: "el dólar MEP", short: "MEP" },
+  reference: {
+    long: "el dólar MEP",
+    short: RATE_FIELDS.find((field) => field.key === REFERENCE_KEY)?.shortLabel ?? REFERENCE_KEY,
+  },
 };
 
 export function summaryText(

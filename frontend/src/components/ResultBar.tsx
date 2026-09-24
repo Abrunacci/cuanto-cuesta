@@ -79,6 +79,7 @@ function CompactLine({ text }: { readonly text: BarText }) {
     return (
       <span className="result-bar-line">
         <span className="result-bar-route">{text.short}</span>
+        <span className="visually-hidden">.</span>
       </span>
     );
   }

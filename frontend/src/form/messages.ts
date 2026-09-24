@@ -84,23 +84,16 @@ export function missingInputLabel(
   }
 }
 
-/** Short names of the prices, by rate key; a test checks that every price has one. */
-export const RATE_SHORT_LABELS: Readonly<Record<string, string>> = {
-  mep: "MEP",
-  p2p_usdt_usd: "precio P2P",
-  bitso_usdt_ars: "precio Bitso",
-  arq_usd_ars: "cotización ARQ",
-};
-
 /** A few words for what is missing, where there is room for little: "monto", "MEP". */
 export function missingInputShortLabel(missing: MissingInput): string {
   switch (missing.kind) {
     case "amount":
       return "monto";
     case "rate":
-      return RATE_SHORT_LABELS[missing.key] ?? missing.key;
+      return RATE_FIELDS.find((field) => field.key === missing.key)?.shortLabel ?? missing.key;
     case "fee":
-      // Never missing in every route at once (each fee belongs to one route), so never short.
+      // Never missing in every route at once: each fee belongs to one route, as a data test
+      // checks. So this is never shown in the one-line bar.
       return lowerFirst(FEE_DEFAULTS.find((d) => d.fee.id === missing.id)?.label ?? missing.id);
   }
 }
