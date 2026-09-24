@@ -61,6 +61,7 @@ export function App() {
           ...(reading.problems.has(fieldId.price(REFERENCE_KEY)) ? ["el dólar MEP"] : []),
         ]}
         warnings={reading.warnings}
+        unchangedFees={reading.unchangedFees}
         onGoToField={goToField}
       />
 

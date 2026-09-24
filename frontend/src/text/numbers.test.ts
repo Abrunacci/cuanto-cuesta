@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import { Decimal } from "../calculator/index.ts";
+import { Decimal, fixedFee, percentFee } from "../calculator/index.ts";
 import {
+  formatFeeValue,
   formatMoney,
   formatNumber,
   formatUnambiguous,
@@ -105,6 +106,11 @@ describe("formatting", () => {
     expect(formatMoney(new Decimal("-13552.4"), "ARS")).toBe("-$\u00a013.552,40");
     expect(formatMoney(new Decimal("1000"), "USD")).toBe("US$\u00a01.000,00");
     expect(formatMoney(new Decimal("0.08"), "USDT")).toBe("0,08\u00a0USDT");
+  });
+
+  it("writes a fee's value with its unit", () => {
+    expect(formatFeeValue(percentFee("p", "0"))).toBe("0\u00a0%");
+    expect(formatFeeValue(fixedFee("f", "0.08", "USDT"))).toBe("0,08\u00a0USDT");
   });
 
   it("echoes numbers with at least two decimals", () => {

@@ -1,9 +1,16 @@
 /** What each problem code means on screen, in Spanish. */
 
-import type { Big, InputProblem, MissingInput, ValueProblem } from "../calculator/index.ts";
+import type {
+  Big,
+  InputProblem,
+  MissingInput,
+  Provenance,
+  ValueProblem,
+} from "../calculator/index.ts";
 import type { FeeGap } from "./form.ts";
 import { inRange, type PriceCheck } from "./plausible.ts";
 import { FEE_DEFAULTS, RATE_FIELDS } from "../calculator/index.ts";
+import { lowerFirst } from "../text/case.ts";
 import { formatExact, formatNumber, formatUnambiguous } from "../text/numbers.ts";
 
 export const NOT_A_NUMBER = "Escribí un número, por ejemplo 1.234,56.";
@@ -77,10 +84,18 @@ export function missingInputLabel(
   }
 }
 
-function lowerFirst(text: string): string {
-  return text.charAt(0).toLowerCase() + text.slice(1);
-}
-
 function formatCap(cap: Big): string {
   return formatNumber(cap, cap.eq(cap.round(0)) ? 0 : 2);
+}
+
+/** A fee's status in words, as its badge shows it. */
+export function statusText(provenance: Provenance): string {
+  switch (provenance.kind) {
+    case "verified":
+      return "Verificado";
+    case "estimate":
+      return "Estimado";
+    case "user_defined":
+      return "Lo definís vos";
+  }
 }

@@ -31,7 +31,7 @@ export const ROUTES: readonly Route[] = [
       { label: "Retirar ARS al banco", feeIds: ["bitso_ars_withdrawal"], conversion: null },
     ],
     warnings: [
-      "El precio P2P es el de la oferta genérica USDT/USD, no uno filtrado por Payoneer. Ajustá el recargo P2P a lo que pagás realmente.",
+      "El precio P2P es el de la oferta genérica USDT/USD, no el de avisos que acepten Payoneer.",
     ],
   },
   {

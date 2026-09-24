@@ -6,7 +6,7 @@
  * thirty-six).
  */
 
-import { Decimal, type Big, type Currency } from "../calculator/index.ts";
+import { Decimal, type Big, type Currency, type Fee } from "../calculator/index.ts";
 
 export type ParsedNumber =
   | { readonly kind: "empty" }
@@ -117,4 +117,14 @@ export function formatMoney(amount: Big, currency: Currency): string {
   const negative = amount.lt(0);
   const text = formatNumber(amount.abs(), 2);
   return `${negative ? "-" : ""}${CURRENCY_PREFIX[currency]}${text}${CURRENCY_SUFFIX[currency]}`;
+}
+
+/** A fee's value with its unit: "0 %", "0,08 USDT". */
+export function formatFeeValue(fee: Fee): string {
+  switch (fee.kind) {
+    case "percent":
+      return `${formatExact(fee.rate)}${NBSP}%`;
+    case "fixed":
+      return `${formatExact(fee.amount.amount)}${NBSP}${fee.amount.currency}`;
+  }
 }

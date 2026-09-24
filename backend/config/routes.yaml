@@ -13,8 +13,7 @@ routes:
     target: ARS
     warnings:
       - >-
-        El precio P2P es el de la oferta genérica USDT/USD, no uno filtrado por Payoneer. Ajustá
-        el recargo P2P a lo que pagás realmente.
+        El precio P2P es el de la oferta genérica USDT/USD, no el de avisos que acepten Payoneer.
     steps:
       - label: Vender USD por USDT en Binance P2P
         fees: [payoneer_p2p_transfer, p2p_premium, binance_p2p_taker]

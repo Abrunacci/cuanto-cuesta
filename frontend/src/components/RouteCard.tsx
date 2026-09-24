@@ -1,7 +1,9 @@
 import { FEE_DEFAULTS, RATE_FIELDS, type Route, type Step } from "../calculator/index.ts";
 import { fieldId, type FormReading, type FormTexts } from "../form/form.ts";
+import { lowerFirst } from "../text/case.ts";
 import { NumberField } from "./NumberField.tsx";
-import { Provenance } from "./Provenance.tsx";
+import { statusText } from "../form/messages.ts";
+import { Provenance, StatusBadge } from "./Provenance.tsx";
 import { RichText } from "./RichText.tsx";
 
 interface RouteCardProps {
@@ -81,8 +83,7 @@ function withoutFirstWord(text: string): string {
 }
 
 function rateLabel(key: string): string {
-  const label = RATE_FIELDS.find((field) => field.key === key)?.label ?? key;
-  return label.charAt(0).toLowerCase() + label.slice(1);
+  return lowerFirst(RATE_FIELDS.find((field) => field.key === key)?.label ?? key);
 }
 
 function FeeInputs({
@@ -119,7 +120,9 @@ function FeeInputs({
         echo={reading.echoes.get(valueId)}
       >
         <details className="fee-details">
-          <summary aria-label={`Detalles de ${label}`}>Detalles</summary>
+          <summary aria-label={`${statusText(provenance)}. Detalles de ${label}`}>
+            <StatusBadge provenance={provenance} /> Detalles
+          </summary>
           <Provenance provenance={provenance} feeLabel={label} />
           {note !== null && (
             <p className="note">

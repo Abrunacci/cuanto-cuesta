@@ -25,7 +25,7 @@ import {
   type PositiveAmount,
   type PositivePrice,
 } from "../calculator/index.ts";
-import { formatMoney, formatUnambiguous, parseNumber, toInputText } from "../text/numbers.ts";
+import { formatUnambiguous, parseNumber, toInputText } from "../text/numbers.ts";
 import {
   didYouMean,
   unusualPriceMessage,
@@ -58,6 +58,8 @@ export interface FormReading {
   readonly warnings: ReadonlyMap<string, string>;
   /** Fees that cannot be used, by fee id, and which part of them is missing or wrong. */
   readonly feeGaps: ReadonlyMap<string, FeeGap>;
+  /** Ids of the fees still at their researched value, minimum included. */
+  readonly unchangedFees: ReadonlySet<string>;
 }
 
 export const fieldId = {
@@ -90,6 +92,7 @@ export function readForm(texts: FormTexts): FormReading {
   const echoes = new Map<string, string>();
   const warnings = new Map<string, string>();
   const feeGaps = new Map<string, FeeGap>();
+  const unchangedFees = new Set<string>();
   const valueOf = <T>(id: string, read: FieldRead<T>): T | null => {
     switch (read.kind) {
       case "empty":
@@ -124,6 +127,9 @@ export function readForm(texts: FormTexts): FormReading {
     const minimum = parts.minimum === null ? null : valueOf(fieldId.minimum(id), parts.minimum);
     const fee = parts.build(value, minimum);
     fees.set(id, fee);
+    if (fee !== null && sameFee(fee, feeDefault.fee)) {
+      unchangedFees.add(id);
+    }
     if (fee === null) {
       const gap = feeGap(value === null, parts.minimum !== null && minimum === null);
       if (gap !== null) {
@@ -140,7 +146,7 @@ export function readForm(texts: FormTexts): FormReading {
     prices,
     fees,
   });
-  return { comparison, problems, echoes, warnings, feeGaps };
+  return { comparison, problems, echoes, warnings, feeGaps, unchangedFees };
 }
 
 type FieldRead<T> =
@@ -192,7 +198,9 @@ function readAmount(text: string): FieldRead<PositiveAmount> {
       ? {
           kind: "ok",
           value: result.value,
-          echo: alternative === null ? null : `Leímos ${formatMoney(result.value.amount, "USD")}.`,
+          // Never ambiguous: the other reading of "1.000" (1,000) has more decimals than an
+          // amount allows, and "1,000" was already rejected above.
+          echo: null,
           warning: null,
         }
       : { kind: "problem", message: inputProblemMessage(result.problem) };
@@ -212,8 +220,9 @@ function readPrice(key: string, text: string): FieldRead<PositivePrice> {
     if (!result.ok) {
       return { kind: "problem", message: inputProblemMessage(result.problem) };
     }
-    const unit = check?.unit ?? "";
-    const echo = alternative === null ? null : `Leímos ${formatUnambiguous(value)} ${unit}.`;
+    // No echo for prices: the two readings of "1.030" differ a thousandfold and the widest range
+    // spans a hundredfold, so they are never both plausible; the implausible one gets a warning.
+    const echo = null;
     // Outside the plausible range the price is still used: a jump in the exchange rate must not
     // make the calculator useless. The person is only warned.
     if (check === undefined || inRange(value, check)) {
@@ -239,7 +248,9 @@ function readBounded(text: string, cap: Big, unit: string): FieldRead<Big> {
     const read = `Leímos ${formatUnambiguous(value)} ${unit}.`;
     const problem = valueProblem(value, cap);
     if (problem === null) {
-      return { kind: "ok", value, echo: alternative === null ? null : read, warning: null };
+      // Echo only when the other reading is a value this fee could also hold.
+      const bothValid = alternative !== null && valueProblem(alternative, cap) === null;
+      return { kind: "ok", value, echo: bothValid ? read : null, warning: null };
     }
     const message = valueProblemMessage(problem, unit);
     if (problem.code === "negative") {
@@ -299,4 +310,24 @@ function feeGap(valueMissing: boolean, minimumMissing: boolean): FeeGap | null {
     return "value";
   }
   return minimumMissing ? "minimum" : null;
+}
+
+/** Same kind and same values, minimum included. */
+function sameFee(a: Fee, b: Fee): boolean {
+  switch (a.kind) {
+    case "fixed":
+      return (
+        b.kind === "fixed" &&
+        a.amount.currency === b.amount.currency &&
+        a.amount.amount.eq(b.amount.amount)
+      );
+    case "percent":
+      if (b.kind !== "percent" || !a.rate.eq(b.rate)) {
+        return false;
+      }
+      if (a.minimum === null || b.minimum === null) {
+        return a.minimum === b.minimum;
+      }
+      return a.minimum.currency === b.minimum.currency && a.minimum.amount.eq(b.minimum.amount);
+  }
 }

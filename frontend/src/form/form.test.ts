@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { Comparison } from "../calculator/index.ts";
+import { FEE_DEFAULTS, type Comparison } from "../calculator/index.ts";
 import { fieldId, initialTexts, readForm, type FormTexts } from "./form.ts";
 
 const PRICES = {
@@ -150,15 +150,15 @@ describe("numbers read a thousand times off", () => {
     );
   });
 
-  it("says how a value was read only when the text reads two ways", () => {
-    // Every example value reads one way ("1.536,16", "1,03"), and so does "1000".
-    const { echoes } = readForm(filled({ amount: "1000" }));
-    expect(echoes.size).toBe(0);
-    const ambiguous = readForm(filled({ amount: "1.000", prices: { ...PRICES, mep: "1.540" } }));
-    // Two decimals, so "1.540" is not echoed back in a form that reads as 1,54.
-    expect(ambiguous.echoes.get(fieldId.price("mep"))).toBe("Leímos 1.540,00 ARS por USD.");
-    expect(ambiguous.echoes.get(fieldId.amount)).toBe("Leímos US$\u00a01.000,00.");
-    expect(readForm(filled({ amount: "1000" })).echoes.get(fieldId.amount)).toBeUndefined();
+  it("says how a value was read only when both readings are possible", () => {
+    // "1.000" as an amount and "1.540" as a MEP have only one plausible reading.
+    const plain = readForm(filled({ amount: "1.000", prices: { ...PRICES, mep: "1.540" } }));
+    expect(plain.echoes.size).toBe(0);
+    // "1.500" for a peso fee may mean 1500 or 1,5: both are valid fees.
+    const fee = readForm(
+      filled({ fees: { ...initialTexts().fees, bitso_ars_withdrawal: "1.500" } }),
+    );
+    expect(fee.echoes.get(fieldId.fee("bitso_ars_withdrawal"))).toBe("Leímos 1.500,00 ARS.");
   });
 
   it.each([
@@ -235,9 +235,10 @@ describe("fees typed with a leading zero or in an ambiguous way", () => {
     expect(mep?.status === "complete" && mep.result.final.amount.toFixed(2)).toBe("1503547.32");
   });
 
-  it("says how an ambiguous fee was read", () => {
+  it("does not echo a fee whose other reading is above its cap", () => {
+    // "1,500" as a USD minimum is 1,5; read as 1500 it would be above the 100 USD cap.
     const reading = readForm(filled({ minimums: { payoneer_us_withdrawal: "1,500" } }));
-    expect(reading.echoes.get(fieldId.minimum("payoneer_us_withdrawal"))).toBe("Leímos 1,50 USD.");
+    expect(reading.echoes.get(fieldId.minimum("payoneer_us_withdrawal"))).toBeUndefined();
   });
 
   it("says what was read above the cap, and suggests the other reading when it fits", () => {
@@ -250,5 +251,28 @@ describe("fees typed with a leading zero or in an ambiguous way", () => {
     expect(withFee("arq_ach_deposit", "-1").problems.get(fieldId.fee("arq_ach_deposit"))).toBe(
       "No puede ser negativo.",
     );
+  });
+});
+
+describe("fees still at their researched value", () => {
+  it("are all of them at the start", () => {
+    expect(readForm(initialTexts()).unchangedFees.size).toBe(FEE_DEFAULTS.length);
+  });
+
+  it("do not include an edited fee or one with an edited minimum", () => {
+    const edited = readForm(
+      filled({
+        fees: { ...initialTexts().fees, p2p_premium: "1" },
+        minimums: { payoneer_us_withdrawal: "0" },
+      }),
+    ).unchangedFees;
+    expect(edited.has("p2p_premium")).toBe(false);
+    expect(edited.has("payoneer_us_withdrawal")).toBe(false);
+    expect(edited.has("bitso_taker")).toBe(true);
+  });
+
+  it("count a value typed differently but equal, like 0,60 for 0,6, as unchanged", () => {
+    const same = readForm(filled({ fees: { ...initialTexts().fees, bitso_taker: "0,60" } }));
+    expect(same.unchangedFees.has("bitso_taker")).toBe(true);
   });
 });

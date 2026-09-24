@@ -3,6 +3,7 @@ import { fieldId, type FeeGap } from "../form/form.ts";
 import { missingInputLabel } from "../form/messages.ts";
 import { joinSpanish } from "../text/lists.ts";
 import { formatMoney } from "../text/numbers.ts";
+import { InPageAnchor } from "./LinkList.tsx";
 
 interface RouteFiguresProps {
   readonly entry: RouteComparison;
@@ -24,15 +25,16 @@ export function RouteFigures({ entry, feeGaps, unusualPrices, onGoToField }: Rou
             const id = missingFieldId(missing, feeGaps);
             return (
               <li key={id}>
-                <a
-                  href={`#${id}`}
-                  onClick={(event) => {
-                    event.preventDefault();
-                    onGoToField(entry.route.id, id);
+                <InPageAnchor
+                  link={{
+                    key: id,
+                    href: `#${id}`,
+                    text: missingInputLabel(missing, feeGaps),
+                    onClick: () => {
+                      onGoToField(entry.route.id, id);
+                    },
                   }}
-                >
-                  {missingInputLabel(missing, feeGaps)}
-                </a>
+                />
               </li>
             );
           })}

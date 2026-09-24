@@ -1,9 +1,11 @@
 import { RATE_FIELDS, REFERENCE_KEY, type Comparison, type Route } from "../calculator/index.ts";
 import { fieldId, type FeeGap } from "../form/form.ts";
+import { lowerFirst } from "../text/case.ts";
 import { joinSpanish } from "../text/lists.ts";
 import { formatMoney } from "../text/numbers.ts";
 import { RichText } from "./RichText.tsx";
 import { RouteFigures } from "./RouteFigures.tsx";
+import { RouteReview } from "./RouteReview.tsx";
 
 interface ResultsProps {
   readonly comparison: Comparison;
@@ -12,6 +14,8 @@ interface ResultsProps {
   readonly referenceProblems: readonly string[];
   /** Field ids whose value is used but looks wrong. */
   readonly warnings: ReadonlyMap<string, string>;
+  /** Ids of the fees still at their researched value. */
+  readonly unchangedFees: ReadonlySet<string>;
   readonly onGoToField: (routeId: string, id: string) => void;
 }
 
@@ -25,6 +29,7 @@ export function Results({
   feeGaps,
   referenceProblems,
   warnings,
+  unchangedFees,
   onGoToField,
 }: ResultsProps) {
   return (
@@ -43,6 +48,13 @@ export function Results({
               unusualPrices={unusualPrices(entry.route, warnings)}
               onGoToField={onGoToField}
             />
+            {entry.status === "complete" && (
+              <RouteReview
+                route={entry.route}
+                unchangedFees={unchangedFees}
+                onGoToField={onGoToField}
+              />
+            )}
             {entry.route.warnings.map((warning) => (
               <p key={warning} className="warning">
                 <strong>Atención:</strong> <RichText text={warning} />
@@ -86,5 +98,5 @@ function unusualPrices(route: Route, warnings: ReadonlyMap<string, string>): str
   ]);
   return RATE_FIELDS.filter(
     (field) => keys.has(field.key) && warnings.has(fieldId.price(field.key)),
-  ).map((field) => field.label.charAt(0).toLowerCase() + field.label.slice(1));
+  ).map((field) => lowerFirst(field.label));
 }

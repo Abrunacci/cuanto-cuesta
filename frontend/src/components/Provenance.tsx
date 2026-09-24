@@ -1,5 +1,17 @@
 import type { Provenance as FeeProvenance } from "../calculator/index.ts";
+import { statusText } from "../form/messages.ts";
 import { ExternalLink } from "./ExternalLink.tsx";
+
+const BADGE_CLASS: Record<FeeProvenance["kind"], string> = {
+  verified: "badge badge-verified",
+  estimate: "badge badge-estimate",
+  user_defined: "badge badge-user",
+};
+
+/** How far to trust a fee's reference value, as a short badge. */
+export function StatusBadge({ provenance }: { readonly provenance: FeeProvenance }) {
+  return <span className={BADGE_CLASS[provenance.kind]}>{statusText(provenance)}</span>;
+}
 
 interface ProvenanceProps {
   readonly provenance: FeeProvenance;
@@ -7,15 +19,14 @@ interface ProvenanceProps {
   readonly feeLabel: string;
 }
 
-/** Where a fee's reference value comes from: verified, estimated, or set by the person. */
+/** When the reference value was checked and where it comes from. */
 export function Provenance({ provenance, feeLabel }: ProvenanceProps) {
   switch (provenance.kind) {
     case "verified":
       return (
         <p className="provenance">
-          <span className="badge badge-verified">Verificado</span> el{" "}
-          {formatDate(provenance.verifiedAt)} ·{" "}
-          <ExternalLink href={provenance.sourceUrl} label={sourceLabel(feeLabel)}>
+          Verificado el {formatDate(provenance.verifiedAt)} ·{" "}
+          <ExternalLink href={provenance.sourceUrl} label={`Fuente de ${feeLabel}`}>
             Fuente
           </ExternalLink>
         </p>
@@ -23,10 +34,9 @@ export function Provenance({ provenance, feeLabel }: ProvenanceProps) {
     case "estimate":
       return (
         <p className="provenance">
-          <span className="badge badge-estimate">Estimado</span>
-          {provenance.upperBound ? " (la fuente da un tope: es el valor máximo)" : ""} · revisado el{" "}
+          {provenance.upperBound ? "La fuente da un tope: es el valor máximo. " : ""}Revisado el{" "}
           {formatDate(provenance.verifiedAt)} ·{" "}
-          <ExternalLink href={provenance.sourceUrl} label={sourceLabel(feeLabel)}>
+          <ExternalLink href={provenance.sourceUrl} label={`Fuente de ${feeLabel}`}>
             Fuente
           </ExternalLink>
         </p>
@@ -34,8 +44,7 @@ export function Provenance({ provenance, feeLabel }: ProvenanceProps) {
     case "user_defined":
       return (
         <p className="provenance">
-          <span className="badge badge-user">Lo definís vos</span> · revisado el{" "}
-          {formatDate(provenance.checkedAt)} ·{" "}
+          Revisado el {formatDate(provenance.checkedAt)} ·{" "}
           <ExternalLink
             href={provenance.referenceUrl}
             label={`Precio de referencia de ${feeLabel}`}
@@ -45,10 +54,6 @@ export function Provenance({ provenance, feeLabel }: ProvenanceProps) {
         </p>
       );
   }
-}
-
-function sourceLabel(feeLabel: string): string {
-  return `Fuente de ${feeLabel}`;
 }
 
 /** "2026-09-23" as "23/09/2026". */

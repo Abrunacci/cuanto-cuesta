@@ -311,11 +311,10 @@ h3 {
 }
 
 .route-card > summary {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  column-gap: 0.5rem;
   align-items: baseline;
-  justify-content: space-between;
-  gap: 0.25rem 1rem;
   min-height: 2.75rem;
   cursor: pointer;
   list-style: none;
@@ -328,7 +327,6 @@ h3 {
 .route-card > summary::before {
   /* Empty alternative text: the triangle is decoration, not part of the summary's name. */
   content: "▸" / "";
-  margin-right: 0.5rem;
   color: var(--muted);
 }
 
@@ -337,12 +335,13 @@ h3 {
 }
 
 .route-card-title {
-  flex: 1;
   font-size: 1.15rem;
   font-weight: 700;
 }
 
+/* Under the title, in the second column, so the title keeps its line. */
 .route-card-hint {
+  grid-column: 2;
   color: var(--accent);
   font-size: 0.875rem;
 }
@@ -373,5 +372,14 @@ h3 {
 }
 
 .missing li {
+  margin: 0.25rem 0;
+}
+
+.review {
+  margin: 0 0 0.75rem;
+  font-size: 0.9rem;
+}
+
+.review p {
   margin: 0.25rem 0;
 }

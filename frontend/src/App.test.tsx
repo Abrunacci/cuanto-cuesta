@@ -262,13 +262,14 @@ describe("the calculator page", () => {
     }
   });
 
-  it("says how a number was read only when it reads two ways", async () => {
-    const { type, field } = setup();
-    await type(/^Dólar MEP \(compra\)/, "1.536,16");
-    expect(field(/^Dólar MEP \(compra\)/)).not.toHaveAccessibleDescription(description("Leímos"));
+  it("says how a number was read only when both readings are possible", async () => {
+    const { type, field, openCard } = setup();
     await type(/^Dólar MEP \(compra\)/, "1.540");
-    expect(field(/^Dólar MEP \(compra\)/)).toHaveAccessibleDescription(
-      description("Leímos 1.540,00 ARS por USD."),
+    expect(field(/^Dólar MEP \(compra\)/)).not.toHaveAccessibleDescription(description("Leímos"));
+    await openCard("Binance P2P + Bitso");
+    await type(/^Retiro de ARS de Bitso a CBU\/CVU/, "1.500");
+    expect(field(/^Retiro de ARS de Bitso a CBU\/CVU/)).toHaveAccessibleDescription(
+      description("Leímos 1.500,00 ARS."),
     );
   });
 
@@ -282,23 +283,82 @@ describe("the calculator page", () => {
     ).toBeVisible();
   });
 
-  it("keeps each fee's provenance and note in a collapsible Detalles", async () => {
+  it("shows each fee's status without opening Detalles, and its source inside", async () => {
     const { user, openCard } = setup();
     await openCard("ARQ (ex DolarApp)");
+    const details = screen.getByText("Detalles", {
+      selector: '[aria-label="Verificado. Detalles de Recepción de ACH en ARQ"]',
+      exact: false,
+    });
+    expect(within(details).getByText("Verificado")).toBeVisible();
     const link = screen.getByRole("link", {
       name: "Fuente de Recepción de ACH en ARQ (se abre en otra pestaña)",
     });
     expect(link).not.toBeVisible();
-    await user.click(
-      screen.getByText("Detalles", {
-        selector: '[aria-label="Detalles de Recepción de ACH en ARQ"]',
-      }),
-    );
+    await user.click(details);
     expect(link).toBeVisible();
     expect(link).toHaveAttribute(
       "href",
       "https://help.arqfinance.com/es/articles/13532861-cuenta-sin-fronteras-recarga-en-multiples-monedas",
     );
+  });
+
+  it("says in the result which fees to review, each a link that opens its card", async () => {
+    const { type, user, field, ranking, results } = setup();
+    await fillEverything(type);
+    const binance = ranking().find((item) => item.includes("Binance"));
+    expect(binance).toContain("Recargo P2P por pagar con Payoneer: está en 0 %, poné tu valor.");
+    expect(binance).toContain(
+      "Incluye comisiones estimadas: transferencia de Payoneer al comprador P2P y comisión taker de Binance P2P.",
+    );
+    await user.click(
+      within(results()).getByRole("link", { name: "Recargo P2P por pagar con Payoneer" }),
+    );
+    expect(field(/^Recargo P2P por pagar con Payoneer/)).toBeVisible();
+    expect(field(/^Recargo P2P por pagar con Payoneer/)).toHaveFocus();
+  });
+
+  it("links an estimated fee to its field in another route's card", async () => {
+    const { type, user, field, results } = setup();
+    await fillEverything(type);
+    await user.click(within(results()).getByRole("link", { name: "conversión USD→USDc en ARQ" }));
+    expect(field(/^Conversión USD→USDc en ARQ/)).toBeVisible();
+    expect(field(/^Conversión USD→USDc en ARQ/)).toHaveFocus();
+  });
+
+  it("shows every kind of status badge without opening Detalles", async () => {
+    const { openCard } = setup();
+    await openCard("Binance P2P + Bitso");
+    const card = screen.getByText("Binance P2P + Bitso", { selector: ".route-card-title" });
+    const details = card.closest("details");
+    expect(details).not.toBeNull();
+    if (details !== null) {
+      expect(within(details).getAllByText("Estimado")[0]).toBeVisible();
+      expect(within(details).getByText("Lo definís vos")).toBeVisible();
+      expect(within(details).getAllByText("Verificado")[0]).toBeVisible();
+    }
+  });
+
+  it("stops listing a fee once the person sets it", async () => {
+    const { type, ranking, openCard } = setup();
+    await fillEverything(type);
+    await openCard("Binance P2P + Bitso");
+    await type(/^Recargo P2P por pagar con Payoneer/, "0,5");
+    await type(/^Comisión taker de Binance P2P/, "0,06");
+    const binance = ranking().find((item) => item.includes("Binance"));
+    expect(binance).not.toContain("Recargo P2P");
+    expect(binance).toContain(
+      "Incluye una comisión estimada: transferencia de Payoneer al comprador P2P. Revisala si sabés la tuya.",
+    );
+  });
+
+  it("lists nothing to review for a route with only verified fees left", async () => {
+    const { type, ranking, openCard } = setup();
+    await fillEverything(type);
+    await openCard("ARQ (ex DolarApp)");
+    await type(/^Retiro de Payoneer a una cuenta de EE.UU.(?!: mínimo)/, "3");
+    await type(/^Conversión USD→USDc en ARQ/, "0,1");
+    expect(ranking().find((item) => item.includes("ARQ"))).not.toContain("Incluye");
   });
 
   it("does not repeat a step's title when its only fee says the same", async () => {
