@@ -44,3 +44,25 @@ export function valueCap(fee: Fee): Big {
       return MAX_PERCENT;
   }
 }
+
+export interface FeeProblem {
+  readonly field: "value" | "minimum";
+  readonly problem: ValueProblem;
+}
+
+/** Every value of an already built fee that is outside the caps, the minimum included. */
+export function feeProblems(fee: Fee): FeeProblem[] {
+  const problems: FeeProblem[] = [];
+  const value = fee.kind === "fixed" ? fee.amount.amount : fee.rate;
+  const valueCheck = valueProblem(value, valueCap(fee));
+  if (valueCheck !== null) {
+    problems.push({ field: "value", problem: valueCheck });
+  }
+  if (fee.kind === "percent" && fee.minimum !== null) {
+    const minimumCheck = valueProblem(fee.minimum.amount, maxFixed(fee.minimum.currency));
+    if (minimumCheck !== null) {
+      problems.push({ field: "minimum", problem: minimumCheck });
+    }
+  }
+  return problems;
+}

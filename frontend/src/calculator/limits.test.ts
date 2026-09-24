@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import { fixedFee, percentFee } from "./fees.ts";
-import { MAX_PERCENT, maxFixed, valueCap, valueProblem } from "./limits.ts";
-import { Decimal } from "./money.ts";
+import { feeProblems, MAX_PERCENT, maxFixed, valueCap, valueProblem } from "./limits.ts";
+import { Decimal, money } from "./money.ts";
 
 describe("caps", () => {
   it("match the backend's caps", () => {
@@ -33,5 +33,21 @@ describe("valueProblem", () => {
 
   it("reports a value above the cap, with the cap", () => {
     expect(valueProblem(new Decimal("20.01"), cap)).toEqual({ code: "above_cap", cap });
+  });
+});
+
+describe("feeProblems", () => {
+  it("accepts a fee within its caps, minimum included", () => {
+    expect(feeProblems(percentFee("p", "20", money("100", "USD")))).toEqual([]);
+  });
+
+  it("reports the value and the minimum separately", () => {
+    expect(feeProblems(percentFee("p", "20.01", money("100.01", "USD")))).toEqual([
+      { field: "value", problem: { code: "above_cap", cap: new Decimal(20) } },
+      { field: "minimum", problem: { code: "above_cap", cap: new Decimal(100) } },
+    ]);
+    expect(feeProblems(fixedFee("f", "150000.01", "ARS"))).toEqual([
+      { field: "value", problem: { code: "above_cap", cap: new Decimal(150000) } },
+    ]);
   });
 });

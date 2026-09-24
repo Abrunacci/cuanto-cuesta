@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { valueCap, valueProblem } from "../limits.ts";
+import { compareRoutes } from "../compare.ts";
+import type { Fee } from "../fees.ts";
+import { feeProblems } from "../limits.ts";
+import { validAmount, validPrice } from "../sample.fixture.ts";
 import { feeIds, rateKeys, routeProblems } from "../routes.ts";
 import { FEE_DEFAULTS } from "./fees.ts";
 import { RATE_FIELDS, REFERENCE_KEY, ROUTES } from "./routes.ts";
@@ -28,12 +31,10 @@ describe("the bundled routes and fees", () => {
     expect(fields.has(REFERENCE_KEY)).toBe(true);
   });
 
-  it("keep every default within the caps", () => {
-    const outside = FEE_DEFAULTS.filter((d) => {
-      const value = d.fee.kind === "fixed" ? d.fee.amount.amount : d.fee.rate;
-      return valueProblem(value, valueCap(d.fee)) !== null;
-    });
-    expect(outside.map((d) => d.fee.id)).toEqual([]);
+  it("keep every default within the caps, minimums included", () => {
+    expect(FEE_DEFAULTS.filter((d) => feeProblems(d.fee).length > 0).map((d) => d.fee.id)).toEqual(
+      [],
+    );
   });
 
   it("default user-defined fees to zero", () => {
@@ -53,5 +54,60 @@ describe("the bundled routes and fees", () => {
     expect(warning).toContain("no podés vender dólares por MEP");
     expect(warning).toContain('Com. "A" 8336');
     expect(warning).toContain("https://www.bcra.gob.ar/Pdfs/comytexord/A8481.pdf");
+  });
+});
+
+describe("the bundled data, calculated end to end", () => {
+  // Same prices as the Python domain's sample; expected values computed with the Python domain
+  // on backend/config/fees.yaml and routes.yaml.
+  const prices = new Map([
+    ["mep", validPrice("1536.16")],
+    ["p2p_usdt_usd", validPrice("1.03")],
+    ["bitso_usdt_ars", validPrice("1596.21")],
+    ["arq_usd_ars", validPrice("1593.385")],
+  ]);
+  const fees = new Map<string, Fee | null>(FEE_DEFAULTS.map((d) => [d.fee.id, d.fee]));
+
+  const summarize = (amount: string) => {
+    const comparison = compareRoutes({
+      routes: ROUTES,
+      rateDefinitions: RATE_FIELDS,
+      referenceKey: REFERENCE_KEY,
+      amount: validAmount(amount),
+      prices,
+      fees,
+    });
+    return {
+      atReference: comparison.atReference?.amount.toFixed(2),
+      routes: comparison.routes.map((r) =>
+        r.status === "complete"
+          ? [r.route.id, ...[r.result.final, r.feeCost, r.fxLoss].map((m) => m.amount.toFixed(2))]
+          : [r.route.id, "incomplete"],
+      ),
+    };
+  };
+
+  it("computes the three routes for 1000 USD", () => {
+    // Binance: 1000.00 - 4.00 = 996.00 USD / 1.03 = 966.99 USDT - 0.08 = 966.91; - 0.07 = 966.84;
+    // 0.6 % = 5.80104 -> 5.81; 961.03 x 1596.21 = 1534005.6963
+    expect(summarize("1000.00")).toEqual({
+      atReference: "1536160.00",
+      routes: [
+        ["binance_bitso", "1534005.69", "15706.71", "-13552.40"],
+        ["arq", "1524869.44", "68515.56", "-57225.00"],
+        ["mep", "1503624.13", "32535.87", "0.00"],
+      ],
+    });
+  });
+
+  it("computes the three routes for 100 USD, where the Payoneer minimum applies to ARQ", () => {
+    expect(summarize("100.00")).toEqual({
+      atReference: "153616.00",
+      routes: [
+        ["mep", "150359.34", "3256.66", "0.00"],
+        ["binance_bitso", "147633.46", "7326.60", "-1344.06"],
+        ["arq", "122690.64", "36647.86", "-5722.50"],
+      ],
+    });
   });
 });
