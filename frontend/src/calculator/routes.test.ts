@@ -3,7 +3,13 @@ import { describe, expect, it } from "vitest";
 import { fixedFee, percentFee, type Fee } from "./fees.ts";
 import { CurrencyMismatchError, money, type Money } from "./money.ts";
 import { rate, type Rate } from "./rates.ts";
-import { InvalidRouteError, routeProblems, runRoute, type Route } from "./routes.ts";
+import {
+  routeProblems,
+  runRoute,
+  UnknownFeeError,
+  UnknownRateError,
+  type Route,
+} from "./routes.ts";
 import {
   ARQ,
   BINANCE,
@@ -155,6 +161,26 @@ describe("fees inside a step", () => {
   });
 });
 
+describe("fees that consume the whole amount after converting", () => {
+  it("leave zero and mark the route exhausted", () => {
+    const fee = fixedFee("f", "1000", "USDT");
+    const route: Route = {
+      id: "r",
+      name: "r",
+      source: "USD",
+      target: "USDT",
+      steps: [
+        { label: "s", feeIds: ["f"], conversion: { rateKey: "p2p_usdt_usd", target: "USDT" } },
+      ],
+      warnings: [],
+    };
+    // 100.00 / 1.03 = 97.08 USDT, minus 1000 USDT
+    const result = runRoute(route, money("100.00", "USD"), new Map([["f", fee]]), SAMPLE_RATES);
+    expect(cents(result.final)).toBe("0.00 USDT");
+    expect(result.exhausted).toBe(true);
+  });
+});
+
 describe("invalid input", () => {
   it("needs the amount in the route's source currency", () => {
     expect(() => runRoute(ARQ, money("1000", "ARS"), SAMPLE_FEES, SAMPLE_RATES)).toThrow(
@@ -164,11 +190,9 @@ describe("invalid input", () => {
 
   it("needs every fee and rate the route uses", () => {
     const fees = new Map([...SAMPLE_FEES].filter(([id]) => id !== "arq_ach_deposit"));
-    expect(() => runRoute(ARQ, money("1000", "USD"), fees, SAMPLE_RATES)).toThrow(
-      InvalidRouteError,
-    );
+    expect(() => runRoute(ARQ, money("1000", "USD"), fees, SAMPLE_RATES)).toThrow(UnknownFeeError);
     expect(() => runRoute(ARQ, money("1000", "USD"), SAMPLE_FEES, new Map())).toThrow(
-      /arq_usd_ars/,
+      UnknownRateError,
     );
   });
 });

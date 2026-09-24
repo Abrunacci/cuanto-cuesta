@@ -62,8 +62,12 @@ export interface RouteResult {
   readonly exhausted: boolean;
 }
 
-export class InvalidRouteError extends Error {
-  override name = "InvalidRouteError";
+export class UnknownFeeError extends Error {
+  override name = "UnknownFeeError";
+}
+
+export class UnknownRateError extends Error {
+  override name = "UnknownRateError";
 }
 
 /** Problems with a route's shape: empty, a step that does nothing, or a broken currency chain. */
@@ -132,7 +136,7 @@ function runStep(
   const target = step.conversion !== null ? step.conversion.target : amountIn.currency;
   const before: Fee[] = [];
   const after: Fee[] = [];
-  for (const fee of step.feeIds.map((id) => lookup(fees, id, "Fee"))) {
+  for (const fee of step.feeIds.map((id) => lookupFee(fees, id))) {
     switch (fee.kind) {
       case "percent":
         if (fee.minimum !== null && fee.minimum.currency !== amountIn.currency) {
@@ -172,7 +176,7 @@ function runStep(
 
   let rate: Rate | null = null;
   if (step.conversion !== null) {
-    rate = lookup(rates, step.conversion.rateKey, "Rate");
+    rate = lookupRate(rates, step.conversion.rateKey);
     current = convert(rate, current, step.conversion.target);
   }
 
@@ -192,10 +196,18 @@ function runStep(
   };
 }
 
-function lookup<T>(values: ReadonlyMap<string, T>, key: string, what: string): T {
-  const value = values.get(key);
-  if (value === undefined) {
-    throw new InvalidRouteError(`${what} ${key} was not provided`);
+function lookupFee(fees: ReadonlyMap<string, Fee>, id: string): Fee {
+  const fee = fees.get(id);
+  if (fee === undefined) {
+    throw new UnknownFeeError(`Fee ${id} was not provided`);
   }
-  return value;
+  return fee;
+}
+
+function lookupRate(rates: ReadonlyMap<string, Rate>, key: string): Rate {
+  const found = rates.get(key);
+  if (found === undefined) {
+    throw new UnknownRateError(`Rate ${key} was not provided`);
+  }
+  return found;
 }
