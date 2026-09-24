@@ -79,10 +79,12 @@ with `Depends`.
 - In Python all rounding lives in `domain/money.py`; in TypeScript it lives in one module that
   mirrors it. Amounts credited to the user (each conversion and each step output) round **down**
   to the minor unit, and fees round **up**. Nothing else rounds.
-- The TypeScript calculation lands on the same cent as the Python domain. `money.ts` uses its own
-  big.js constructor: `+`, `-` and `*` are exact, and division keeps 30 decimal places rounding
-  half-even (Python keeps 34 significant digits). Its tests reproduce the domain's hand-checked
-  cases, a table of results computed with the domain, and a division case.
+- The TypeScript calculation lands on the same cent as the Python domain for the inputs it
+  accepts: prices with up to 8 decimals and amounts in whole cents, checked once in
+  `src/calculator/inputs.ts`. `money.ts` uses its own big.js constructor and only `money()` builds
+  a `Money`: `+`, `-` and `*` are exact, and division keeps 30 decimal places rounding half-even
+  (Python keeps 34 significant digits). The calculator's tests reproduce the domain's
+  hand-checked cases, a table of results computed with the domain, and a division case.
 - Intermediate arithmetic goes through the `Money` operators or `money.mul`/`money.div`, which use
   a fixed decimal context (34 significant digits). Never multiply bare `Decimal`s in the domain.
 - `Money` is signed on purpose, because `fx_loss` is negative when a route beats the reference.
