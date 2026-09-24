@@ -154,6 +154,32 @@ html {
   font-variant-numeric: tabular-nums;
 }
 
+.result-bar-review {
+  color: var(--unusual);
+  font-size: 0.95rem;
+}
+
+/* One line while the keyboard is open, to leave room for the field being edited. */
+.result-bar-compact {
+  display: block;
+  min-height: 0;
+  padding: 0.4rem 1rem;
+}
+
+.result-bar-line {
+  display: block;
+  overflow: hidden;
+  font-size: 0.95rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.result-bar-icon {
+  color: var(--unusual);
+}
+
 .result-bar-more {
   grid-column: 2;
   grid-row: 1 / span 2;

@@ -1,9 +1,10 @@
-import { RATE_FIELDS, REFERENCE_KEY, type Comparison, type Route } from "../calculator/index.ts";
-import { fieldId, type FeeGap } from "../form/form.ts";
+import type { Comparison } from "../calculator/index.ts";
+import type { FeeGap } from "../form/form.ts";
 import { missingInputLabel } from "../form/messages.ts";
 import { commonMissing, missingFieldId, missingKey } from "../form/missing.ts";
+import { unusualPrices } from "../form/review.ts";
 import { summaryText, type ReferenceProblems } from "../form/summary.ts";
-import { lowerFirst } from "../text/case.ts";
+import { RESULTS_TITLE_ID, routeResultId } from "./ids.ts";
 import { LinkList } from "./LinkList.tsx";
 import { RichText } from "./RichText.tsx";
 import { RouteFigures } from "./RouteFigures.tsx";
@@ -19,8 +20,6 @@ interface ResultsProps {
   readonly unchangedFees: ReadonlySet<string>;
   readonly onGoToField: (routeId: string, id: string) => void;
 }
-
-export const RESULTS_TITLE_ID = "results-title";
 
 /**
  * The ranking, best route first, each with its warnings so they are seen even while the route's
@@ -70,7 +69,9 @@ export function Results({
       <ol className="ranking">
         {comparison.routes.map((entry) => (
           <li key={entry.route.id}>
-            <h3>{entry.route.name}</h3>
+            <h3 id={routeResultId(entry.route.id)} tabIndex={-1}>
+              {entry.route.name}
+            </h3>
             <RouteFigures
               entry={entry}
               feeGaps={feeGaps}
@@ -95,15 +96,4 @@ export function Results({
       </ol>
     </section>
   );
-}
-
-/** The prices a route's result depends on (its conversions and the MEP) that look unusual. */
-function unusualPrices(route: Route, warnings: ReadonlyMap<string, string>): string[] {
-  const keys = new Set([
-    ...route.steps.flatMap((step) => (step.conversion !== null ? [step.conversion.rateKey] : [])),
-    REFERENCE_KEY,
-  ]);
-  return RATE_FIELDS.filter(
-    (field) => keys.has(field.key) && warnings.has(fieldId.price(field.key)),
-  ).map((field) => lowerFirst(field.label));
 }

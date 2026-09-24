@@ -119,6 +119,13 @@ export function formatMoney(amount: Big, currency: Currency): string {
   return `${negative ? "-" : ""}${CURRENCY_PREFIX[currency]}${text}${CURRENCY_SUFFIX[currency]}`;
 }
 
+/** An amount in whole units, rounded down, for tight spaces: "$ 1.534.005". */
+export function formatMoneyWhole(amount: Big, currency: Currency): string {
+  const negative = amount.lt(0);
+  const text = formatNumber(amount.abs().round(0, 0), 0);
+  return `${negative ? "-" : ""}${CURRENCY_PREFIX[currency]}${text}${CURRENCY_SUFFIX[currency]}`;
+}
+
 /** A fee's value with its unit: "0 %", "0,08 USDT". */
 export function formatFeeValue(fee: Fee): string {
   switch (fee.kind) {

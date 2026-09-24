@@ -2,10 +2,11 @@
 
 import type { Comparison } from "../calculator/index.ts";
 import { joinSpanish } from "../text/lists.ts";
-import { formatMoney } from "../text/numbers.ts";
+import { formatMoney, formatMoneyWhole } from "../text/numbers.ts";
 import type { FeeGap } from "./form.ts";
 import { missingInputLabel } from "./messages.ts";
 import { commonMissing } from "./missing.ts";
+import { routeNeedsReview } from "./review.ts";
 
 /** Labels of the reference fields holding a value that cannot be used, e.g. ["el dólar MEP"]. */
 export type ReferenceProblems = readonly string[];
@@ -29,14 +30,30 @@ export function summaryText(
 }
 
 export type BarText =
-  | { readonly kind: "best"; readonly route: string; readonly amount: string }
+  | {
+      readonly kind: "best";
+      readonly route: string;
+      readonly routeId: string;
+      readonly amount: string;
+      /** Whole units, for the one-line bar while the keyboard is open. */
+      readonly amountWhole: string;
+      /** The result rests on an estimate, a value to set or an unusual price. */
+      readonly review: boolean;
+    }
   | { readonly kind: "pending"; readonly text: string };
+
+/** What the bar needs to tell whether the best route's result has something to check. */
+export interface ReviewInputs {
+  readonly unchangedFees: ReadonlySet<string>;
+  readonly warnings: ReadonlyMap<string, string>;
+}
 
 /** The best route and what reaches the bank; or, while no route can be computed, what is missing. */
 export function barText(
   comparison: Comparison,
   problems: ReferenceProblems,
   feeGaps: ReadonlyMap<string, FeeGap>,
+  review: ReviewInputs,
 ): BarText {
   const best = comparison.routes[0];
   if (best?.status === "complete") {
@@ -44,7 +61,10 @@ export function barText(
     return {
       kind: "best",
       route: best.route.name,
+      routeId: best.route.id,
       amount: formatMoney(final.amount, final.currency),
+      amountWhole: formatMoneyWhole(final.amount, final.currency),
+      review: routeNeedsReview(best.route, review.unchangedFees, review.warnings),
     };
   }
   if (problems.length > 0) {

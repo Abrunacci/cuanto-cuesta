@@ -30,16 +30,63 @@ describe("commonMissing", () => {
 describe("barText", () => {
   it("names the best route and what reaches the bank", () => {
     const reading = read({ amount: "1000", prices: PRICES });
-    expect(barText(reading.comparison, [], reading.feeGaps)).toEqual({
+    expect(barText(reading.comparison, [], reading.feeGaps, reading)).toEqual({
       kind: "best",
       route: "Binance P2P + Bitso",
-      amount: "$ 1.534.005,69",
+      routeId: "binance_bitso",
+      amount: "$\u00a01.534.005,69",
+      amountWhole: "$\u00a01.534.005",
+      // The P2P premium is still at the 0 the person has to set.
+      review: true,
     });
+  });
+
+  it("has nothing to review once the best route's estimates and premium are set", () => {
+    const reading = read({
+      amount: "1000",
+      prices: PRICES,
+      fees: {
+        ...initialTexts().fees,
+        p2p_premium: "0,1",
+        payoneer_p2p_transfer: "3",
+        binance_p2p_taker: "0,07",
+      },
+    });
+    const text = barText(reading.comparison, [], reading.feeGaps, reading);
+    expect(text.kind === "best" && [text.routeId, text.review]).toEqual(["binance_bitso", false]);
+  });
+
+  it.each([
+    ["the P2P premium is still at 0", { payoneer_p2p_transfer: "3", binance_p2p_taker: "0,07" }],
+    ["a fee is still an estimate", { p2p_premium: "0,1", binance_p2p_taker: "0,07" }],
+  ])("asks to review the best route while %s", (_, fees) => {
+    const reading = read({
+      amount: "1000",
+      prices: PRICES,
+      fees: { ...initialTexts().fees, ...fees },
+    });
+    const text = barText(reading.comparison, [], reading.feeGaps, reading);
+    expect(text.kind === "best" && [text.routeId, text.review]).toEqual(["binance_bitso", true]);
+  });
+
+  it("asks to review a best route computed with an unusual price", () => {
+    const reading = read({
+      amount: "1000",
+      prices: { ...PRICES, bitso_usdt_ars: "60.000" },
+      fees: {
+        ...initialTexts().fees,
+        p2p_premium: "0,1",
+        payoneer_p2p_transfer: "3",
+        binance_p2p_taker: "0,07",
+      },
+    });
+    const text = barText(reading.comparison, [], reading.feeGaps, reading);
+    expect(text.kind === "best" && [text.routeId, text.review]).toEqual(["binance_bitso", true]);
   });
 
   it("says what is missing while no route can be computed", () => {
     const reading = read({});
-    expect(barText(reading.comparison, [], reading.feeGaps)).toEqual({
+    expect(barText(reading.comparison, [], reading.feeGaps, reading)).toEqual({
       kind: "pending",
       text: "Falta completar: monto en USD y dólar MEP (compra).",
     });
@@ -47,7 +94,7 @@ describe("barText", () => {
 
   it("asks to review a wrong amount or MEP before listing what is missing", () => {
     const reading = read({ amount: "0" });
-    expect(barText(reading.comparison, ["el monto"], reading.feeGaps)).toEqual({
+    expect(barText(reading.comparison, ["el monto"], reading.feeGaps, reading)).toEqual({
       kind: "pending",
       text: "Revisá el monto: tiene un valor que no se puede usar.",
     });
@@ -61,7 +108,7 @@ describe("barText", () => {
       fees: { ...initialTexts().fees, broker_buy: "" },
     });
     expect(reading.comparison.routes.every((r) => r.status === "incomplete")).toBe(true);
-    expect(barText(reading.comparison, [], reading.feeGaps)).toEqual({
+    expect(barText(reading.comparison, [], reading.feeGaps, reading)).toEqual({
       kind: "pending",
       text: "Todavía ninguna ruta se puede calcular: mirá qué le falta a cada una.",
     });
@@ -72,7 +119,7 @@ describe("summaryText", () => {
   it("gives the amount at the MEP and the best route", () => {
     const reading = read({ amount: "1000", prices: PRICES });
     expect(summaryText(reading.comparison, [])).toBe(
-      "Al dólar MEP serían $ 1.536.160,00. Mejor ruta: Binance P2P + Bitso, llegan $ 1.534.005,69.",
+      "Al dólar MEP serían $\u00a01.536.160,00. Mejor ruta: Binance P2P + Bitso, llegan $\u00a01.534.005,69.",
     );
   });
 });

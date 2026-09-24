@@ -4,7 +4,7 @@ import { flushSync } from "react-dom";
 import { REFERENCE_KEY, ROUTES } from "./calculator/index.ts";
 import { Inputs } from "./components/Inputs.tsx";
 import { ResultBar } from "./components/ResultBar.tsx";
-import { Results, RESULTS_TITLE_ID } from "./components/Results.tsx";
+import { Results } from "./components/Results.tsx";
 import { RouteCard } from "./components/RouteCard.tsx";
 import { fieldId } from "./form/form.ts";
 import { barText } from "./form/summary.ts";
@@ -103,9 +103,9 @@ export function App() {
       </main>
 
       <ResultBar
-        text={barText(reading.comparison, referenceProblems, reading.feeGaps)}
-        onOpen={() => {
-          document.getElementById(RESULTS_TITLE_ID)?.focus();
+        text={barText(reading.comparison, referenceProblems, reading.feeGaps, reading)}
+        onOpen={(headingId) => {
+          document.getElementById(headingId)?.focus();
         }}
       />
     </>

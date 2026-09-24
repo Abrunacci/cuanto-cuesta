@@ -414,7 +414,7 @@ describe("the calculator page", () => {
     expect(bar()).toHaveTextContent("Falta completar: monto en USD y dólar MEP (compra).");
     await fillEverything(type);
     expect(plain(bar().textContent)).toBe(
-      "Mejor ruta: Binance P2P + BitsoLlegan $ 1.534.005,69Ver resultado",
+      "Mejor ruta: Binance P2P + BitsoLlegan $ 1.534.005,69 · revisáVer resultado",
     );
     await type(/^Dólar MEP \(compra\)/, "1.400");
     await type(/^Precio P2P en Binance/, "1,5");
@@ -427,11 +427,58 @@ describe("the calculator page", () => {
     expect(screen.getByRole("heading", { name: "Resultado" })).toHaveFocus();
   });
 
+  it("takes the person to the best route's result when it has values to review", async () => {
+    const { user, type } = setup();
+    await fillEverything(type);
+    const bar = screen.getByRole("link", { name: /Ver resultado$/ });
+    // The P2P premium is still at 0 and two Binance fees are estimates.
+    expect(bar).toHaveAccessibleName(
+      "Mejor ruta: Binance P2P + Bitso. Llegan $\u00a01.534.005,69. Tiene valores para revisar. " +
+        "Ver resultado",
+    );
+    await user.click(bar);
+    expect(screen.getByRole("heading", { name: "Binance P2P + Bitso" })).toHaveFocus();
+  });
+
+  it("drops the review mark once the best route's values are set", async () => {
+    const { user, type, openCard } = setup();
+    await fillEverything(type);
+    await openCard("Binance P2P + Bitso");
+    await type(/^Recargo P2P por pagar con Payoneer/, "0,1");
+    await type(/^Transferencia de Payoneer al comprador P2P/, "3");
+    await type(/^Comisión taker de Binance P2P/, "0,07");
+    const bar = screen.getByRole("link", { name: /Ver resultado$/ });
+    expect(bar).not.toHaveTextContent("revisá");
+    expect(bar).not.toHaveAccessibleName(/revisar/);
+    await user.click(bar);
+    expect(screen.getByRole("heading", { name: "Resultado" })).toHaveFocus();
+  });
+
+  it("marks the bar for review when the best route uses an unusual price", async () => {
+    const { type, openCard } = setup();
+    await fillEverything(type);
+    await openCard("Binance P2P + Bitso");
+    await type(/^Recargo P2P por pagar con Payoneer/, "0,1");
+    await type(/^Transferencia de Payoneer al comprador P2P/, "3");
+    await type(/^Comisión taker de Binance P2P/, "0,07");
+    await type(/^Precio de venta en Bitso/, "60.000");
+    const bar = screen.getByRole("link", { name: /Ver resultado$/ });
+    expect(bar).toHaveTextContent("Mejor ruta: Binance P2P + Bitso");
+    expect(bar).toHaveTextContent("· revisá");
+  });
+
   describe("with an on-screen keyboard that only shrinks the visual viewport (Safari on iOS)", () => {
     function fakeViewport(height: number, offsetTop = 0) {
-      const target = new EventTarget() as EventTarget & { height: number; offsetTop: number };
+      const target = new EventTarget() as EventTarget & {
+        width: number;
+        height: number;
+        offsetTop: number;
+        scale: number;
+      };
+      target.width = 390;
       target.height = height;
       target.offsetTop = offsetTop;
+      target.scale = 1;
       Object.defineProperty(window, "visualViewport", { value: target, configurable: true });
       Object.defineProperty(document.documentElement, "clientHeight", {
         value: 800,
@@ -467,6 +514,59 @@ describe("the calculator page", () => {
         viewport.dispatchEvent(new Event("resize"));
       });
       expect(bar()).toHaveStyle({ bottom: "0px" });
+    });
+
+    const resize = (viewport: EventTarget) => {
+      act(() => {
+        viewport.dispatchEvent(new Event("resize"));
+      });
+    };
+
+    it("shrinks the bar to one line while the keyboard is open", async () => {
+      const viewport = fakeViewport(800);
+      const { type } = setup();
+      await fillEverything(type);
+      viewport.height = 470;
+      resize(viewport);
+      expect(plain(bar().textContent)).toBe("Mejor: Binance P2P + Bitso · $ 1.534.005 ⚠");
+      expect(bar()).toHaveAccessibleName(description("Tiene valores para revisar."));
+      viewport.height = 800;
+      resize(viewport);
+      expect(plain(bar().textContent)).toBe(
+        "Mejor ruta: Binance P2P + BitsoLlegan $ 1.534.005,69 · revisáVer resultado",
+      );
+    });
+
+    it("shows no alert in the one-line bar when there is nothing to review", async () => {
+      const viewport = fakeViewport(800);
+      const { type, openCard } = setup();
+      await fillEverything(type);
+      await openCard("Binance P2P + Bitso");
+      await type(/^Recargo P2P por pagar con Payoneer/, "0,1");
+      await type(/^Transferencia de Payoneer al comprador P2P/, "3");
+      await type(/^Comisión taker de Binance P2P/, "0,07");
+      viewport.height = 470;
+      resize(viewport);
+      expect(plain(bar().textContent)).toBe("Mejor: Binance P2P + Bitso · $ 1.534.021");
+    });
+
+    it("keeps the full bar when pinch zoom shrinks the viewport", () => {
+      const viewport = fakeViewport(800);
+      render(<App />);
+      viewport.height = 400;
+      viewport.scale = 2;
+      resize(viewport);
+      expect(bar()).toHaveTextContent("Ver resultado");
+      expect(bar()).toHaveStyle({ bottom: "0px" });
+    });
+
+    it("keeps the full bar when a rotation makes the screen shorter", () => {
+      const viewport = fakeViewport(800);
+      render(<App />);
+      viewport.width = 800;
+      viewport.height = 390;
+      resize(viewport);
+      expect(bar()).toHaveTextContent("Ver resultado");
     });
 
     it("never moves the bar below the screen", () => {
