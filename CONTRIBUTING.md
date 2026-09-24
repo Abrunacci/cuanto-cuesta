@@ -3,9 +3,16 @@
 These are the conventions for code and reviews in this repo. They are settled; a PR that changes
 one should say so in its description.
 
-So far `domain/`, `application/`, the YAML config and its loader in `infrastructure/` exist. The
-API, the quote providers, Postgres and Alembic, the frontend and the Dockerfile come in later
-parts, and the rules below apply to each one when it is added.
+The app is built in three stages:
+
+1. A calculator that runs in the browser (`frontend/`). Everything is entered by hand, except the
+   fee defaults, which ship with the page. There is no backend.
+2. Scheduled jobs that fetch fee defaults and the MEP rate.
+3. Storing those values so the frontend can preload them.
+
+Stage 1 is in progress. In `backend/` so far `domain/`, `application/`, the YAML config and its
+loader in `infrastructure/` exist. They stay for stages 2 and 3; the rules below for the API,
+Postgres and deploy apply when those parts are added.
 
 ## Before a PR
 
@@ -17,7 +24,14 @@ uv run mypy
 uv run ruff check . && uv run ruff format --check .
 ```
 
-All four checks must pass.
+From `frontend/`:
+
+```sh
+npm run check   # typecheck, lint, format check and tests
+npm run build
+```
+
+All of them must pass; CI runs the same commands.
 
 ## Architecture
 
@@ -37,12 +51,30 @@ Dependencies point inwards: `application → domain` and `infrastructure → app
 singletons: the DB engine and the HTTP client live in the FastAPI `lifespan` and are injected
 with `Depends`.
 
+## Frontend
+
+- `frontend/` is Vite, React and TypeScript with `strict`, `noUncheckedIndexedAccess` and
+  `exactOptionalPropertyTypes`. No `any`, no non-null assertions (`!`), no casts to silence the
+  compiler.
+- Lint is ESLint with typescript-eslint `strict-type-checked` (type-aware), `jsx-a11y` (strict)
+  and the React hooks rules; a `switch` over a union must be exhaustive. Prettier formats: ESLint
+  has no formatting rules.
+- The calculation is plain TypeScript with no React, so it can be tested on its own. Components
+  render and collect input; they do not compute.
+- Test the calculation with unit tests and the screen with Testing Library, through what the
+  person sees and does (labels, roles, text), not component internals.
+- The page must work on a phone: mobile-first layout, real `<label>`s, keyboard and screen-reader
+  friendly, and inputs that open the numeric keyboard.
+
 ## Money
 
-- Use `Decimal` everywhere, never `float`. JSON is parsed with `parse_float=Decimal`, and the API
-  sends amounts as decimal strings.
-- All rounding lives in `domain/money.py`. Amounts credited to the user (each conversion and each
-  step output) round **down** to the minor unit, and fees round **up**. Nothing else rounds.
+- Use `Decimal` everywhere in Python and a decimal type (big.js) in TypeScript, never floats.
+  JSON is parsed with `parse_float=Decimal`, and the API sends amounts as decimal strings.
+- In Python all rounding lives in `domain/money.py`; in TypeScript it lives in one module that
+  mirrors it. Amounts credited to the user (each conversion and each step output) round **down**
+  to the minor unit, and fees round **up**. Nothing else rounds.
+- The TypeScript calculation rounds exactly like the Python domain, and its tests reproduce the
+  domain's hand-checked cases.
 - Intermediate arithmetic goes through the `Money` operators or `money.mul`/`money.div`, which use
   a fixed decimal context (34 significant digits). Never multiply bare `Decimal`s in the domain.
 - `Money` is signed on purpose, because `fx_loss` is negative when a route beats the reference.
@@ -73,7 +105,8 @@ with `Depends`.
 
 ## Fees
 
-- Defaults live in `backend/config/fees.yaml`, versioned in git, never in the database.
+- The researched defaults live in `backend/config/fees.yaml`, versioned in git; in stage 1 the
+  frontend bundles them. Where the values fetched in stage 2 are stored is decided in that stage.
 - Every fee in `fees.yaml` has `source_url`, `verified_at` and
   `status: verified | pending | user_defined`. These are metadata for the app, not fields of the
   domain types.
@@ -83,17 +116,20 @@ with `Depends`.
   reference was checked.
 - For an "up to X" fee, X is the default, the fee is `pending` and it sets `upper_bound: true`;
   only pending fees can.
-- Users can edit every fee. The application layer validates overrides before they reach the
-  domain: the id must exist, and the value must be finite, non-negative and at most the caps in
-  `application/limits.py`.
-- Every route is always computed and shown, whatever the fees; none is hidden or filtered out.
-- Routes are data in `backend/config/routes.yaml`. Adding a route must not need code.
+- Users can edit every fee. Edited values are validated before they are used: the id must exist,
+  and the value must be finite, non-negative and at most the caps (`application/limits.py` in
+  Python, the same caps in the calculator).
+- Every route is always shown, whatever the fees; none is hidden or filtered out. A route with an
+  empty field is not computed and says what is missing: an empty field is never read as 0.
+- Routes are data (ordered steps with their fees and rates), not special-case code. The backend
+  declares them in `backend/config/routes.yaml`; in stage 1 the calculator declares them in one
+  TypeScript data module.
 
 ## Deploy
 
-- There is one production image, and FastAPI also serves the frontend build.
-- Migrations run `alembic upgrade head`, as `docker compose run --rm migrate`.
-- The image exposes `GET /health`.
+- Stage 1 ships the static files that `npm run build` writes to `frontend/dist/`, with relative
+  paths so they work from any path. How and where they are served is decided later, together with
+  the deploy workflow of the infrastructure repo.
 
 ## Tests
 
