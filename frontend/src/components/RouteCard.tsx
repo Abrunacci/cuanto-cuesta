@@ -2,7 +2,7 @@ import { FEE_DEFAULTS, RATE_FIELDS, type Route, type Step } from "../calculator/
 import { fieldId, type FormReading, type FormTexts } from "../form/form.ts";
 import { lowerFirst } from "../text/case.ts";
 import { NumberField } from "./NumberField.tsx";
-import { statusText } from "../form/messages.ts";
+import { feeStatusText, referenceValueText } from "../form/messages.ts";
 import { Provenance, StatusBadge } from "./Provenance.tsx";
 import { RichText } from "./RichText.tsx";
 
@@ -36,7 +36,9 @@ export function RouteCard({
     >
       <summary>
         <span className="route-card-title">{route.name}</span>
-        <span className="route-card-hint">Ajustar comisiones</span>
+        <span className="route-card-hint">
+          Ajustar comisiones{ownCountText(route, texts.ownFees)}
+        </span>
       </summary>
       {route.steps.map((step) => (
         <fieldset key={step.label} className="step">
@@ -78,6 +80,12 @@ function repeatsItsFee(step: Step): boolean {
   return label !== undefined && withoutFirstWord(label) === withoutFirstWord(step.label);
 }
 
+/** " · 2 con tu valor", or nothing while the route has only researched values. */
+function ownCountText(route: Route, ownFees: ReadonlySet<string>): string {
+  const count = route.steps.flatMap((step) => step.feeIds).filter((id) => ownFees.has(id)).length;
+  return count === 0 ? "" : ` · ${String(count)} con tu valor`;
+}
+
 function withoutFirstWord(text: string): string {
   return text.toLowerCase().split(" ").slice(1).join(" ");
 }
@@ -105,6 +113,7 @@ function FeeInputs({
   }
   const { fee, label, note, provenance } = feeDefault;
   const valueId = fieldId.fee(id);
+  const own = texts.ownFees.has(id);
   const minimumId = fieldId.minimum(id);
   return (
     <div className="fee">
@@ -120,9 +129,14 @@ function FeeInputs({
         echo={reading.echoes.get(valueId)}
       >
         <details className="fee-details">
-          <summary aria-label={`${statusText(provenance)}. Detalles de ${label}`}>
-            <StatusBadge provenance={provenance} /> Detalles
+          <summary aria-label={`${feeStatusText(provenance, own)}. Detalles de ${label}`}>
+            <StatusBadge provenance={provenance} own={own} /> Detalles
           </summary>
+          {own && (
+            <p className="provenance">
+              Pusiste tu valor. El de referencia es {referenceValueText(fee)}.
+            </p>
+          )}
           <Provenance provenance={provenance} feeLabel={label} />
           {note !== null && (
             <p className="note">

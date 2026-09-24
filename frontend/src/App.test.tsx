@@ -1,4 +1,4 @@
-import { act, getDefaultNormalizer, render, screen, within } from "@testing-library/react";
+import { act, cleanup, getDefaultNormalizer, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it } from "vitest";
 
@@ -718,5 +718,130 @@ describe("the calculator page", () => {
       Reflect.deleteProperty(window, "ResizeObserver");
       Reflect.deleteProperty(HTMLElement.prototype, "offsetHeight");
     }
+  });
+
+  describe("the person's own values", () => {
+    const PREMIUM = /^Recargo P2P por pagar con Payoneer/;
+    const premiumDetails = (status: string) =>
+      screen.getByText("Detalles", {
+        selector: `[aria-label="${status}. Detalles de Recargo P2P por pagar con Payoneer"]`,
+        exact: false,
+      });
+
+    it("marks a 0 typed by hand in the P2P premium as the person's value", async () => {
+      const { type, openCard, ranking } = setup();
+      await fillEverything(type);
+      await openCard("Binance P2P + Bitso");
+      expect(premiumDetails("Lo definís vos")).toBeInTheDocument();
+      await type(PREMIUM, "0");
+      expect(within(premiumDetails("Tu valor")).getByText("Tu valor")).toBeVisible();
+      expect(
+        screen.getByText("Pusiste tu valor. El de referencia es 0 %.", {
+          normalizer: getDefaultNormalizer({ collapseWhitespace: true }),
+        }),
+      ).toBeInTheDocument();
+      const binance = ranking().find((item) => item.includes("Binance"));
+      expect(binance).not.toContain("poné tu valor");
+      expect(binance).toContain("Con tu valor: recargo P2P por pagar con Payoneer.");
+      expect(
+        screen.getByText("Binance P2P + Bitso", { selector: ".route-card-title" }).nextSibling,
+      ).toHaveTextContent("Ajustar comisiones · 1 con tu valor");
+    });
+
+    it("makes a fee the person's own when only its minimum is edited", async () => {
+      const { type, openCard } = setup();
+      await openCard("ARQ (ex DolarApp)");
+      await type(/^Retiro de Payoneer a una cuenta de EE.UU.: mínimo/, "0");
+      expect(
+        screen.getByText("Detalles", {
+          selector:
+            '[aria-label="Tu valor. Detalles de Retiro de Payoneer a una cuenta de EE.UU."]',
+          exact: false,
+        }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText("Pusiste tu valor. El de referencia es 4 %, mínimo 20 USD.", {
+          normalizer: getDefaultNormalizer({ collapseWhitespace: true }),
+        }),
+      ).toBeInTheDocument();
+    });
+
+    it("remembers the amount and the fees the person set, but not the prices", async () => {
+      const first = setup();
+      await fillEverything(first.type);
+      await first.openCard("Binance P2P + Bitso");
+      await first.type(/^Comisión taker del libro de órdenes de Bitso/, "0,5");
+      cleanup();
+
+      const again = setup();
+      expect(again.field(/^Monto en Payoneer/)).toHaveValue("1000");
+      expect(again.field(/^Dólar MEP \(compra\)/)).toHaveValue("");
+      await again.openCard("Binance P2P + Bitso");
+      expect(again.field(/^Comisión taker del libro de órdenes de Bitso/)).toHaveValue("0,5");
+      expect(
+        screen.getByText("Detalles", {
+          selector:
+            '[aria-label="Tu valor. Detalles de Comisión taker del libro de órdenes de Bitso"]',
+          exact: false,
+        }),
+      ).toBeInTheDocument();
+      // The fees the person did not touch are still the researched ones.
+      expect(premiumDetails("Lo definís vos")).toBeInTheDocument();
+    });
+
+    it("resets the fees only after a confirmation, and can be cancelled", async () => {
+      const { user, type, field, openCard } = setup();
+      expect(
+        screen.queryByRole("button", { name: "Restablecer valores de referencia" }),
+      ).toBeNull();
+      await type(/^Monto en Payoneer/, "1000");
+      await openCard("Binance P2P + Bitso");
+      await type(PREMIUM, "0,1");
+      await type(/^Comisión taker del libro de órdenes de Bitso/, "0,5");
+
+      const reset = () => screen.getByRole("button", { name: "Restablecer valores de referencia" });
+      await user.click(reset());
+      const question = screen.getByText(
+        "¿Volver las 2 comisiones con tu valor a los valores de referencia? Lo que pusiste se borra.",
+      );
+      expect(question).toHaveFocus();
+      await user.click(screen.getByRole("button", { name: "Cancelar" }));
+      expect(reset()).toHaveFocus();
+      expect(field(PREMIUM)).toHaveValue("0,1");
+
+      await user.click(reset());
+      await user.click(screen.getByRole("button", { name: "Sí, restablecer" }));
+      expect(field(PREMIUM)).toHaveValue("0");
+      expect(field(/^Comisión taker del libro de órdenes de Bitso/)).toHaveValue("0,6");
+      expect(premiumDetails("Lo definís vos")).toBeInTheDocument();
+      expect(screen.getByRole("status")).toHaveTextContent(
+        "Listo: las comisiones volvieron a los valores de referencia.",
+      );
+      expect(screen.getByRole("status")).toHaveFocus();
+      // What is kept is the amount alone.
+      expect(JSON.parse(localStorage.getItem("cuanto-cuesta:form") ?? "")).toMatchObject({
+        amount: "1000",
+        fees: {},
+      });
+    });
+
+    it("keeps working where the browser blocks site data", async () => {
+      const blocked = () => {
+        throw new DOMException("blocked", "SecurityError");
+      };
+      const original = Object.getOwnPropertyDescriptor(window, "localStorage");
+      Object.defineProperty(window, "localStorage", { get: blocked, configurable: true });
+      try {
+        const { type, ranking } = setup();
+        await fillEverything(type);
+        expect(ranking()[0]).toContain("Binance P2P + Bitso");
+      } finally {
+        if (original === undefined) {
+          Reflect.deleteProperty(window, "localStorage");
+        } else {
+          Object.defineProperty(window, "localStorage", original);
+        }
+      }
+    });
   });
 });

@@ -3,6 +3,7 @@ import { flushSync } from "react-dom";
 
 import { ROUTES } from "./calculator/index.ts";
 import { Inputs } from "./components/Inputs.tsx";
+import { ResetFees } from "./components/ResetFees.tsx";
 import { ResultBar } from "./components/ResultBar.tsx";
 import { Results } from "./components/Results.tsx";
 import { RouteCard } from "./components/RouteCard.tsx";
@@ -70,7 +71,7 @@ export function App() {
             feeGaps={reading.feeGaps}
             referenceProblems={problems}
             warnings={reading.warnings}
-            unchangedFees={reading.unchangedFees}
+            ownFees={reading.ownFees}
             onGoToField={goToField}
           />
         </div>
@@ -80,8 +81,10 @@ export function App() {
             Comisiones de cada ruta
           </h2>
           <p className="muted small">
-            Vienen cargadas con los valores investigados. Abrí una ruta para ajustarlas.
+            Vienen cargadas con los valores investigados. Abrí una ruta para ajustarlas: lo que
+            pongas queda guardado en este navegador.
           </p>
+          <ResetFees ownCount={texts.ownFees.size} onReset={form.resetFees} />
           {ROUTES.map((route) => (
             <RouteCard
               key={route.id}

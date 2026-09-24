@@ -43,6 +43,11 @@ export interface FormTexts {
   readonly fees: Readonly<Record<string, string>>;
   /** Minimum of each percent fee that has one, by fee id. */
   readonly minimums: Readonly<Record<string, string>>;
+  /**
+   * Ids of the fees the person typed into, value or minimum: their own value, even when it equals
+   * the researched one (a 0 typed by hand in the P2P premium is a decision, not a default).
+   */
+  readonly ownFees: ReadonlySet<string>;
 }
 
 /** Which part of a fee cannot be used yet. */
@@ -58,8 +63,8 @@ export interface FormReading {
   readonly warnings: ReadonlyMap<string, string>;
   /** Fees that cannot be used, by fee id, and which part of them is missing or wrong. */
   readonly feeGaps: ReadonlyMap<string, FeeGap>;
-  /** Ids of the fees still at their researched value, minimum included. */
-  readonly unchangedFees: ReadonlySet<string>;
+  /** Ids of the fees the person set; the rest are at their researched value. */
+  readonly ownFees: ReadonlySet<string>;
 }
 
 export const fieldId = {
@@ -84,6 +89,7 @@ export function initialTexts(): FormTexts {
     prices: Object.fromEntries(RATE_FIELDS.map((field) => [field.key, ""])),
     fees,
     minimums,
+    ownFees: new Set(),
   };
 }
 
@@ -92,7 +98,6 @@ export function readForm(texts: FormTexts): FormReading {
   const echoes = new Map<string, string>();
   const warnings = new Map<string, string>();
   const feeGaps = new Map<string, FeeGap>();
-  const unchangedFees = new Set<string>();
   const valueOf = <T>(id: string, read: FieldRead<T>): T | null => {
     switch (read.kind) {
       case "empty":
@@ -127,9 +132,6 @@ export function readForm(texts: FormTexts): FormReading {
     const minimum = parts.minimum === null ? null : valueOf(fieldId.minimum(id), parts.minimum);
     const fee = parts.build(value, minimum);
     fees.set(id, fee);
-    if (fee !== null && sameFee(fee, feeDefault.fee)) {
-      unchangedFees.add(id);
-    }
     if (fee === null) {
       const gap = feeGap(value === null, parts.minimum !== null && minimum === null);
       if (gap !== null) {
@@ -146,7 +148,7 @@ export function readForm(texts: FormTexts): FormReading {
     prices,
     fees,
   });
-  return { comparison, problems, echoes, warnings, feeGaps, unchangedFees };
+  return { comparison, problems, echoes, warnings, feeGaps, ownFees: texts.ownFees };
 }
 
 type FieldRead<T> =
@@ -310,24 +312,4 @@ function feeGap(valueMissing: boolean, minimumMissing: boolean): FeeGap | null {
     return "value";
   }
   return minimumMissing ? "minimum" : null;
-}
-
-/** Same kind and same values, minimum included. */
-function sameFee(a: Fee, b: Fee): boolean {
-  switch (a.kind) {
-    case "fixed":
-      return (
-        b.kind === "fixed" &&
-        a.amount.currency === b.amount.currency &&
-        a.amount.amount.eq(b.amount.amount)
-      );
-    case "percent":
-      if (b.kind !== "percent" || !a.rate.eq(b.rate)) {
-        return false;
-      }
-      if (a.minimum === null || b.minimum === null) {
-        return a.minimum === b.minimum;
-      }
-      return a.minimum.currency === b.minimum.currency && a.minimum.amount.eq(b.minimum.amount);
-  }
 }

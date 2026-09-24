@@ -16,8 +16,8 @@ interface ResultsProps {
   readonly referenceProblems: ReferenceProblems;
   /** Field ids whose value is used but looks wrong. */
   readonly warnings: ReadonlyMap<string, string>;
-  /** Ids of the fees still at their researched value. */
-  readonly unchangedFees: ReadonlySet<string>;
+  /** Ids of the fees the person set. */
+  readonly ownFees: ReadonlySet<string>;
   readonly onGoToField: (routeId: string, id: string) => void;
 }
 
@@ -31,7 +31,7 @@ export function Results({
   feeGaps,
   referenceProblems,
   warnings,
-  unchangedFees,
+  ownFees,
   onGoToField,
 }: ResultsProps) {
   const common = commonMissing(comparison);
@@ -80,11 +80,7 @@ export function Results({
               onGoToField={onGoToField}
             />
             {entry.status === "complete" && (
-              <RouteReview
-                route={entry.route}
-                unchangedFees={unchangedFees}
-                onGoToField={onGoToField}
-              />
+              <RouteReview route={entry.route} ownFees={ownFees} onGoToField={onGoToField} />
             )}
             {entry.route.warnings.map((warning) => (
               <p key={warning} className="warning">

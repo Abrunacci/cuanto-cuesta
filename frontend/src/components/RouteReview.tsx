@@ -7,18 +7,19 @@ import { InPageAnchor, LinkList, type InPageLink } from "./LinkList.tsx";
 
 interface RouteReviewProps {
   readonly route: Route;
-  /** Ids of the fees still at their researched value. */
-  readonly unchangedFees: ReadonlySet<string>;
+  /** Ids of the fees the person set. */
+  readonly ownFees: ReadonlySet<string>;
   readonly onGoToField: (routeId: string, id: string) => void;
 }
 
 /**
- * What to check before trusting a route's result, each fee a link to its field. Someone who
- * only reads the result must not decide on a number that silently assumes a 0.
+ * What to check before trusting a route's result, and which values are the person's own, each
+ * fee a link to its field. Someone who only reads the result must not decide on a number that
+ * silently assumes a 0.
  */
-export function RouteReview({ route, unchangedFees, onGoToField }: RouteReviewProps) {
-  const { toSet, estimated } = feesToReview(route, unchangedFees);
-  if (toSet.length === 0 && estimated.length === 0) {
+export function RouteReview({ route, ownFees, onGoToField }: RouteReviewProps) {
+  const { toSet, estimated, own } = feesToReview(route, ownFees);
+  if (toSet.length === 0 && estimated.length === 0 && own.length === 0) {
     return null;
   }
   const link = (id: string, text: string): InPageLink => ({
@@ -30,6 +31,7 @@ export function RouteReview({ route, unchangedFees, onGoToField }: RouteReviewPr
     },
   });
   const links = estimated.map(({ fee, label }) => link(fee.id, lowerFirst(label)));
+  const ownLinks = own.map(({ fee, label }) => link(fee.id, lowerFirst(label)));
   return (
     <div className="review">
       {toSet.map(({ fee, label }) => (
@@ -45,6 +47,11 @@ export function RouteReview({ route, unchangedFees, onGoToField }: RouteReviewPr
       {links.length > 1 && (
         <p>
           Incluye comisiones estimadas: <LinkList links={links} />. Revisalas si sabés las tuyas.
+        </p>
+      )}
+      {ownLinks.length > 0 && (
+        <p className="muted">
+          Con tu valor: <LinkList links={ownLinks} />.
         </p>
       )}
     </div>
