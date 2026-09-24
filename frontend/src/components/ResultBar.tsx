@@ -136,7 +136,8 @@ function useKeyboard(): Keyboard {
     let tallest = viewport.height;
     const update = () => {
       if (root.clientWidth !== width) {
-        // Rotated: heights from the other orientation say nothing about the keyboard.
+        // Rotated (or, on a desktop, a scrollbar came or went): heights from before say nothing
+        // about the keyboard.
         width = root.clientWidth;
         tallest = viewport.height;
       }

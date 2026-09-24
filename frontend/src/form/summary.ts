@@ -42,7 +42,6 @@ export type BarText =
     }
   | { readonly kind: "pending"; readonly text: string };
 
-/** What the bar needs to tell whether the best route's result has something to check. */
 /** The best route and what reaches the bank; or, while no route can be computed, what is missing. */
 export function barText(reading: FormReading, problems: ReferenceProblems): BarText {
   const { comparison, feeGaps } = reading;

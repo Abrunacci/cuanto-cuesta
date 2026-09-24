@@ -9,7 +9,10 @@ const plain = (text: string | null) => (text ?? "").replace(/\u00a0/g, " ");
 
 /** What a sighted person reads: the text without what is only for screen readers, spaces collapsed. */
 function visible(element: HTMLElement) {
-  const copy = element.cloneNode(true) as HTMLElement;
+  const copy = element.cloneNode(true);
+  if (!(copy instanceof HTMLElement)) {
+    throw new Error("expected an element");
+  }
   for (const hidden of copy.querySelectorAll(".visually-hidden")) {
     hidden.remove();
   }
@@ -47,6 +50,9 @@ async function fillEverything(type: (name: RegExp, text: string) => Promise<void
 }
 
 const description = (text: string) => expect.stringContaining(text) as string;
+
+// Accessible names below are jsdom's. Chromium adds a space around the hidden punctuation
+// ("Bitso . Llegan"), because hidden text is absolutely positioned; screen readers do not read it.
 
 describe("the calculator page", () => {
   it("shows the page title", () => {
@@ -563,6 +569,7 @@ describe("the calculator page", () => {
       render(<App />);
       viewport.height = 470;
       resize(viewport);
+      // jsdom has no layout: this checks the line that cuts with an ellipsis, not the cut.
       const line = within(bar()).getByText("Falta completar: monto en USD y dólar MEP (compra).");
       expect(line.parentElement).toHaveClass("result-bar-line");
       expect(bar()).toHaveAccessibleName(
@@ -581,6 +588,9 @@ describe("the calculator page", () => {
       viewport.height = 470;
       resize(viewport);
       expect(visible(bar())).toBe("Mejor: Binance P2P + Bitso · $ 1.534.021");
+      expect(bar()).toHaveAccessibleName(
+        "Mejor: Binance P2P + Bitso · $\u00a01.534.021. Ver resultado",
+      );
     });
 
     const compact = () => !visible(bar()).includes("Ver resultado");
