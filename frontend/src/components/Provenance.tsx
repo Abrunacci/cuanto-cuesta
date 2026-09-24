@@ -38,7 +38,7 @@ export function Provenance({ provenance, feeLabel }: ProvenanceProps) {
           {formatDate(provenance.checkedAt)} ·{" "}
           <ExternalLink
             href={provenance.referenceUrl}
-            label={`Precio de referencia de ${feeLabel} (se abre en otra pestaña)`}
+            label={`Precio de referencia de ${feeLabel}`}
           >
             Precio de referencia
           </ExternalLink>
@@ -48,7 +48,7 @@ export function Provenance({ provenance, feeLabel }: ProvenanceProps) {
 }
 
 function sourceLabel(feeLabel: string): string {
-  return `Fuente de ${feeLabel} (se abre en otra pestaña)`;
+  return `Fuente de ${feeLabel}`;
 }
 
 /** "2026-09-23" as "23/09/2026". */

@@ -7,10 +7,16 @@ interface NumberFieldProps {
   readonly unit: string;
   readonly value: string;
   readonly onChange: (text: string) => void;
+  /** Why the value cannot be used. */
   readonly problem: string | null;
-  /** How a valid value was read, e.g. "Leímos 1,03 USD por USDT." */
+  /** The value is used but looks wrong, e.g. a price far outside its usual range. */
+  readonly warning?: string | undefined;
+  /** How an ambiguous value was read, e.g. "Leímos 1.030,00 ARS por USD." */
   readonly echo?: string | undefined;
-  readonly help?: ReactNode;
+  /** Short help, part of the field's description. */
+  readonly help?: string | undefined;
+  /** More about the field, outside its description (e.g. a collapsible "Detalles"). */
+  readonly children?: ReactNode;
   readonly placeholder?: string;
 }
 
@@ -21,22 +27,29 @@ export function NumberField({
   value,
   onChange,
   problem,
+  warning,
   echo,
   help,
+  children,
   placeholder,
 }: NumberFieldProps) {
-  // Show the field's own problem once the person leaves it, so typing "1540" does not flag the
-  // field at "1"; after that it updates as they fix it. The results summary reflects the current
-  // text at every keystroke.
+  // Show the field's own problem or warning once the person leaves it, so typing "1540" does
+  // not flag the field at "1"; after that it updates as they fix it. The results summary
+  // reflects the current text at every keystroke.
   const [touched, setTouched] = useState(false);
   const shownProblem = touched ? problem : null;
-  const problemId = `${id}-problem`;
-  const helpId = `${id}-help`;
-  const echoId = `${id}-echo`;
+  const shownWarning = touched && problem === null ? (warning ?? null) : null;
+  const ids = {
+    problem: `${id}-problem`,
+    warning: `${id}-warning`,
+    echo: `${id}-echo`,
+    help: `${id}-help`,
+  };
   const describedBy = [
-    shownProblem !== null ? problemId : null,
-    echo !== undefined ? echoId : null,
-    help !== undefined ? helpId : null,
+    shownProblem !== null ? ids.problem : null,
+    shownWarning !== null ? ids.warning : null,
+    echo !== undefined ? ids.echo : null,
+    help !== undefined ? ids.help : null,
   ]
     .filter((part) => part !== null)
     .join(" ");
@@ -66,20 +79,24 @@ export function NumberField({
           {unit}
         </span>
       </div>
-      {/* Always rendered, so screen readers announce the problem when it appears on leaving. */}
-      <p id={problemId} className="field-problem" aria-live="polite">
+      {/* Always rendered, so screen readers announce what appears on leaving the field. */}
+      <p id={ids.problem} className="field-problem" aria-live="polite">
         {shownProblem}
       </p>
+      <p id={ids.warning} className="field-warning" aria-live="polite">
+        {shownWarning}
+      </p>
       {echo !== undefined && (
-        <p id={echoId} className="field-echo">
+        <p id={ids.echo} className="field-echo">
           {echo}
         </p>
       )}
       {help !== undefined && (
-        <div id={helpId} className="field-help">
+        <p id={ids.help} className="field-help">
           {help}
-        </div>
+        </p>
       )}
+      {children}
     </div>
   );
 }

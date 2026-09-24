@@ -30,15 +30,16 @@ export function valueProblemMessage(problem: ValueProblem, unit: string): string
 }
 
 /**
- * A price outside its plausible range. When the text was ambiguous ("1.030") and its other reading
- * is plausible, suggest that reading; never a value the person did not type.
+ * A price outside its plausible range, which is still used. When the text was ambiguous
+ * ("1.030") and its other reading is plausible, suggest that reading; never a value the person
+ * did not type.
  */
-export function implausiblePriceMessage(
+export function unusualPriceMessage(
   value: Big,
   alternative: Big | null,
   check: PriceCheck,
 ): string {
-  const read = `Leímos ${formatUnambiguous(value)} ${check.unit}, y lo esperable está entre ${formatExact(check.min)} y ${formatExact(check.max)}.`;
+  const read = `Valor inusual: leímos ${formatUnambiguous(value)} ${check.unit} y lo común está entre ${formatExact(check.min)} y ${formatExact(check.max)}. Revisalo.`;
   return alternative !== null && inRange(alternative, check)
     ? `${read} ${didYouMean(alternative)}`
     : read;

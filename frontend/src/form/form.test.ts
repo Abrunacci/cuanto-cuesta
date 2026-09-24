@@ -110,26 +110,32 @@ describe("readForm", () => {
 describe("numbers read a thousand times off", () => {
   const priceOf = (texts: FormTexts, key: string) => {
     const reading = readForm(texts);
+    const id = fieldId.price(key);
     return {
-      problem: reading.problems.get(fieldId.price(key)),
-      echo: reading.echoes.get(fieldId.price(key)),
+      problem: reading.problems.get(id),
+      warning: reading.warnings.get(id),
+      echo: reading.echoes.get(id),
+      route: (routeId: string) => reading.comparison.routes.find((r) => r.route.id === routeId),
     };
   };
 
-  it("rejects a P2P price typed with three decimals and a dot, suggesting the fix", () => {
+  it("warns about a P2P price typed with three decimals and a dot, and still computes", () => {
     // Binance shows P2P prices like 1.030; typed that way it reads as one thousand thirty.
-    const texts = filled({ prices: { ...PRICES, p2p_usdt_usd: "1.030" } });
-    expect(priceOf(texts, "p2p_usdt_usd").problem).toBe(
-      "Leímos 1.030,00 USD por USDT, y lo esperable está entre 0,5 y 2. ¿Quisiste poner 1,03?",
+    const read = priceOf(filled({ prices: { ...PRICES, p2p_usdt_usd: "1.030" } }), "p2p_usdt_usd");
+    expect(read.problem).toBeUndefined();
+    expect(read.warning).toBe(
+      "Valor inusual: leímos 1.030,00 USD por USDT y lo común está entre 0,5 y 2. Revisalo. " +
+        "¿Quisiste poner 1,03?",
     );
-    const binance = readForm(texts).comparison.routes.find((r) => r.route.id === "binance_bitso");
-    expect(binance?.status).toBe("incomplete");
+    // A jump in the exchange rate must not leave the calculator useless: the route is computed.
+    expect(read.route("binance_bitso")?.status).toBe("complete");
   });
 
-  it("rejects a MEP pasted in English notation, suggesting the fix", () => {
-    const texts = filled({ prices: { ...PRICES, mep: "1,536" } });
-    expect(priceOf(texts, "mep").problem).toBe(
-      "Leímos 1,536 ARS por USD, y lo esperable está entre 500 y 50.000. ¿Quisiste poner 1.536?",
+  it("warns about a MEP pasted in English notation, suggesting the fix", () => {
+    const read = priceOf(filled({ prices: { ...PRICES, mep: "1,536" } }), "mep");
+    expect(read.warning).toBe(
+      "Valor inusual: leímos 1,536 ARS por USD y lo común está entre 500 y 50.000. Revisalo. " +
+        "¿Quisiste poner 1.536?",
     );
   });
 
@@ -139,31 +145,45 @@ describe("numbers read a thousand times off", () => {
     );
   });
 
-  it("says how each valid amount and price was read", () => {
-    const texts = filled({ prices: { ...PRICES, p2p_usdt_usd: "1.03" } });
-    const { echoes } = readForm(texts);
-    expect(echoes.get(fieldId.amount)).toBe("Leímos US$ 1.000,00.");
-    expect(echoes.get(fieldId.price("p2p_usdt_usd"))).toBe("Leímos 1,03 USD por USDT.");
-    expect(echoes.get(fieldId.price("mep"))).toBe("Leímos 1.536,16 ARS por USD.");
-    const integer = readForm(filled({ prices: { ...PRICES, mep: "1.540" } })).echoes;
+  it("says how a value was read only when the text reads two ways", () => {
+    // Every example value reads one way ("1.536,16", "1,03"), and so does "1000".
+    const { echoes } = readForm(filled({ amount: "1000" }));
+    expect(echoes.size).toBe(0);
+    const ambiguous = readForm(filled({ amount: "1.000", prices: { ...PRICES, mep: "1.540" } }));
     // Two decimals, so "1.540" is not echoed back in a form that reads as 1,54.
-    expect(integer.get(fieldId.price("mep"))).toBe("Leímos 1.540,00 ARS por USD.");
+    expect(ambiguous.echoes.get(fieldId.price("mep"))).toBe("Leímos 1.540,00 ARS por USD.");
+    expect(ambiguous.echoes.get(fieldId.amount)).toBe("Leímos US$\u00a01.000,00.");
+    expect(readForm(filled({ amount: "1000" })).echoes.get(fieldId.amount)).toBeUndefined();
   });
 
   it.each([
-    ["15", "Leímos 15,00 ARS por USD, y lo esperable está entre 500 y 50.000."],
-    ["154000", "Leímos 154.000,00 ARS por USD, y lo esperable está entre 500 y 50.000."],
-    ["99,9", "Leímos 99,90 ARS por USD, y lo esperable está entre 500 y 50.000."],
-    ["153.616", "Leímos 153.616,00 ARS por USD, y lo esperable está entre 500 y 50.000."],
-    ["1.536.160", "Leímos 1.536.160,00 ARS por USD, y lo esperable está entre 500 y 50.000."],
-  ])("never suggests a value the person did not type: MEP %s", (text, message) => {
-    expect(priceOf(filled({ prices: { ...PRICES, mep: text } }), "mep").problem).toBe(message);
+    ["15", "Valor inusual: leímos 15,00 ARS por USD y lo común está entre 500 y 50.000. Revisalo."],
+    [
+      "154000",
+      "Valor inusual: leímos 154.000,00 ARS por USD y lo común está entre 500 y 50.000. Revisalo.",
+    ],
+    [
+      "99,9",
+      "Valor inusual: leímos 99,90 ARS por USD y lo común está entre 500 y 50.000. Revisalo.",
+    ],
+    [
+      "153.616",
+      "Valor inusual: leímos 153.616,00 ARS por USD y lo común está entre 500 y 50.000. Revisalo.",
+    ],
+  ])("never suggests a value the person did not type: MEP %s", (text, warning) => {
+    expect(priceOf(filled({ prices: { ...PRICES, mep: text } }), "mep").warning).toBe(warning);
   });
 
-  it("gives up on a price with no plausible fix", () => {
+  it("still rejects a price above the calculator's absurd cap", () => {
+    const read = priceOf(filled({ prices: { ...PRICES, mep: "1.536.160" } }), "mep");
+    expect(read.problem).toBe("No puede ser más de 1.000.000.");
+    expect(read.route("mep")?.status).toBe("incomplete");
+  });
+
+  it("warns without a suggestion when no other reading fits", () => {
     expect(
-      priceOf(filled({ prices: { ...PRICES, p2p_usdt_usd: "50" } }), "p2p_usdt_usd").problem,
-    ).toBe("Leímos 50,00 USD por USDT, y lo esperable está entre 0,5 y 2.");
+      priceOf(filled({ prices: { ...PRICES, p2p_usdt_usd: "50" } }), "p2p_usdt_usd").warning,
+    ).toBe("Valor inusual: leímos 50,00 USD por USDT y lo común está entre 0,5 y 2. Revisalo.");
   });
 });
 

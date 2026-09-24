@@ -101,10 +101,10 @@ describe("formatting", () => {
   });
 
   it("writes money with its currency", () => {
-    expect(formatMoney(new Decimal("1534005.69"), "ARS")).toBe("$ 1.534.005,69");
-    expect(formatMoney(new Decimal("-13552.4"), "ARS")).toBe("-$ 13.552,40");
-    expect(formatMoney(new Decimal("1000"), "USD")).toBe("US$ 1.000,00");
-    expect(formatMoney(new Decimal("0.08"), "USDT")).toBe("0,08 USDT");
+    expect(formatMoney(new Decimal("1534005.69"), "ARS")).toBe("$\u00a01.534.005,69");
+    expect(formatMoney(new Decimal("-13552.4"), "ARS")).toBe("-$\u00a013.552,40");
+    expect(formatMoney(new Decimal("1000"), "USD")).toBe("US$\u00a01.000,00");
+    expect(formatMoney(new Decimal("0.08"), "USDT")).toBe("0,08\u00a0USDT");
   });
 
   it("echoes numbers with at least two decimals", () => {

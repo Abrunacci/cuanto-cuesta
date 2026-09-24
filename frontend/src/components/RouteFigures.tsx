@@ -1,25 +1,40 @@
-import type { RouteComparison } from "../calculator/index.ts";
-import type { FeeGap } from "../form/form.ts";
+import type { MissingInput, RouteComparison } from "../calculator/index.ts";
+import { fieldId, type FeeGap } from "../form/form.ts";
 import { missingInputLabel } from "../form/messages.ts";
-import { joinSpanish } from "../text/lists.ts";
 import { formatMoney } from "../text/numbers.ts";
 
 interface RouteFiguresProps {
   readonly entry: RouteComparison;
   readonly feeGaps: ReadonlyMap<string, FeeGap>;
+  /** Take the person to a field, opening the route's card when the field is inside it. */
+  readonly onGoToField: (routeId: string, id: string) => void;
 }
 
-/** A route's three figures, or what it still needs. */
-export function RouteFigures({ entry, feeGaps }: RouteFiguresProps) {
+/** A route's three figures, or what it still needs, each item a link to its field. */
+export function RouteFigures({ entry, feeGaps, onGoToField }: RouteFiguresProps) {
   if (entry.status === "incomplete") {
-    const labels = entry.missing.map((missing) => missingInputLabel(missing, feeGaps));
-    const list = joinSpanish(labels);
-    // Some labels end in an abbreviation ("EE.UU."): do not add a second period.
     return (
-      <p className="missing">
-        Falta completar o corregir: {list}
-        {list.endsWith(".") ? "" : "."}
-      </p>
+      <div className="missing">
+        <p>Falta completar o corregir:</p>
+        <ul>
+          {entry.missing.map((missing) => {
+            const id = missingFieldId(missing, feeGaps);
+            return (
+              <li key={id}>
+                <a
+                  href={`#${id}`}
+                  onClick={(event) => {
+                    event.preventDefault();
+                    onGoToField(entry.route.id, id);
+                  }}
+                >
+                  {missingInputLabel(missing, feeGaps)}
+                </a>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
     );
   }
   const { final } = entry.result;
@@ -46,4 +61,18 @@ export function RouteFigures({ entry, feeGaps }: RouteFiguresProps) {
       )}
     </>
   );
+}
+
+/** The field to fill for a missing input: for a fee, its value or its minimum. */
+function missingFieldId(missing: MissingInput, feeGaps: ReadonlyMap<string, FeeGap>): string {
+  switch (missing.kind) {
+    case "amount":
+      return fieldId.amount;
+    case "rate":
+      return fieldId.price(missing.key);
+    case "fee":
+      return feeGaps.get(missing.id) === "minimum"
+        ? fieldId.minimum(missing.id)
+        : fieldId.fee(missing.id);
+  }
 }

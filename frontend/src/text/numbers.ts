@@ -95,9 +95,12 @@ export function formatUnambiguous(value: Big): string {
   return formatNumber(value, Math.max(2, fraction.length));
 }
 
+/** No-break space, so a currency sign never ends up on a different line from its number. */
+const NBSP = "\u00a0";
+
 const CURRENCY_PREFIX: Record<Currency, string> = {
-  ARS: "$ ",
-  USD: "US$ ",
+  ARS: `$${NBSP}`,
+  USD: `US$${NBSP}`,
   USDT: "",
   USDC: "",
 };
@@ -105,8 +108,8 @@ const CURRENCY_PREFIX: Record<Currency, string> = {
 const CURRENCY_SUFFIX: Record<Currency, string> = {
   ARS: "",
   USD: "",
-  USDT: " USDT",
-  USDC: " USDC",
+  USDT: `${NBSP}USDT`,
+  USDC: `${NBSP}USDC`,
 };
 
 /** An amount of money in cents, e.g. "$ 1.534.005,69" or "US$ 1.000,00". */

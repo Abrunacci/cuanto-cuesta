@@ -1,56 +1,50 @@
-import {
-  FEE_DEFAULTS,
-  RATE_FIELDS,
-  REFERENCE_KEY,
-  type Route,
-  type RouteComparison,
-} from "../calculator/index.ts";
+import { FEE_DEFAULTS, RATE_FIELDS, type Route, type Step } from "../calculator/index.ts";
 import { fieldId, type FormReading, type FormTexts } from "../form/form.ts";
 import { NumberField } from "./NumberField.tsx";
 import { Provenance } from "./Provenance.tsx";
 import { RichText } from "./RichText.tsx";
-import { RouteFigures } from "./RouteFigures.tsx";
 
 interface RouteCardProps {
   readonly route: Route;
-  readonly entry: RouteComparison;
+  readonly open: boolean;
+  readonly onToggle: (open: boolean) => void;
   readonly texts: FormTexts;
   readonly reading: FormReading;
-  readonly onPrice: (key: string, text: string) => void;
   readonly onFee: (id: string, text: string) => void;
   readonly onMinimum: (id: string, text: string) => void;
 }
 
-/** One route, step by step: the price each conversion uses and every fee, all editable. */
+/** One route's fees, step by step, in a card that stays closed until the person opens it. */
 export function RouteCard({
   route,
-  entry,
+  open,
+  onToggle,
   texts,
   reading,
-  onPrice,
   onFee,
   onMinimum,
 }: RouteCardProps) {
-  const titleId = `route-${route.id}`;
   return (
-    <section className="card" aria-labelledby={titleId}>
-      <h2 id={titleId}>{route.name}</h2>
-      <RouteFigures entry={entry} feeGaps={reading.feeGaps} />
-      {route.warnings.map((warning) => (
-        <p key={warning} className="warning">
-          <strong>Atención:</strong> <RichText text={warning} />
-        </p>
-      ))}
+    <details
+      className="card route-card"
+      open={open}
+      onToggle={(event) => {
+        onToggle(event.currentTarget.open);
+      }}
+    >
+      <summary>
+        <span className="route-card-title">{route.name}</span>
+        <span className="route-card-hint">Ajustar comisiones</span>
+      </summary>
       {route.steps.map((step) => (
         <fieldset key={step.label} className="step">
-          <legend>{step.label}</legend>
+          <legend className={repeatsItsFee(step) ? "visually-hidden" : undefined}>
+            {step.label}
+          </legend>
           {step.conversion !== null && (
-            <RateInput
-              rateKey={step.conversion.rateKey}
-              texts={texts}
-              reading={reading}
-              onPrice={onPrice}
-            />
+            <p className="muted small">
+              Convierte con: {rateLabel(step.conversion.rateKey)}, que cargaste arriba.
+            </p>
           )}
           {step.feeIds.map((id) => (
             <FeeInputs
@@ -64,43 +58,31 @@ export function RouteCard({
           ))}
         </fieldset>
       ))}
-    </section>
+    </details>
   );
 }
 
-function RateInput({
-  rateKey,
-  texts,
-  reading,
-  onPrice,
-}: {
-  readonly rateKey: string;
-  readonly texts: FormTexts;
-  readonly reading: FormReading;
-  readonly onPrice: RouteCardProps["onPrice"];
-}) {
-  if (rateKey === REFERENCE_KEY) {
-    return <p className="muted">Usa el dólar MEP (compra) que cargaste arriba.</p>;
+/**
+ * A step whose only content is one fee named like the step ("Retirar de Payoneer a…" and
+ * "Retiro de Payoneer a…"): its title would repeat the fee's, so it is only kept for screen
+ * readers.
+ */
+function repeatsItsFee(step: Step): boolean {
+  const [id] = step.feeIds;
+  if (step.conversion !== null || step.feeIds.length !== 1 || id === undefined) {
+    return false;
   }
-  const field = RATE_FIELDS.find((f) => f.key === rateKey);
-  if (field === undefined) {
-    return null;
-  }
-  const id = fieldId.price(rateKey);
-  return (
-    <NumberField
-      id={id}
-      label={field.label}
-      unit={field.quote}
-      value={texts.prices[rateKey] ?? ""}
-      onChange={(text) => {
-        onPrice(rateKey, text);
-      }}
-      problem={reading.problems.get(id) ?? null}
-      echo={reading.echoes.get(id)}
-      help="La cotización del momento en que operás."
-    />
-  );
+  const label = FEE_DEFAULTS.find((d) => d.fee.id === id)?.label;
+  return label !== undefined && withoutFirstWord(label) === withoutFirstWord(step.label);
+}
+
+function withoutFirstWord(text: string): string {
+  return text.toLowerCase().split(" ").slice(1).join(" ");
+}
+
+function rateLabel(key: string): string {
+  const label = RATE_FIELDS.find((field) => field.key === key)?.label ?? key;
+  return label.charAt(0).toLowerCase() + label.slice(1);
 }
 
 function FeeInputs({
@@ -123,16 +105,6 @@ function FeeInputs({
   const { fee, label, note, provenance } = feeDefault;
   const valueId = fieldId.fee(id);
   const minimumId = fieldId.minimum(id);
-  const help = (
-    <>
-      <Provenance provenance={provenance} feeLabel={label} />
-      {note !== null && (
-        <p className="note">
-          <RichText text={note} />
-        </p>
-      )}
-    </>
-  );
   return (
     <div className="fee">
       <NumberField
@@ -145,8 +117,17 @@ function FeeInputs({
         }}
         problem={reading.problems.get(valueId) ?? null}
         echo={reading.echoes.get(valueId)}
-        help={help}
-      />
+      >
+        <details className="fee-details">
+          <summary aria-label={`Detalles de ${label}`}>Detalles</summary>
+          <Provenance provenance={provenance} feeLabel={label} />
+          {note !== null && (
+            <p className="note">
+              <RichText text={note} />
+            </p>
+          )}
+        </details>
+      </NumberField>
       {fee.kind === "percent" && fee.minimum !== null && (
         <NumberField
           id={minimumId}

@@ -28,7 +28,7 @@ import {
 import { formatMoney, formatUnambiguous, parseNumber, toInputText } from "../text/numbers.ts";
 import {
   didYouMean,
-  implausiblePriceMessage,
+  unusualPriceMessage,
   inputProblemMessage,
   NOT_A_NUMBER,
   valueProblemMessage,
@@ -52,11 +52,10 @@ export interface FormReading {
   readonly comparison: Comparison;
   /** Why a field cannot be used, by field id; fields that are fine or empty are absent. */
   readonly problems: ReadonlyMap<string, string>;
-  /**
-   * How a valid value was read, by field id, e.g. "Leímos 1,03 USD por USDT.": every amount and
-   * price, and fees typed in an ambiguous way.
-   */
+  /** How a value typed in an ambiguous way ("1.030") was read, by field id. */
   readonly echoes: ReadonlyMap<string, string>;
+  /** Values that are used but look wrong, by field id, e.g. a price far outside its usual range. */
+  readonly warnings: ReadonlyMap<string, string>;
   /** Fees that cannot be used, by fee id, and which part of them is missing or wrong. */
   readonly feeGaps: ReadonlyMap<string, FeeGap>;
 }
@@ -89,6 +88,7 @@ export function initialTexts(): FormTexts {
 export function readForm(texts: FormTexts): FormReading {
   const problems = new Map<string, string>();
   const echoes = new Map<string, string>();
+  const warnings = new Map<string, string>();
   const feeGaps = new Map<string, FeeGap>();
   const valueOf = <T>(id: string, read: FieldRead<T>): T | null => {
     switch (read.kind) {
@@ -100,6 +100,9 @@ export function readForm(texts: FormTexts): FormReading {
       case "ok":
         if (read.echo !== null) {
           echoes.set(id, read.echo);
+        }
+        if (read.warning !== null) {
+          warnings.set(id, read.warning);
         }
         return read.value;
     }
@@ -137,13 +140,20 @@ export function readForm(texts: FormTexts): FormReading {
     prices,
     fees,
   });
-  return { comparison, problems, echoes, feeGaps };
+  return { comparison, problems, echoes, warnings, feeGaps };
 }
 
 type FieldRead<T> =
   | { readonly kind: "empty" }
   | { readonly kind: "problem"; readonly message: string }
-  | { readonly kind: "ok"; readonly value: T; readonly echo: string | null };
+  | {
+      readonly kind: "ok";
+      readonly value: T;
+      /** How an ambiguous text was read; null when it reads only one way. */
+      readonly echo: string | null;
+      /** The value is used, but looks wrong. */
+      readonly warning: string | null;
+    };
 
 interface Typed {
   readonly value: Big;
@@ -182,7 +192,8 @@ function readAmount(text: string): FieldRead<PositiveAmount> {
       ? {
           kind: "ok",
           value: result.value,
-          echo: `Leímos ${formatMoney(result.value.amount, "USD")}.`,
+          echo: alternative === null ? null : `Leímos ${formatMoney(result.value.amount, "USD")}.`,
+          warning: null,
         }
       : { kind: "problem", message: inputProblemMessage(result.problem) };
   });
@@ -197,20 +208,23 @@ function readPrice(key: string, text: string): FieldRead<PositivePrice> {
         message: inputProblemMessage({ code: "too_many_decimals", max: MAX_PRICE_DECIMALS }),
       };
     }
-    // The plausible range goes before the calculator's own caps, so its message (with the
-    // suggestion) is the one the person sees.
-    if (check !== undefined && value.gt(0) && !inRange(value, check)) {
-      const fix = alternative !== null && positivePrice(alternative).ok ? alternative : null;
-      return { kind: "problem", message: implausiblePriceMessage(value, fix, check) };
-    }
     const result = positivePrice(value);
     if (!result.ok) {
       return { kind: "problem", message: inputProblemMessage(result.problem) };
     }
+    const unit = check?.unit ?? "";
+    const echo = alternative === null ? null : `Leímos ${formatUnambiguous(value)} ${unit}.`;
+    // Outside the plausible range the price is still used: a jump in the exchange rate must not
+    // make the calculator useless. The person is only warned.
+    if (check === undefined || inRange(value, check)) {
+      return { kind: "ok", value: result.value, echo, warning: null };
+    }
+    const fix = alternative !== null && positivePrice(alternative).ok ? alternative : null;
     return {
       kind: "ok",
       value: result.value,
-      echo: check === undefined ? null : `Leímos ${formatUnambiguous(value)} ${check.unit}.`,
+      echo: null,
+      warning: unusualPriceMessage(value, fix, check),
     };
   });
 }
@@ -225,7 +239,7 @@ function readBounded(text: string, cap: Big, unit: string): FieldRead<Big> {
     const read = `Leímos ${formatUnambiguous(value)} ${unit}.`;
     const problem = valueProblem(value, cap);
     if (problem === null) {
-      return { kind: "ok", value, echo: alternative === null ? null : read };
+      return { kind: "ok", value, echo: alternative === null ? null : read, warning: null };
     }
     const message = valueProblemMessage(problem, unit);
     if (problem.code === "negative") {

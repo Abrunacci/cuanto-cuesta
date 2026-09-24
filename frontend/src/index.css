@@ -13,6 +13,7 @@
   /* 4.5:1 or more against --surface, for the "Estimado" badge text. */
   --estimate-text: #7a5500;
   --gain: #1f6f3a;
+  --unusual: #7a5500;
 
   color-scheme: light dark;
   font-family:
@@ -40,6 +41,7 @@
     --warning-border: #b8912b;
     --estimate-text: #e0b54a;
     --gain: #7fd49c;
+    --unusual: #e0b54a;
   }
 }
 
@@ -132,6 +134,7 @@ h3 {
 .field-input input {
   flex: 1;
   min-width: 0;
+  max-width: 16rem;
   min-height: 2.75rem;
   padding: 0.5rem 0.75rem;
   font: inherit;
@@ -159,6 +162,16 @@ h3 {
 .field-problem {
   margin: 0.25rem 0 0;
   color: var(--problem);
+  font-weight: 600;
+}
+
+.field-warning:empty {
+  margin: 0;
+}
+
+.field-warning {
+  margin: 0.25rem 0 0;
+  color: var(--unusual);
   font-weight: 600;
 }
 
@@ -282,4 +295,75 @@ h3 {
 .exhausted {
   margin: 0 0 0.75rem;
   color: var(--problem);
+}
+
+/* Route cards and details */
+
+.section-title {
+  margin-top: 1.75rem;
+}
+
+.route-card > summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.25rem 1rem;
+  min-height: 2.75rem;
+  cursor: pointer;
+  list-style: none;
+}
+
+.route-card > summary::-webkit-details-marker {
+  display: none;
+}
+
+.route-card > summary::before {
+  content: "▸";
+  margin-right: 0.5rem;
+  color: var(--muted);
+}
+
+.route-card[open] > summary::before {
+  content: "▾";
+}
+
+.route-card-title {
+  flex: 1;
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+
+.route-card-hint {
+  color: var(--accent);
+  font-size: 0.875rem;
+}
+
+.fee-details {
+  margin-top: 0.25rem;
+  font-size: 0.875rem;
+  color: var(--muted);
+}
+
+.fee-details > summary {
+  cursor: pointer;
+  color: var(--accent);
+  min-height: 1.75rem;
+}
+
+.fee-details p {
+  margin: 0.25rem 0;
+}
+
+.missing p {
+  margin: 0.25rem 0;
+}
+
+.missing ul {
+  margin: 0 0 0.75rem;
+  padding-left: 1.25rem;
+}
+
+.missing li {
+  margin: 0.25rem 0;
 }
