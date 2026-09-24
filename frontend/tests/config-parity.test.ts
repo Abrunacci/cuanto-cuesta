@@ -114,6 +114,7 @@ const FEE_KEYS = [
 ];
 const ROUTE_KEYS = ["id", "name", "source", "target", "warnings", "steps"];
 const STEP_KEYS = ["label", "fees", "conversion"];
+const CONVERSION_KEYS = ["rate", "to"];
 
 function unknownKeys(entries: Record<string, Yaml>[], known: readonly string[]): string[] {
   return entries.flatMap((entry) => Object.keys(entry).filter((key) => !known.includes(key)));
@@ -123,15 +124,19 @@ describe("the bundled data mirrors the backend config", () => {
   // A new key in the YAML would be silently ignored by the comparison below; fail instead, so
   // the calculator's copy gets the new field too.
   it("uses only keys the comparison knows", () => {
-    const routes = list(load("routes.yaml").routes);
-    expect(unknownKeys(list(load("fees.yaml").fees), FEE_KEYS)).toEqual([]);
+    const feesFile = load("fees.yaml");
+    const routesFile = load("routes.yaml");
+    const routes = list(routesFile.routes);
+    const steps = routes.flatMap((r) => list(r.steps));
+    const conversions = steps.flatMap((step) =>
+      step.conversion === undefined ? [] : [step.conversion as Record<string, Yaml>],
+    );
+    expect(unknownKeys([feesFile], ["fees"])).toEqual([]);
+    expect(unknownKeys([routesFile], ["routes"])).toEqual([]);
+    expect(unknownKeys(list(feesFile.fees), FEE_KEYS)).toEqual([]);
     expect(unknownKeys(routes, ROUTE_KEYS)).toEqual([]);
-    expect(
-      unknownKeys(
-        routes.flatMap((r) => list(r.steps)),
-        STEP_KEYS,
-      ),
-    ).toEqual([]);
+    expect(unknownKeys(steps, STEP_KEYS)).toEqual([]);
+    expect(unknownKeys(conversions, CONVERSION_KEYS)).toEqual([]);
   });
 
   it("has the same fees as fees.yaml, in the same order", () => {
