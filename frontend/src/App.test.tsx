@@ -244,6 +244,22 @@ describe("the calculator page", () => {
     expect(items.at(-1)).toContain(
       "Calculado con un valor inusual: precio P2P en Binance (USD por USDT).",
     );
+    // Only the route that converts with that price says so.
+    for (const other of items.slice(0, -1)) {
+      expect(other).not.toContain("Calculado con un valor inusual");
+    }
+  });
+
+  it("says every route was computed with an unusual MEP, since it is their reference", async () => {
+    const { type, user, ranking } = setup();
+    await fillEverything(type);
+    await type(/^Dólar MEP \(compra\)/, "1,536");
+    await user.tab();
+    const items = ranking();
+    expect(items).toHaveLength(3);
+    for (const item of items) {
+      expect(item).toContain("Calculado con un valor inusual: dólar MEP (compra).");
+    }
   });
 
   it("says how a number was read only when it reads two ways", async () => {

@@ -21,6 +21,11 @@ describe("the bundled routes and fees", () => {
     expect(feeIdsInDefaults.filter((id) => !usedFeeIds.has(id))).toEqual([]);
   });
 
+  it("use each fee in a single route, so each fee field has a unique id on the page", () => {
+    const uses = ROUTES.flatMap((r) => [...feeIds(r)]);
+    expect(uses.filter((id, index) => uses.indexOf(id) !== index)).toEqual([]);
+  });
+
   it("only use fees that have a default", () => {
     expect([...usedFeeIds].filter((id) => !feeIdsInDefaults.includes(id))).toEqual([]);
   });
