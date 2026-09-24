@@ -3,7 +3,7 @@
  * `tests/config-parity.test.ts` fails if the two drift apart.
  */
 
-import type { RateDefinition } from "../compare.ts";
+import type { RateDefinition } from "../rates.ts";
 import type { Route } from "../routes.ts";
 
 export const ROUTES: readonly Route[] = [

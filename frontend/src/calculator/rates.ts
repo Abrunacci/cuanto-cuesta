@@ -20,6 +20,13 @@ export interface Rate {
   readonly price: Big;
 }
 
+/** Which currencies a typed price quotes: one unit of `base` in `quote`. */
+export interface RateDefinition {
+  readonly key: string;
+  readonly base: Currency;
+  readonly quote: Currency;
+}
+
 export class InvalidRateError extends Error {
   override name = "InvalidRateError";
 }

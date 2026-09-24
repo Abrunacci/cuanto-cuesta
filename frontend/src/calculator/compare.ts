@@ -14,24 +14,19 @@
  */
 
 import { withoutCharge, type Fee } from "./fees.ts";
-import { add, CurrencyMismatchError, subtract, type Big, type Money } from "./money.ts";
-import { convert, rate, type Rate } from "./rates.ts";
+import type { PositiveAmount, PositivePrice } from "./inputs.ts";
+import { add, CurrencyMismatchError, subtract, type Money } from "./money.ts";
+import { convert, rate, type Rate, type RateDefinition } from "./rates.ts";
 import { feeIds, rateKeys, runRoute, type Route, type RouteResult } from "./routes.ts";
-
-export interface RateDefinition {
-  readonly key: string;
-  readonly base: Money["currency"];
-  readonly quote: Money["currency"];
-}
 
 export interface ComparisonInput {
   readonly routes: readonly Route[];
   readonly rateDefinitions: readonly RateDefinition[];
   /** Key of the rate used as the reference; it is also a rate routes can convert with. */
   readonly referenceKey: string;
-  readonly amount: Money | null;
+  readonly amount: PositiveAmount | null;
   /** Price per rate key; missing or null when the person left it empty. */
-  readonly prices: ReadonlyMap<string, Big | null>;
+  readonly prices: ReadonlyMap<string, PositivePrice | null>;
   /** Fee per id; missing or null when the person left it empty. */
   readonly fees: ReadonlyMap<string, Fee | null>;
 }
@@ -85,7 +80,11 @@ export function compareRoutes(input: ComparisonInput): Comparison {
   }
   complete.sort((a, b) => {
     const byFinal = b.result.final.amount.cmp(a.result.final.amount);
-    return byFinal !== 0 ? byFinal : a.route.id.localeCompare(b.route.id);
+    if (byFinal !== 0) {
+      return byFinal;
+    }
+    // By code point, like Python, so the order does not depend on the locale.
+    return a.route.id < b.route.id ? -1 : a.route.id > b.route.id ? 1 : 0;
   });
   return { atReference, routes: [...complete, ...incomplete] };
 }
@@ -141,7 +140,7 @@ function missingInputs(
 
 function buildRates(
   definitions: readonly RateDefinition[],
-  prices: ReadonlyMap<string, Big | null>,
+  prices: ReadonlyMap<string, PositivePrice | null>,
 ): Map<string, Rate> {
   const rates = new Map<string, Rate>();
   for (const definition of definitions) {

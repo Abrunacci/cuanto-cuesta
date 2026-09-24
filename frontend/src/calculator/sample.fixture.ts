@@ -4,9 +4,15 @@
  * domain. The values are test inputs, not the app's defaults.
  */
 
-import type { RateDefinition } from "./compare.ts";
+import type { RateDefinition } from "./rates.ts";
 import { fixedFee, percentFee, type Fee } from "./fees.ts";
-import { Decimal, money, type Big } from "./money.ts";
+import {
+  positiveAmount,
+  positivePrice,
+  type PositiveAmount,
+  type PositivePrice,
+} from "./inputs.ts";
+import { Decimal, money } from "./money.ts";
 import type { Route } from "./routes.ts";
 
 export const SAMPLE_FEES: ReadonlyMap<string, Fee> = new Map(
@@ -37,11 +43,29 @@ export const SAMPLE_RATE_DEFINITIONS: readonly RateDefinition[] = [
   { key: "mep", base: "USD", quote: "ARS" },
 ];
 
-export const SAMPLE_PRICES: ReadonlyMap<string, Big> = new Map([
-  ["p2p_usdt_usd", new Decimal("1.03")],
-  ["bitso_usdt_ars", new Decimal("1596.21")],
-  ["arq_usd_ars", new Decimal("1593.385")],
-  ["mep", new Decimal("1536.16")],
+/** A price the tests know is valid; throws otherwise. */
+export function validPrice(text: string): PositivePrice {
+  const result = positivePrice(new Decimal(text));
+  if (!result.ok) {
+    throw new Error(`Invalid test price ${text}: ${result.problem.code}`);
+  }
+  return result.value;
+}
+
+/** A USD amount the tests know is valid; throws otherwise. */
+export function validAmount(text: string): PositiveAmount {
+  const result = positiveAmount(new Decimal(text), "USD");
+  if (!result.ok) {
+    throw new Error(`Invalid test amount ${text}: ${result.problem.code}`);
+  }
+  return result.value;
+}
+
+export const SAMPLE_PRICES: ReadonlyMap<string, PositivePrice> = new Map([
+  ["p2p_usdt_usd", validPrice("1.03")],
+  ["bitso_usdt_ars", validPrice("1596.21")],
+  ["arq_usd_ars", validPrice("1593.385")],
+  ["mep", validPrice("1536.16")],
 ]);
 
 export const BINANCE: Route = {

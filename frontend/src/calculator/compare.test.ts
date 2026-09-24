@@ -2,12 +2,15 @@ import { describe, expect, it } from "vitest";
 
 import { compareRoutes, type ComparisonInput, type RouteComparison } from "./compare.ts";
 import { fixedFee, type Fee } from "./fees.ts";
-import { Decimal, money, type Big, type Money } from "./money.ts";
+import { positivePrice, type PositivePrice } from "./inputs.ts";
+import { Decimal, type Money } from "./money.ts";
 import {
   SAMPLE_FEES,
   SAMPLE_PRICES,
   SAMPLE_RATE_DEFINITIONS,
   SAMPLE_ROUTES,
+  validAmount,
+  validPrice,
 } from "./sample.fixture.ts";
 
 const cents = (value: Money | null) => (value === null ? null : value.amount.toFixed(2));
@@ -17,7 +20,7 @@ function input(overrides: Partial<ComparisonInput> = {}): ComparisonInput {
     routes: SAMPLE_ROUTES,
     rateDefinitions: SAMPLE_RATE_DEFINITIONS,
     referenceKey: "mep",
-    amount: money("1000.00", "USD"),
+    amount: validAmount("1000.00"),
     prices: SAMPLE_PRICES,
     fees: SAMPLE_FEES,
     ...overrides,
@@ -52,7 +55,8 @@ describe("losses against the reference, as in the Python domain tests", () => {
     expect(summary("mep")).toEqual(["1503624.13", "32535.87", "0.00", "32535.87"]);
   });
 
-  // Final, fee cost and FX loss computed with the Python domain on the same sample inputs.
+  // Final, fee cost and FX loss computed once with the Python domain on the same sample inputs.
+  // Frozen here on purpose: the table stays valid after the Python calculation is removed.
   const PYTHON: readonly (readonly [string, string, string, string, string])[] = [
     ["0.01", "arq", "0.00", "15.93", "-0.57"],
     ["0.01", "binance_bitso", "0.00", "0.00", "15.36"],
@@ -81,7 +85,7 @@ describe("losses against the reference, as in the Python domain tests", () => {
   ];
 
   it.each(PYTHON)("matches the Python domain for %s USD on %s", (amount, id, final, fees, fx) => {
-    const route = byId(compareRoutes(input({ amount: money(amount, "USD") })).routes).get(id);
+    const route = byId(compareRoutes(input({ amount: validAmount(amount) })).routes).get(id);
     expect(route?.status).toBe("complete");
     if (route?.status === "complete") {
       expect([cents(route.result.final), cents(route.feeCost), cents(route.fxLoss)]).toEqual([
@@ -95,7 +99,7 @@ describe("losses against the reference, as in the Python domain tests", () => {
   it.each(["0.01", "1.00", "100.00", "12345.67"])(
     "final + fees + FX loss equals the amount at the reference, for %s USD",
     (amount) => {
-      const comparison = compareRoutes(input({ amount: money(amount, "USD") }));
+      const comparison = compareRoutes(input({ amount: validAmount(amount) }));
       for (const r of comparison.routes) {
         if (r.status === "complete") {
           const total = r.result.final.amount.plus(r.feeCost.amount).plus(r.fxLoss.amount);
@@ -107,8 +111,8 @@ describe("losses against the reference, as in the Python domain tests", () => {
 });
 
 describe("empty inputs are never read as zero", () => {
-  const withPrice = (key: string, price: Big | null) =>
-    new Map<string, Big | null>([...SAMPLE_PRICES, [key, price]]);
+  const withPrice = (key: string, price: PositivePrice | null) =>
+    new Map<string, PositivePrice | null>([...SAMPLE_PRICES, [key, price]]);
   const withFee = (id: string, fee: Fee | null) =>
     new Map<string, Fee | null>([...SAMPLE_FEES, [id, fee]]);
   const missingOf = (comparison: ReturnType<typeof compareRoutes>, id: string) => {
@@ -139,6 +143,16 @@ describe("empty inputs are never read as zero", () => {
       ["mep", "complete"],
       ["binance_bitso", "incomplete"],
     ]);
+  });
+
+  it("keeps computing the other routes when a price is invalid", () => {
+    const invalid = positivePrice(new Decimal("0"));
+    expect(invalid).toEqual({ ok: false, problem: { code: "not_positive" } });
+    // An invalid price never becomes a PositivePrice, so the form passes null for it.
+    const comparison = compareRoutes(input({ prices: withPrice("bitso_usdt_ars", null) }));
+    expect(comparison.routes.filter((r) => r.status === "complete").map((r) => r.route.id)).toEqual(
+      ["arq", "mep"],
+    );
   });
 
   it("reports an empty fee instead of charging nothing", () => {
@@ -191,5 +205,5 @@ describe("ordering", () => {
 });
 
 function withMep(price: string) {
-  return new Map<string, Big | null>([...SAMPLE_PRICES, ["mep", new Decimal(price)]]);
+  return new Map<string, PositivePrice | null>([...SAMPLE_PRICES, ["mep", validPrice(price)]]);
 }
