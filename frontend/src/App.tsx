@@ -30,7 +30,8 @@ export function App() {
           value={texts.amount}
           onChange={form.setAmount}
           problem={reading.problems.get(fieldId.amount) ?? null}
-          placeholder="1.000"
+          echo={reading.echoes.get(fieldId.amount)}
+          placeholder="Ej.: 1.000"
         />
         <NumberField
           id={fieldId.price(REFERENCE_KEY)}
@@ -41,6 +42,7 @@ export function App() {
             form.setPrice(REFERENCE_KEY, text);
           }}
           problem={reading.problems.get(fieldId.price(REFERENCE_KEY)) ?? null}
+          echo={reading.echoes.get(fieldId.price(REFERENCE_KEY))}
           help="Lo que te pagan por cada dólar hoy. Es la referencia para comparar y la cotización de la ruta MEP."
         />
         <p className="muted small">
@@ -48,7 +50,7 @@ export function App() {
         </p>
       </section>
 
-      <Results comparison={reading.comparison} />
+      <Results comparison={reading.comparison} feeGaps={reading.feeGaps} />
 
       {ROUTES.map((route) => {
         const entry = byRoute.get(route.id);
@@ -58,7 +60,7 @@ export function App() {
             route={route}
             entry={entry}
             texts={texts}
-            problems={reading.problems}
+            reading={reading}
             onPrice={form.setPrice}
             onFee={form.setFee}
             onMinimum={form.setMinimum}

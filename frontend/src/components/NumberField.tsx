@@ -8,6 +8,8 @@ interface NumberFieldProps {
   readonly value: string;
   readonly onChange: (text: string) => void;
   readonly problem: string | null;
+  /** How a valid value was read, e.g. "Leímos 1,03 USD por USDT." */
+  readonly echo?: string | undefined;
   readonly help?: ReactNode;
   readonly placeholder?: string;
 }
@@ -19,19 +21,24 @@ export function NumberField({
   value,
   onChange,
   problem,
+  echo,
   help,
   placeholder,
 }: NumberFieldProps) {
   const problemId = `${id}-problem`;
   const helpId = `${id}-help`;
-  const describedBy = [problem !== null ? problemId : null, help !== undefined ? helpId : null]
+  const echoId = `${id}-echo`;
+  const describedBy = [
+    problem !== null ? problemId : null,
+    echo !== undefined ? echoId : null,
+    help !== undefined ? helpId : null,
+  ]
     .filter((part) => part !== null)
     .join(" ");
   return (
     <div className="field">
       <label htmlFor={id}>
-        {label}
-        <span className="visually-hidden"> ({unit})</span>
+        {label} <span className="visually-hidden">({unit})</span>
       </label>
       <div className="field-input">
         <input
@@ -54,6 +61,11 @@ export function NumberField({
       {problem !== null && (
         <p id={problemId} className="field-problem">
           {problem}
+        </p>
+      )}
+      {echo !== undefined && (
+        <p id={echoId} className="field-echo">
+          {echo}
         </p>
       )}
       {help !== undefined && (

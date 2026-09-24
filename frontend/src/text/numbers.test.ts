@@ -39,6 +39,20 @@ describe("parseNumber", () => {
   );
 });
 
+describe("typed decimals", () => {
+  it.each([
+    ["1,000", 3],
+    ["1.000", 0],
+    ["1.536,160", 3],
+    ["1.03", 2],
+    ["1.030", 0],
+    ["7", 0],
+  ])("counts %s as %i decimals, as typed", (text, decimals) => {
+    const parsed = parseNumber(text);
+    expect(parsed.kind === "number" && parsed.typedDecimals).toBe(decimals);
+  });
+});
+
 describe("formatting", () => {
   it("groups thousands with dots and uses a decimal comma", () => {
     expect(formatNumber(new Decimal("1534005.69"), 2)).toBe("1.534.005,69");

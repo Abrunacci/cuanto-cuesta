@@ -15,7 +15,7 @@ interface RouteCardProps {
   readonly route: Route;
   readonly entry: RouteComparison;
   readonly texts: FormTexts;
-  readonly problems: FormReading["problems"];
+  readonly reading: FormReading;
   readonly onPrice: (key: string, text: string) => void;
   readonly onFee: (id: string, text: string) => void;
   readonly onMinimum: (id: string, text: string) => void;
@@ -26,7 +26,7 @@ export function RouteCard({
   route,
   entry,
   texts,
-  problems,
+  reading,
   onPrice,
   onFee,
   onMinimum,
@@ -35,7 +35,7 @@ export function RouteCard({
   return (
     <section className="card" aria-labelledby={titleId}>
       <h2 id={titleId}>{route.name}</h2>
-      <RouteFigures entry={entry} />
+      <RouteFigures entry={entry} feeGaps={reading.feeGaps} />
       {route.warnings.map((warning) => (
         <p key={warning} className="warning">
           <strong>Atención:</strong> <RichText text={warning} />
@@ -48,7 +48,7 @@ export function RouteCard({
             <RateInput
               rateKey={step.conversion.rateKey}
               texts={texts}
-              problems={problems}
+              reading={reading}
               onPrice={onPrice}
             />
           )}
@@ -57,7 +57,7 @@ export function RouteCard({
               key={id}
               id={id}
               texts={texts}
-              problems={problems}
+              reading={reading}
               onFee={onFee}
               onMinimum={onMinimum}
             />
@@ -71,12 +71,12 @@ export function RouteCard({
 function RateInput({
   rateKey,
   texts,
-  problems,
+  reading,
   onPrice,
 }: {
   readonly rateKey: string;
   readonly texts: FormTexts;
-  readonly problems: FormReading["problems"];
+  readonly reading: FormReading;
   readonly onPrice: RouteCardProps["onPrice"];
 }) {
   if (rateKey === REFERENCE_KEY) {
@@ -96,7 +96,8 @@ function RateInput({
       onChange={(text) => {
         onPrice(rateKey, text);
       }}
-      problem={problems.get(id) ?? null}
+      problem={reading.problems.get(id) ?? null}
+      echo={reading.echoes.get(id)}
       help="La cotización del momento en que operás."
     />
   );
@@ -105,13 +106,13 @@ function RateInput({
 function FeeInputs({
   id,
   texts,
-  problems,
+  reading,
   onFee,
   onMinimum,
 }: {
   readonly id: string;
   readonly texts: FormTexts;
-  readonly problems: FormReading["problems"];
+  readonly reading: FormReading;
   readonly onFee: RouteCardProps["onFee"];
   readonly onMinimum: RouteCardProps["onMinimum"];
 }) {
@@ -124,7 +125,7 @@ function FeeInputs({
   const minimumId = fieldId.minimum(id);
   const help = (
     <>
-      <Provenance provenance={provenance} />
+      <Provenance provenance={provenance} feeLabel={label} />
       {note !== null && (
         <p className="note">
           <RichText text={note} />
@@ -142,19 +143,19 @@ function FeeInputs({
         onChange={(text) => {
           onFee(id, text);
         }}
-        problem={problems.get(valueId) ?? null}
+        problem={reading.problems.get(valueId) ?? null}
         help={help}
       />
       {fee.kind === "percent" && fee.minimum !== null && (
         <NumberField
           id={minimumId}
-          label={`Mínimo de: ${label}`}
+          label={`${label}: mínimo`}
           unit={fee.minimum.currency}
           value={texts.minimums[id] ?? ""}
           onChange={(text) => {
             onMinimum(id, text);
           }}
-          problem={problems.get(minimumId) ?? null}
+          problem={reading.problems.get(minimumId) ?? null}
           help="Se cobra este mínimo cuando el porcentaje da menos. Si no te lo cobran, poné 0."
         />
       )}

@@ -1,8 +1,10 @@
 /** What each problem code means on screen, in Spanish. */
 
 import type { Big, InputProblem, MissingInput, ValueProblem } from "../calculator/index.ts";
+import type { FeeGap } from "./form.ts";
+import { thousandfoldFix, type PriceCheck } from "./plausible.ts";
 import { FEE_DEFAULTS, RATE_FIELDS } from "../calculator/index.ts";
-import { formatNumber } from "../text/numbers.ts";
+import { formatExact, formatNumber } from "../text/numbers.ts";
 
 export const NOT_A_NUMBER = "Escribí un número, por ejemplo 1.234,56.";
 
@@ -13,7 +15,7 @@ export function inputProblemMessage(problem: InputProblem): string {
     case "too_many_decimals":
       return `Usá como mucho ${String(problem.max)} decimales.`;
     case "too_large":
-      return `Tiene que ser como mucho ${formatNumber(problem.max, 0)}.`;
+      return `No puede ser más de ${formatNumber(problem.max, 0)}.`;
   }
 }
 
@@ -27,15 +29,43 @@ export function valueProblemMessage(problem: ValueProblem, unit: string): string
   }
 }
 
-export function missingInputLabel(missing: MissingInput): string {
+/** A price outside its plausible range, suggesting the thousandfold fix when there is one. */
+export function implausiblePriceMessage(value: Big, check: PriceCheck): string {
+  const read = `Leímos ${formatExact(value)} ${check.unit}, y lo esperable está entre ${formatExact(check.min)} y ${formatExact(check.max)}.`;
+  const fix = thousandfoldFix(value, check);
+  return fix === null ? read : `${read} ¿Quisiste poner ${formatExact(fix)}?`;
+}
+
+/** What a route is missing, as it reads inside a sentence ("el monto en USD"). */
+export function missingInputLabel(
+  missing: MissingInput,
+  feeGaps: ReadonlyMap<string, FeeGap>,
+): string {
   switch (missing.kind) {
     case "amount":
       return "el monto en USD";
     case "rate":
-      return RATE_FIELDS.find((field) => field.key === missing.key)?.label ?? missing.key;
-    case "fee":
-      return FEE_DEFAULTS.find((d) => d.fee.id === missing.id)?.label ?? missing.id;
+      return lowerFirst(
+        RATE_FIELDS.find((field) => field.key === missing.key)?.label ?? missing.key,
+      );
+    case "fee": {
+      const label = lowerFirst(
+        FEE_DEFAULTS.find((d) => d.fee.id === missing.id)?.label ?? missing.id,
+      );
+      switch (feeGaps.get(missing.id) ?? "value") {
+        case "value":
+          return label;
+        case "minimum":
+          return `el mínimo de ${label}`;
+        case "both":
+          return `${label} y su mínimo`;
+      }
+    }
   }
+}
+
+function lowerFirst(text: string): string {
+  return text.charAt(0).toLowerCase() + text.slice(1);
 }
 
 function formatCap(cap: Big): string {

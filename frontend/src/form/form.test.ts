@@ -38,9 +38,10 @@ describe("initialTexts", () => {
 
 describe("readForm", () => {
   it("computes nothing until the amount and prices are typed", () => {
-    const { comparison, problems } = readForm(initialTexts());
+    const { comparison, problems, echoes } = readForm(initialTexts());
     expect(comparison.routes.every((r) => r.status === "incomplete")).toBe(true);
     expect(problems.size).toBe(0);
+    expect(echoes.size).toBe(0);
   });
 
   it("computes the three routes with the researched fees", () => {
@@ -81,7 +82,7 @@ describe("readForm", () => {
   it.each([
     ["amount", { amount: "0" }, fieldId.amount, "Tiene que ser mayor que 0."],
     ["amount", { amount: "10,005" }, fieldId.amount, "Usá como mucho 2 decimales."],
-    ["amount", { amount: "20.000.000" }, fieldId.amount, "Tiene que ser como mucho 10.000.000."],
+    ["amount", { amount: "20.000.000" }, fieldId.amount, "No puede ser más de 10.000.000."],
     [
       "price",
       { prices: { ...PRICES, mep: "-1" } },
@@ -101,5 +102,81 @@ describe("readForm", () => {
     expect(problems.get(fieldId.fee("bitso_taker"))).toBe("Como máximo 20 %.");
     expect(problems.get(fieldId.fee("arq_ach_deposit"))).toBe("No puede ser negativo.");
     expect(problems.get(fieldId.minimum("payoneer_us_withdrawal"))).toBe("Como máximo 100 USD.");
+  });
+});
+
+describe("numbers read a thousand times off", () => {
+  const priceOf = (texts: FormTexts, key: string) => {
+    const reading = readForm(texts);
+    return {
+      problem: reading.problems.get(fieldId.price(key)),
+      echo: reading.echoes.get(fieldId.price(key)),
+    };
+  };
+
+  it("rejects a P2P price typed with three decimals and a dot, suggesting the fix", () => {
+    // Binance shows P2P prices like 1.030; typed that way it reads as one thousand thirty.
+    const texts = filled({ prices: { ...PRICES, p2p_usdt_usd: "1.030" } });
+    expect(priceOf(texts, "p2p_usdt_usd").problem).toBe(
+      "Leímos 1.030 USD por USDT, y lo esperable está entre 0,5 y 2. ¿Quisiste poner 1,03?",
+    );
+    const binance = readForm(texts).comparison.routes.find((r) => r.route.id === "binance_bitso");
+    expect(binance?.status).toBe("incomplete");
+  });
+
+  it("rejects a MEP pasted in English notation, suggesting the fix", () => {
+    const texts = filled({ prices: { ...PRICES, mep: "1,536" } });
+    expect(priceOf(texts, "mep").problem).toBe(
+      "Leímos 1,536 ARS por USD, y lo esperable está entre 100 y 100.000. ¿Quisiste poner 1.536?",
+    );
+  });
+
+  it("rejects an amount with English thousands instead of reading it as 1 USD", () => {
+    expect(readForm(filled({ amount: "1,000" })).problems.get(fieldId.amount)).toBe(
+      "Usá como mucho 2 decimales.",
+    );
+  });
+
+  it("says how each valid amount and price was read", () => {
+    const texts = filled({ prices: { ...PRICES, p2p_usdt_usd: "1.03" } });
+    const { echoes } = readForm(texts);
+    expect(echoes.get(fieldId.amount)).toBe("Leímos US$ 1.000,00.");
+    expect(echoes.get(fieldId.price("p2p_usdt_usd"))).toBe("Leímos 1,03 USD por USDT.");
+    expect(echoes.get(fieldId.price("mep"))).toBe("Leímos 1.536,16 ARS por USD.");
+  });
+
+  it("gives up on a price with no plausible fix", () => {
+    expect(
+      priceOf(filled({ prices: { ...PRICES, p2p_usdt_usd: "50" } }), "p2p_usdt_usd").problem,
+    ).toBe("Leímos 50 USD por USDT, y lo esperable está entre 0,5 y 2.");
+  });
+});
+
+describe("invalid fees are never read as zero", () => {
+  const route = (texts: FormTexts, id: string) =>
+    readForm(texts).comparison.routes.find((r) => r.route.id === id);
+
+  it("leaves the route incomplete when a fee is not a number", () => {
+    const texts = filled({ fees: { ...initialTexts().fees, arq_ach_deposit: "abc" } });
+    expect(readForm(texts).problems.get(fieldId.fee("arq_ach_deposit"))).toBe(
+      "Escribí un número, por ejemplo 1.234,56.",
+    );
+    expect(route(texts, "arq")?.status).toBe("incomplete");
+  });
+
+  it("says it is the minimum that is missing", () => {
+    const texts = filled({ minimums: { payoneer_us_withdrawal: "" } });
+    expect(readForm(texts).feeGaps.get("payoneer_us_withdrawal")).toBe("minimum");
+    expect(route(texts, "arq")?.status).toBe("incomplete");
+  });
+
+  it("tells a missing value from a missing minimum", () => {
+    const both = filled({
+      fees: { ...initialTexts().fees, payoneer_us_withdrawal: "" },
+      minimums: { payoneer_us_withdrawal: "x" },
+    });
+    expect(readForm(both).feeGaps.get("payoneer_us_withdrawal")).toBe("both");
+    const value = filled({ fees: { ...initialTexts().fees, payoneer_us_withdrawal: "" } });
+    expect(readForm(value).feeGaps.get("payoneer_us_withdrawal")).toBe("value");
   });
 });

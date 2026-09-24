@@ -11,7 +11,12 @@ import { Decimal, type Big, type Currency } from "../calculator/index.ts";
 export type ParsedNumber =
   | { readonly kind: "empty" }
   | { readonly kind: "invalid" }
-  | { readonly kind: "number"; readonly value: Big };
+  | {
+      readonly kind: "number";
+      readonly value: Big;
+      /** Decimals as typed, trailing zeros included: "1,000" has 3 even though it is 1. */
+      readonly typedDecimals: number;
+    };
 
 const THOUSANDS_WITH_COMMA_DECIMALS = /^\d{1,3}(\.\d{3})+(,\d+)?$/;
 const COMMA_DECIMALS = /^\d+(,\d+)?$/;
@@ -34,7 +39,12 @@ export function parseNumber(text: string): ParsedNumber {
   } else {
     return { kind: "invalid" };
   }
-  return { kind: "number", value: new Decimal(negative ? `-${normalized}` : normalized) };
+  const typedDecimals = normalized.includes(".") ? (normalized.split(".")[1] ?? "").length : 0;
+  return {
+    kind: "number",
+    value: new Decimal(negative ? `-${normalized}` : normalized),
+    typedDecimals,
+  };
 }
 
 /** A value as it goes back into an input: comma decimals, no thousands separator. */
@@ -49,6 +59,12 @@ export function formatNumber(value: Big, decimals: number): string {
   const [integer = "0", fraction] = (negative ? fixed.slice(1) : fixed).split(".");
   const grouped = integer.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
   return `${negative ? "-" : ""}${grouped}${fraction === undefined ? "" : `,${fraction}`}`;
+}
+
+/** A number with exactly the decimals it has, for echoing back what was read: "1,03", "1.536". */
+export function formatExact(value: Big): string {
+  const [, fraction = ""] = value.abs().toFixed().split(".");
+  return formatNumber(value, fraction.length);
 }
 
 const CURRENCY_PREFIX: Record<Currency, string> = {
