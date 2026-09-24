@@ -145,11 +145,15 @@ describe("empty inputs are never read as zero", () => {
     ]);
   });
 
-  it("keeps computing the other routes when a price is invalid", () => {
-    const invalid = positivePrice(new Decimal("0"));
-    expect(invalid).toEqual({ ok: false, problem: { code: "not_positive" } });
-    // An invalid price never becomes a PositivePrice, so the form passes null for it.
-    const comparison = compareRoutes(input({ prices: withPrice("bitso_usdt_ars", null) }));
+  it("keeps computing the other routes when a typed price is invalid", () => {
+    // What the form does: validate what was typed, and pass null when it is not valid.
+    const typed = positivePrice(new Decimal("0"));
+    const comparison = compareRoutes(
+      input({ prices: withPrice("bitso_usdt_ars", typed.ok ? typed.value : null) }),
+    );
+    expect(missingOf(comparison, "binance_bitso")).toEqual([
+      { kind: "rate", key: "bitso_usdt_ars" },
+    ]);
     expect(comparison.routes.filter((r) => r.status === "complete").map((r) => r.route.id)).toEqual(
       ["arq", "mep"],
     );
