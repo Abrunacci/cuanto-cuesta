@@ -138,9 +138,10 @@ with `Depends`.
 
 ## Deploy
 
-- Stage 1 ships the static files that `npm run build` writes to `frontend/dist/`, with relative
-  paths so they work from any path. How and where they are served is decided later, together with
-  the deploy workflow of the infrastructure repo.
+- Stage 1 ships the static files that `npm run build` writes to `frontend/dist/` to
+  https://cuanto-cuesta.abrunacci.dev, through `.github/workflows/deploy.yml` (see README →
+  Deploying). The site is served from the root of its own subdomain, so asset paths are absolute
+  (`base: "/"`).
 
 ## Tests
 
