@@ -11,8 +11,10 @@ The app is built in three stages:
 3. Storing those values so the frontend can preload them.
 
 Stage 1 is in progress. In `backend/` so far `domain/`, `application/`, the YAML config and its
-loader in `infrastructure/` exist. They stay for stages 2 and 3; the rules below for the API,
-Postgres and deploy apply when those parts are added.
+loader in `infrastructure/` exist. They stay for stages 2 and 3; the rules below for the API and
+Postgres apply when those parts are added. Until the calculator in `frontend/src/calculator/`
+matches it, the Python calculation (`domain/`) is its parity reference; after that, whatever
+stages 2 and 3 do not need is removed in a separate PR.
 
 ## Before a PR
 
@@ -59,8 +61,12 @@ with `Depends`.
 - Lint is ESLint with typescript-eslint `strict-type-checked` (type-aware), `jsx-a11y` (strict)
   and the React hooks rules; a `switch` over a union must be exhaustive. Prettier formats: ESLint
   has no formatting rules.
-- The calculation is plain TypeScript with no React, so it can be tested on its own. Components
-  render and collect input; they do not compute.
+- The calculation (`src/calculator/`) is plain TypeScript with no React, so it can be tested on
+  its own. Components render and collect input; they do not compute. In the calculation every
+  condition is an explicit boolean (`strict-boolean-expressions`).
+- The calculator bundles its own copy of the fee defaults and routes (`src/calculator/data/`).
+  `tests/config-parity.test.ts` keeps it identical to `backend/config/fees.yaml` and
+  `routes.yaml`: change both together.
 - Test the calculation with unit tests and the screen with Testing Library, through what the
   person sees and does (labels, roles, text), not component internals.
 - The page must work on a phone: mobile-first layout, real `<label>`s, keyboard and screen-reader
@@ -73,8 +79,13 @@ with `Depends`.
 - In Python all rounding lives in `domain/money.py`; in TypeScript it lives in one module that
   mirrors it. Amounts credited to the user (each conversion and each step output) round **down**
   to the minor unit, and fees round **up**. Nothing else rounds.
-- The TypeScript calculation rounds exactly like the Python domain, and its tests reproduce the
-  domain's hand-checked cases.
+- The TypeScript calculation lands on the same cent as the Python domain for the inputs it
+  accepts: positive prices up to 1,000,000 with up to 8 decimals, and amounts in whole cents up
+  to 10 million, checked once in `src/calculator/inputs.ts`. `money.ts` uses its own big.js
+  constructor and only `money()` builds a `Money`: `+`, `-` and `*` are exact, and division keeps
+  30 decimal places rounding half-even (Python keeps 34 significant digits). The calculator's
+  tests reproduce the domain's hand-checked cases, a table of results computed with the domain,
+  and a division case.
 - Intermediate arithmetic goes through the `Money` operators or `money.mul`/`money.div`, which use
   a fixed decimal context (34 significant digits). Never multiply bare `Decimal`s in the domain.
 - `Money` is signed on purpose, because `fx_loss` is negative when a route beats the reference.

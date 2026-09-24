@@ -30,6 +30,16 @@ export default defineConfig([
       "@typescript-eslint/switch-exhaustiveness-check": "error",
     },
   },
+  {
+    // Plain calculation code, no JSX: every condition must be an explicit boolean.
+    files: ["src/calculator/**/*.ts"],
+    rules: {
+      "@typescript-eslint/strict-boolean-expressions": [
+        "error",
+        { allowString: false, allowNumber: false, allowNullableObject: false },
+      ],
+    },
+  },
   // Last, so it turns off any rule that would fight Prettier over formatting.
   prettier,
 ]);
