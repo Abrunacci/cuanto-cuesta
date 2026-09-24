@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { MAX_AMOUNT, MAX_PRICE_DECIMALS, positiveAmount, positivePrice } from "./inputs.ts";
+import {
+  MAX_AMOUNT,
+  MAX_PRICE,
+  MAX_PRICE_DECIMALS,
+  positiveAmount,
+  positivePrice,
+} from "./inputs.ts";
 import { Decimal } from "./money.ts";
 
 describe("positivePrice", () => {
@@ -25,6 +31,14 @@ describe("positivePrice", () => {
     expect(positivePrice(new Decimal("1.000000001"))).toEqual({
       ok: false,
       problem: { code: "too_many_decimals", max: 8 },
+    });
+  });
+
+  it("accepts up to 1 million and rejects more", () => {
+    expect(positivePrice(new Decimal("1000000")).ok).toBe(true);
+    expect(positivePrice(new Decimal("1000000.00000001"))).toEqual({
+      ok: false,
+      problem: { code: "too_large", max: MAX_PRICE },
     });
   });
 
