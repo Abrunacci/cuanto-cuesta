@@ -53,9 +53,10 @@ export function App() {
       <Results
         comparison={reading.comparison}
         feeGaps={reading.feeGaps}
-        referenceProblem={
-          reading.problems.has(fieldId.amount) || reading.problems.has(fieldId.price(REFERENCE_KEY))
-        }
+        referenceProblems={[
+          ...(reading.problems.has(fieldId.amount) ? ["el monto"] : []),
+          ...(reading.problems.has(fieldId.price(REFERENCE_KEY)) ? ["el dólar MEP"] : []),
+        ]}
       />
 
       {ROUTES.map((route) => {

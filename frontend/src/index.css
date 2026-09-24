@@ -151,8 +151,9 @@ h3 {
   color: var(--muted);
 }
 
+/* Kept in the accessibility tree while empty, so its live region announces the problem. */
 .field-problem:empty {
-  display: none;
+  margin: 0;
 }
 
 .field-problem {

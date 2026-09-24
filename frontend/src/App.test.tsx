@@ -147,10 +147,28 @@ describe("the calculator page", () => {
     await type(/^Dólar MEP \(compra\)/, "1,536");
     // Before the person leaves the field, the summary already tells a wrong value from a missing one.
     expect(
-      screen.getByText(
-        "Revisá el monto y el dólar MEP: alguno tiene un valor que no se puede usar.",
-      ),
+      screen.getByText("Revisá el dólar MEP: tiene un valor que no se puede usar."),
     ).toBeVisible();
+  });
+
+  it("names every reference field that needs review", async () => {
+    const { type } = setup();
+    await type(/^Monto en Payoneer/, "0");
+    await type(/^Dólar MEP \(compra\)/, "1,536");
+    expect(
+      screen.getByText("Revisá el monto y el dólar MEP: tienen valores que no se pueden usar."),
+    ).toBeVisible();
+  });
+
+  it("keeps each field's problem in a live region, so leaving the field announces it", async () => {
+    const { type, user, field } = setup();
+    const region = document.getElementById("amount-problem");
+    expect(region).toHaveAttribute("aria-live", "polite");
+    expect(region).toBeEmptyDOMElement();
+    await type(/^Monto en Payoneer/, "0");
+    await user.tab();
+    expect(region).toHaveTextContent("Tiene que ser mayor que 0.");
+    expect(field(/^Monto en Payoneer/)).toHaveAccessibleDescription("Tiene que ser mayor que 0.");
   });
 
   it("names the minimum when that is what is missing", async () => {

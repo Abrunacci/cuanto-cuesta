@@ -25,8 +25,9 @@ export function NumberField({
   help,
   placeholder,
 }: NumberFieldProps) {
-  // Show a problem once the person leaves the field, so typing "1540" does not flash an error
-  // at "1"; after that it updates as they fix it.
+  // Show the field's own problem once the person leaves it, so typing "1540" does not flag the
+  // field at "1"; after that it updates as they fix it. The results summary reflects the current
+  // text at every keystroke.
   const [touched, setTouched] = useState(false);
   const shownProblem = touched ? problem : null;
   const problemId = `${id}-problem`;
