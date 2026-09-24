@@ -38,13 +38,16 @@ export function ResultBar({ text, onOpen }: ResultBarProps) {
         {text.kind === "pending" && <span className="result-bar-label">{text.text}</span>}
         {text.kind === "best" && compact && (
           <span className="result-bar-line">
-            Mejor: {text.route} · {text.amountWhole}
-            {text.review && (
-              <span className="result-bar-icon" aria-hidden="true">
-                {" "}
-                ⚠
-              </span>
-            )}
+            <span className="result-bar-route">Mejor: {text.route}</span>
+            <span className="result-bar-figure">
+              &nbsp;· {text.amountWhole}
+              {text.review && (
+                <span className="result-bar-icon" aria-hidden="true">
+                  {" "}
+                  ⚠
+                </span>
+              )}
+            </span>
           </span>
         )}
         {text.kind === "best" && !compact && (

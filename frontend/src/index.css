@@ -147,8 +147,9 @@ html {
   font-size: 0.875rem;
 }
 
+/* The whole row: long enough for the amount and its review mark on one line on most phones. */
 .result-bar-amount {
-  grid-column: 1;
+  grid-column: 1 / -1;
   font-size: 1.15rem;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
@@ -157,6 +158,7 @@ html {
 .result-bar-review {
   color: var(--unusual);
   font-size: 0.95rem;
+  white-space: nowrap;
 }
 
 /* One line while the keyboard is open, to leave room for the field being edited. */
@@ -166,14 +168,23 @@ html {
   padding: 0.4rem 1rem;
 }
 
+/* On a narrow phone the route name is cut, never the amount or its alert. */
 .result-bar-line {
-  display: block;
-  overflow: hidden;
-  font-size: 0.95rem;
+  display: flex;
+  font-size: 0.9rem;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
+}
+
+.result-bar-route {
+  min-width: 0;
+  overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.result-bar-figure {
+  flex-shrink: 0;
 }
 
 .result-bar-icon {
@@ -182,7 +193,7 @@ html {
 
 .result-bar-more {
   grid-column: 2;
-  grid-row: 1 / span 2;
+  grid-row: 1;
   color: var(--accent);
   font-size: 0.875rem;
   font-weight: 600;
