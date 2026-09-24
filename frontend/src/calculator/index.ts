@@ -13,7 +13,13 @@ export { RATE_FIELDS, REFERENCE_KEY, ROUTES } from "./data/routes.ts";
 export type { RateField } from "./data/routes.ts";
 export { charge, fixedFee, percentFee, withoutCharge } from "./fees.ts";
 export type { Fee, FixedFee, PercentFee } from "./fees.ts";
-export { MAX_AMOUNT, MAX_PRICE_DECIMALS, positiveAmount, positivePrice } from "./inputs.ts";
+export {
+  MAX_AMOUNT,
+  MAX_PRICE,
+  MAX_PRICE_DECIMALS,
+  positiveAmount,
+  positivePrice,
+} from "./inputs.ts";
 export type { InputProblem, PositiveAmount, PositivePrice, Validated } from "./inputs.ts";
 export { feeProblems, MAX_PERCENT, maxFixed, valueCap, valueProblem } from "./limits.ts";
 export type { FeeProblem, ValueProblem } from "./limits.ts";
