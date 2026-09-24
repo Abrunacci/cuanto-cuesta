@@ -21,6 +21,12 @@ describe("the bundled routes and fees", () => {
     expect(feeIdsInDefaults.filter((id) => !usedFeeIds.has(id))).toEqual([]);
   });
 
+  it("use each fee in a single route, so each fee field has a unique id on the page", () => {
+    // Every step's fees, repeats kept: a fee twice in one route would also duplicate a field id.
+    const uses = ROUTES.flatMap((r) => r.steps.flatMap((step) => step.feeIds));
+    expect(uses.filter((id, index) => uses.indexOf(id) !== index)).toEqual([]);
+  });
+
   it("only use fees that have a default", () => {
     expect([...usedFeeIds].filter((id) => !feeIdsInDefaults.includes(id))).toEqual([]);
   });
@@ -49,11 +55,11 @@ describe("the bundled routes and fees", () => {
     expect(conversion?.fee.kind === "percent" && conversion.fee.rate.eq(0)).toBe(true);
   });
 
-  it("warn on the MEP route about selling dollars, citing the BCRA", () => {
+  it("warn on the MEP route with a link to the BCRA rules", () => {
     const [warning] = ROUTES.find((r) => r.id === "mep")?.warnings ?? [];
-    expect(warning).toContain("no podés vender dólares por MEP");
-    expect(warning).toContain('Com. "A" 8336');
-    expect(warning).toContain("https://www.bcra.gob.ar/Pdfs/comytexord/A8481.pdf");
+    expect(warning).toBe(
+      "[Verificá las restricciones sobre el dólar MEP](https://www.bcra.gob.ar/Pdfs/comytexord/A8481.pdf)",
+    );
   });
 });
 

@@ -4,7 +4,8 @@
 # then the conversion (if any), then fixed fees in the conversion's target currency.
 # The rate side (bid or ask) follows from the direction of the conversion.
 # Fee ids refer to fees.yaml; every fee there must be used by some route.
-# name, label and warnings are shown on screen, so they are in Spanish.
+# name, label and warnings are shown on screen, so they are in Spanish. A warning may link a
+# phrase with [text](url); that URL cannot contain parentheses.
 
 routes:
   - id: binance_bitso
@@ -13,8 +14,7 @@ routes:
     target: ARS
     warnings:
       - >-
-        El precio P2P es el de la oferta genérica USDT/USD, no uno filtrado por Payoneer. Ajustá
-        el recargo P2P a lo que pagás realmente.
+        El precio P2P es el de la oferta genérica USDT/USD, no el de avisos que acepten Payoneer.
     steps:
       - label: Vender USD por USDT en Binance P2P
         fees: [payoneer_p2p_transfer, p2p_premium, binance_p2p_taker]
@@ -47,10 +47,7 @@ routes:
     target: ARS
     warnings:
       - >-
-        Si compraste dólar oficial en los últimos 90 días, no podés vender dólares por MEP
-        (BCRA, Com. "A" 8336). Tampoco durante los 90 días siguientes a transferir dólares de tu
-        cuenta en un banco argentino a una cuenta bancaria tuya en el exterior. Texto ordenado
-        vigente, puntos 3.8.5 y 3.14.1.2: https://www.bcra.gob.ar/Pdfs/comytexord/A8481.pdf
+        [Verificá las restricciones sobre el dólar MEP](https://www.bcra.gob.ar/Pdfs/comytexord/A8481.pdf)
     steps:
       - label: Retirar de Payoneer a una cuenta argentina en USD
         fees: [payoneer_ar_withdrawal]

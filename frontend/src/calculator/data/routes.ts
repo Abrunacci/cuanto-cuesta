@@ -31,7 +31,7 @@ export const ROUTES: readonly Route[] = [
       { label: "Retirar ARS al banco", feeIds: ["bitso_ars_withdrawal"], conversion: null },
     ],
     warnings: [
-      "El precio P2P es el de la oferta genérica USDT/USD, no uno filtrado por Payoneer. Ajustá el recargo P2P a lo que pagás realmente.",
+      "El precio P2P es el de la oferta genérica USDT/USD, no el de avisos que acepten Payoneer.",
     ],
   },
   {
@@ -78,7 +78,7 @@ export const ROUTES: readonly Route[] = [
       },
     ],
     warnings: [
-      'Si compraste dólar oficial en los últimos 90 días, no podés vender dólares por MEP (BCRA, Com. "A" 8336). Tampoco durante los 90 días siguientes a transferir dólares de tu cuenta en un banco argentino a una cuenta bancaria tuya en el exterior. Texto ordenado vigente, puntos 3.8.5 y 3.14.1.2: https://www.bcra.gob.ar/Pdfs/comytexord/A8481.pdf',
+      "[Verificá las restricciones sobre el dólar MEP](https://www.bcra.gob.ar/Pdfs/comytexord/A8481.pdf)",
     ],
   },
 ];
@@ -86,6 +86,10 @@ export const ROUTES: readonly Route[] = [
 export interface RateField extends RateDefinition {
   /** Shown on screen, in Spanish. */
   readonly label: string;
+  /** A word or two, where there is room for little: "MEP". */
+  readonly shortLabel: string;
+  /** Where to find this price, in a line, shown on screen in Spanish. */
+  readonly help: string;
 }
 
 /** The MEP dollar is both the reference and the rate of the MEP route. */
@@ -96,18 +100,36 @@ export const REFERENCE_KEY = "mep";
  * par with USD (the fee `arq_usd_usdc_conversion` holds the assumption), so ARQ's rate is USD/ARS.
  */
 export const RATE_FIELDS: readonly RateField[] = [
-  { key: "mep", base: "USD", quote: "ARS", label: "Dólar MEP (compra)" },
+  {
+    key: "mep",
+    base: "USD",
+    quote: "ARS",
+    label: "Dólar MEP (compra)",
+    shortLabel: "MEP",
+    help: "Lo que te pagan por cada dólar vendido por MEP. Lo ves en tu banco o broker.",
+  },
   {
     key: "p2p_usdt_usd",
     base: "USDT",
     quote: "USD",
     label: "Precio P2P en Binance (USD por USDT)",
+    shortLabel: "precio P2P",
+    help: "En Binance P2P, cuántos USD cuesta cada USDT en los avisos para comprar.",
   },
   {
     key: "bitso_usdt_ars",
     base: "USDT",
     quote: "ARS",
     label: "Precio de venta en Bitso (ARS por USDT)",
+    shortLabel: "precio Bitso",
+    help: "En Bitso, cuántos pesos te dan por cada USDT que vendés.",
   },
-  { key: "arq_usd_ars", base: "USD", quote: "ARS", label: "Cotización de ARQ (ARS por USDc)" },
+  {
+    key: "arq_usd_ars",
+    base: "USD",
+    quote: "ARS",
+    label: "Cotización de ARQ (ARS por USDc)",
+    shortLabel: "cotización ARQ",
+    help: "En la app de ARQ, cuántos pesos te dan por cada dólar digital (USDc).",
+  },
 ];
