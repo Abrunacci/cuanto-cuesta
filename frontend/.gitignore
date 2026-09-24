@@ -1,0 +1,13 @@
+# Logs
+*.log
+npm-debug.log*
+
+node_modules
+dist
+*.local
+
+# Editors
+.vscode
+.idea
+.DS_Store
+*.sw?
