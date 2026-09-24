@@ -103,7 +103,7 @@ export function App() {
       </main>
 
       <ResultBar
-        text={barText(reading.comparison, referenceProblems, reading.feeGaps, reading)}
+        text={barText(reading, referenceProblems)}
         onOpen={(headingId) => {
           document.getElementById(headingId)?.focus();
         }}

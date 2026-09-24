@@ -7,6 +7,15 @@ import { App } from "./App.tsx";
 /** Text with no-break spaces as plain spaces, to compare with what the person reads. */
 const plain = (text: string | null) => (text ?? "").replace(/\u00a0/g, " ");
 
+/** What a sighted person reads: the text without what is only for screen readers, spaces collapsed. */
+function visible(element: HTMLElement) {
+  const copy = element.cloneNode(true) as HTMLElement;
+  for (const hidden of copy.querySelectorAll(".visually-hidden")) {
+    hidden.remove();
+  }
+  return plain(copy.textContent).replace(/\s+/g, " ").trim();
+}
+
 function setup() {
   const user = userEvent.setup();
   render(<App />);
@@ -413,8 +422,8 @@ describe("the calculator page", () => {
     const bar = () => screen.getByRole("link", { name: /Ver resultado$/ });
     expect(bar()).toHaveTextContent("Falta completar: monto en USD y dólar MEP (compra).");
     await fillEverything(type);
-    expect(plain(bar().textContent)).toBe(
-      "Mejor ruta: Binance P2P + BitsoLlegan $ 1.534.005,69 · revisáVer resultado",
+    expect(visible(bar())).toBe(
+      "Mejor ruta: Binance P2P + Bitso Llegan $ 1.534.005,69 · revisá Ver resultado",
     );
     await type(/^Dólar MEP \(compra\)/, "1.400");
     await type(/^Precio P2P en Binance/, "1,5");
@@ -433,8 +442,8 @@ describe("the calculator page", () => {
     const bar = screen.getByRole("link", { name: /Ver resultado$/ });
     // The P2P premium is still at 0 and two Binance fees are estimates.
     expect(bar).toHaveAccessibleName(
-      "Mejor ruta: Binance P2P + Bitso. Llegan $\u00a01.534.005,69. Tiene valores para revisar. " +
-        "Ver resultado",
+      "Mejor ruta: Binance P2P + Bitso. Llegan $\u00a01.534.005,69 · revisá los valores de esta " +
+        "ruta. Ver resultado",
     );
     await user.click(bar);
     expect(screen.getByRole("heading", { name: "Binance P2P + Bitso" })).toHaveFocus();
@@ -448,8 +457,9 @@ describe("the calculator page", () => {
     await type(/^Transferencia de Payoneer al comprador P2P/, "3");
     await type(/^Comisión taker de Binance P2P/, "0,07");
     const bar = screen.getByRole("link", { name: /Ver resultado$/ });
-    expect(bar).not.toHaveTextContent("revisá");
-    expect(bar).not.toHaveAccessibleName(/revisar/);
+    expect(bar).toHaveAccessibleName(
+      "Mejor ruta: Binance P2P + Bitso. Llegan $\u00a01.534.021,65. Ver resultado",
+    );
     await user.click(bar);
     expect(screen.getByRole("heading", { name: "Resultado" })).toHaveFocus();
   });
@@ -468,20 +478,27 @@ describe("the calculator page", () => {
   });
 
   describe("with an on-screen keyboard that only shrinks the visual viewport (Safari on iOS)", () => {
+    /** A visual viewport, and a layout viewport 800px tall and `layoutWidth` wide. */
     function fakeViewport(height: number, offsetTop = 0) {
       const target = new EventTarget() as EventTarget & {
         width: number;
         height: number;
         offsetTop: number;
         scale: number;
+        layoutWidth: number;
       };
       target.width = 390;
       target.height = height;
       target.offsetTop = offsetTop;
       target.scale = 1;
+      target.layoutWidth = 390;
       Object.defineProperty(window, "visualViewport", { value: target, configurable: true });
       Object.defineProperty(document.documentElement, "clientHeight", {
         value: 800,
+        configurable: true,
+      });
+      Object.defineProperty(document.documentElement, "clientWidth", {
+        get: () => target.layoutWidth,
         configurable: true,
       });
       return target;
@@ -490,6 +507,7 @@ describe("the calculator page", () => {
     afterEach(() => {
       Reflect.deleteProperty(window, "visualViewport");
       Reflect.deleteProperty(document.documentElement, "clientHeight");
+      Reflect.deleteProperty(document.documentElement, "clientWidth");
     });
 
     const bar = () => screen.getByRole("link", { name: /Ver resultado$/ });
@@ -528,12 +546,27 @@ describe("the calculator page", () => {
       await fillEverything(type);
       viewport.height = 470;
       resize(viewport);
-      expect(plain(bar().textContent)).toBe("Mejor: Binance P2P + Bitso · $ 1.534.005 ⚠");
-      expect(bar()).toHaveAccessibleName(description("Tiene valores para revisar."));
+      expect(visible(bar())).toBe("Mejor: Binance P2P + Bitso · $ 1.534.005 \u26a0\ufe0e");
+      expect(bar()).toHaveAccessibleName(
+        "Mejor: Binance P2P + Bitso · $\u00a01.534.005, revisá los valores de esta ruta. " +
+          "Ver resultado",
+      );
       viewport.height = 800;
       resize(viewport);
-      expect(plain(bar().textContent)).toBe(
-        "Mejor ruta: Binance P2P + BitsoLlegan $ 1.534.005,69 · revisáVer resultado",
+      expect(visible(bar())).toBe(
+        "Mejor ruta: Binance P2P + Bitso Llegan $ 1.534.005,69 · revisá Ver resultado",
+      );
+    });
+
+    it("keeps what is missing to one line while the keyboard is open", () => {
+      const viewport = fakeViewport(800);
+      render(<App />);
+      viewport.height = 470;
+      resize(viewport);
+      const line = within(bar()).getByText("Falta completar: monto en USD y dólar MEP (compra).");
+      expect(line.parentElement).toHaveClass("result-bar-line");
+      expect(bar()).toHaveAccessibleName(
+        "Falta completar: monto en USD y dólar MEP (compra). Ver resultado",
       );
     });
 
@@ -547,26 +580,56 @@ describe("the calculator page", () => {
       await type(/^Comisión taker de Binance P2P/, "0,07");
       viewport.height = 470;
       resize(viewport);
-      expect(plain(bar().textContent)).toBe("Mejor: Binance P2P + Bitso · $ 1.534.021");
+      expect(visible(bar())).toBe("Mejor: Binance P2P + Bitso · $ 1.534.021");
     });
 
-    it("keeps the full bar when pinch zoom shrinks the viewport", () => {
+    const compact = () => !visible(bar()).includes("Ver resultado");
+
+    it("ignores pinch zoom, and still sees the keyboard after it", () => {
       const viewport = fakeViewport(800);
       render(<App />);
-      viewport.height = 400;
-      viewport.scale = 2;
+      viewport.height = 470;
       resize(viewport);
-      expect(bar()).toHaveTextContent("Ver resultado");
+      expect(compact()).toBe(true);
+      // Zooming in shrinks the visual viewport in both directions; the layout stays the same.
+      Object.assign(viewport, { width: 195, height: 235, scale: 2 });
+      resize(viewport);
+      expect(compact()).toBe(false);
       expect(bar()).toHaveStyle({ bottom: "0px" });
+      // Zoomed back out with the keyboard still open: not mistaken for a rotation.
+      Object.assign(viewport, { width: 390, height: 470, scale: 1 });
+      resize(viewport);
+      expect(compact()).toBe(true);
     });
 
     it("keeps the full bar when a rotation makes the screen shorter", () => {
       const viewport = fakeViewport(800);
       render(<App />);
-      viewport.width = 800;
+      Object.assign(viewport, { layoutWidth: 844, width: 844, height: 390 });
+      resize(viewport);
+      expect(compact()).toBe(false);
+      // The keyboard, opened in landscape, is measured against the landscape height.
+      viewport.height = 200;
+      resize(viewport);
+      expect(compact()).toBe(true);
+    });
+
+    it("sees the keyboard again after rotating with it open", () => {
+      const viewport = fakeViewport(800);
+      render(<App />);
+      viewport.height = 470;
+      resize(viewport);
+      expect(compact()).toBe(true);
+      // Rotated with the keyboard open: the landscape height is not known yet, so the bar is
+      // full until the keyboard closes and opens again.
+      Object.assign(viewport, { layoutWidth: 844, width: 844, height: 200 });
+      resize(viewport);
+      expect(compact()).toBe(false);
       viewport.height = 390;
       resize(viewport);
-      expect(bar()).toHaveTextContent("Ver resultado");
+      viewport.height = 200;
+      resize(viewport);
+      expect(compact()).toBe(true);
     });
 
     it("never moves the bar below the screen", () => {

@@ -3,7 +3,7 @@
 import type { Comparison } from "../calculator/index.ts";
 import { joinSpanish } from "../text/lists.ts";
 import { formatMoney, formatMoneyWhole } from "../text/numbers.ts";
-import type { FeeGap } from "./form.ts";
+import type { FormReading } from "./form.ts";
 import { missingInputLabel } from "./messages.ts";
 import { commonMissing } from "./missing.ts";
 import { routeNeedsReview } from "./review.ts";
@@ -43,18 +43,9 @@ export type BarText =
   | { readonly kind: "pending"; readonly text: string };
 
 /** What the bar needs to tell whether the best route's result has something to check. */
-export interface ReviewInputs {
-  readonly unchangedFees: ReadonlySet<string>;
-  readonly warnings: ReadonlyMap<string, string>;
-}
-
 /** The best route and what reaches the bank; or, while no route can be computed, what is missing. */
-export function barText(
-  comparison: Comparison,
-  problems: ReferenceProblems,
-  feeGaps: ReadonlyMap<string, FeeGap>,
-  review: ReviewInputs,
-): BarText {
+export function barText(reading: FormReading, problems: ReferenceProblems): BarText {
+  const { comparison, feeGaps } = reading;
   const best = comparison.routes[0];
   if (best?.status === "complete") {
     const { final } = best.result;
@@ -64,7 +55,7 @@ export function barText(
       routeId: best.route.id,
       amount: formatMoney(final.amount, final.currency),
       amountWhole: formatMoneyWhole(final.amount, final.currency),
-      review: routeNeedsReview(best.route, review.unchangedFees, review.warnings),
+      review: routeNeedsReview(best.route, reading.unchangedFees, reading.warnings),
     };
   }
   if (problems.length > 0) {

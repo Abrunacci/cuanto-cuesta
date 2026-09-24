@@ -24,53 +24,84 @@ export function ResultBar({ text, onOpen }: ResultBarProps) {
   const compact = keyboard.open;
   return (
     <aside aria-label="Resumen del resultado">
+      {/* No aria-label: the name is the visible text plus hidden punctuation and words, so what a
+          person sees ("revisá") is also what voice control can say. Spaces between words go in
+          text nodes between elements, which the layout ignores and the name keeps. */}
       <a
         ref={bar}
         className={compact ? "result-bar result-bar-compact" : "result-bar"}
         href={`#${headingId}`}
-        aria-label={accessibleName(text)}
         style={{ bottom: `${String(keyboard.inset)}px` }}
         onClick={(event) => {
           event.preventDefault();
           onOpen(headingId);
         }}
       >
-        {text.kind === "pending" && <span className="result-bar-label">{text.text}</span>}
-        {text.kind === "best" && compact && (
-          <span className="result-bar-line">
-            <span className="result-bar-route">Mejor: {text.route}</span>
-            <span className="result-bar-figure">
-              &nbsp;· {text.amountWhole}
-              {text.review && (
-                <span className="result-bar-icon" aria-hidden="true">
-                  {" "}
-                  ⚠
-                </span>
-              )}
-            </span>
-          </span>
-        )}
-        {text.kind === "best" && !compact && (
-          <>
-            <span className="result-bar-label">Mejor ruta: {text.route}</span>
-            <span className="result-bar-amount">
-              Llegan {text.amount}
-              {text.review && <span className="result-bar-review"> · revisá</span>}
-            </span>
-          </>
-        )}
-        {!compact && <span className="result-bar-more">Ver resultado</span>}
+        {compact ? <CompactLine text={text} /> : <FullText text={text} />}{" "}
+        <span className={compact ? "visually-hidden" : "result-bar-more"}>Ver resultado</span>
       </a>
     </aside>
   );
 }
 
-function accessibleName(text: BarText): string {
+const REVIEW_DETAIL = "los valores de esta ruta.";
+
+function FullText({ text }: { readonly text: BarText }) {
   if (text.kind === "pending") {
-    return `${text.text} Ver resultado`;
+    return <span className="result-bar-label">{text.text}</span>;
   }
-  const review = text.review ? " Tiene valores para revisar." : "";
-  return `Mejor ruta: ${text.route}. Llegan ${text.amount}.${review} Ver resultado`;
+  return (
+    <>
+      <span className="result-bar-label">
+        Mejor ruta: {text.route}
+        <span className="visually-hidden">.</span>
+      </span>{" "}
+      <span className="result-bar-amount">
+        Llegan {text.amount}
+        {text.review ? (
+          <>
+            {" "}
+            <span className="result-bar-review">
+              · revisá <span className="visually-hidden">{REVIEW_DETAIL}</span>
+            </span>
+          </>
+        ) : (
+          <span className="visually-hidden">.</span>
+        )}
+      </span>
+    </>
+  );
+}
+
+/** One line: on a narrow phone the start is cut, never the amount or its alert. */
+function CompactLine({ text }: { readonly text: BarText }) {
+  if (text.kind === "pending") {
+    return (
+      <span className="result-bar-line">
+        <span className="result-bar-route">{text.text}</span>
+      </span>
+    );
+  }
+  return (
+    <span className="result-bar-line">
+      <span className="result-bar-route">Mejor: {text.route}</span>{" "}
+      <span className="result-bar-figure">
+        &nbsp;· {text.amountWhole}
+        {text.review ? (
+          <>
+            {/* The text presentation selector keeps iOS from drawing it as a color emoji. */}
+            <span className="result-bar-icon" aria-hidden="true">
+              {" "}
+              {"\u26a0\ufe0e"}
+            </span>
+            <span className="visually-hidden">, revisá {REVIEW_DETAIL}</span>
+          </>
+        ) : (
+          <span className="visually-hidden">.</span>
+        )}
+      </span>
+    </span>
+  );
 }
 
 /** How much a visual viewport has to shrink below its tallest to count as a keyboard. */
@@ -87,7 +118,9 @@ interface Keyboard {
  * keyboard (see `interactive-widget` in index.html) shrink both viewports; others, like Safari on
  * iOS, only shrink the visual one, and the bar has to move up by the difference. Either way the
  * visual viewport ends up well below the tallest it has been at this width. Pinch zoom also
- * shrinks it, so it is ignored.
+ * shrinks it, so it is ignored, and so is the inset: while zoomed, a fixed bar is out of view
+ * anyway. Making only the window shorter (a split screen, a short desktop window) also counts as
+ * a keyboard; the bar then shows one line, which loses nothing.
  */
 function useKeyboard(): Keyboard {
   const [keyboard, setKeyboard] = useState<Keyboard>({ inset: 0, open: false });
@@ -97,12 +130,14 @@ function useKeyboard(): Keyboard {
     if (viewport === null) {
       return undefined;
     }
-    let width = viewport.width;
+    const root = document.documentElement;
+    // The layout width: pinch zoom changes the visual viewport's width, but not this one.
+    let width = root.clientWidth;
     let tallest = viewport.height;
     const update = () => {
-      if (viewport.width !== width) {
+      if (root.clientWidth !== width) {
         // Rotated: heights from the other orientation say nothing about the keyboard.
-        width = viewport.width;
+        width = root.clientWidth;
         tallest = viewport.height;
       }
       const zoomed = viewport.scale > 1.01;
@@ -111,12 +146,13 @@ function useKeyboard(): Keyboard {
       }
       // clientHeight is the layout viewport in every engine; iOS overscroll can make offsetTop
       // negative for a moment, which must not move the bar.
-      const layout = document.documentElement.clientHeight;
-      const covered = layout - viewport.height - Math.max(0, viewport.offsetTop);
-      setKeyboard({
-        inset: zoomed ? 0 : Math.max(0, Math.round(covered)),
-        open: !zoomed && tallest - viewport.height >= KEYBOARD_MIN_HEIGHT,
-      });
+      const covered = root.clientHeight - viewport.height - Math.max(0, viewport.offsetTop);
+      const inset = zoomed ? 0 : Math.max(0, Math.round(covered));
+      const open = !zoomed && tallest - viewport.height >= KEYBOARD_MIN_HEIGHT;
+      // Scrolling fires this every frame on iOS: render only when something changed.
+      setKeyboard((current) =>
+        current.inset === inset && current.open === open ? current : { inset, open },
+      );
     };
     update();
     viewport.addEventListener("resize", update);

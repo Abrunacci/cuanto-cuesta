@@ -30,7 +30,7 @@ describe("commonMissing", () => {
 describe("barText", () => {
   it("names the best route and what reaches the bank", () => {
     const reading = read({ amount: "1000", prices: PRICES });
-    expect(barText(reading.comparison, [], reading.feeGaps, reading)).toEqual({
+    expect(barText(reading, [])).toEqual({
       kind: "best",
       route: "Binance P2P + Bitso",
       routeId: "binance_bitso",
@@ -52,7 +52,7 @@ describe("barText", () => {
         binance_p2p_taker: "0,07",
       },
     });
-    const text = barText(reading.comparison, [], reading.feeGaps, reading);
+    const text = barText(reading, []);
     expect(text.kind === "best" && [text.routeId, text.review]).toEqual(["binance_bitso", false]);
   });
 
@@ -65,7 +65,7 @@ describe("barText", () => {
       prices: PRICES,
       fees: { ...initialTexts().fees, ...fees },
     });
-    const text = barText(reading.comparison, [], reading.feeGaps, reading);
+    const text = barText(reading, []);
     expect(text.kind === "best" && [text.routeId, text.review]).toEqual(["binance_bitso", true]);
   });
 
@@ -80,13 +80,13 @@ describe("barText", () => {
         binance_p2p_taker: "0,07",
       },
     });
-    const text = barText(reading.comparison, [], reading.feeGaps, reading);
+    const text = barText(reading, []);
     expect(text.kind === "best" && [text.routeId, text.review]).toEqual(["binance_bitso", true]);
   });
 
   it("says what is missing while no route can be computed", () => {
     const reading = read({});
-    expect(barText(reading.comparison, [], reading.feeGaps, reading)).toEqual({
+    expect(barText(reading, [])).toEqual({
       kind: "pending",
       text: "Falta completar: monto en USD y dólar MEP (compra).",
     });
@@ -94,7 +94,7 @@ describe("barText", () => {
 
   it("asks to review a wrong amount or MEP before listing what is missing", () => {
     const reading = read({ amount: "0" });
-    expect(barText(reading.comparison, ["el monto"], reading.feeGaps, reading)).toEqual({
+    expect(barText(reading, ["el monto"])).toEqual({
       kind: "pending",
       text: "Revisá el monto: tiene un valor que no se puede usar.",
     });
@@ -108,7 +108,7 @@ describe("barText", () => {
       fees: { ...initialTexts().fees, broker_buy: "" },
     });
     expect(reading.comparison.routes.every((r) => r.status === "incomplete")).toBe(true);
-    expect(barText(reading.comparison, [], reading.feeGaps, reading)).toEqual({
+    expect(barText(reading, [])).toEqual({
       kind: "pending",
       text: "Todavía ninguna ruta se puede calcular: mirá qué le falta a cada una.",
     });

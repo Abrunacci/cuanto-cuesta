@@ -4,6 +4,7 @@ import { Decimal, fixedFee, percentFee } from "../calculator/index.ts";
 import {
   formatFeeValue,
   formatMoney,
+  formatMoneyWhole,
   formatNumber,
   formatUnambiguous,
   parseNumber,
@@ -106,6 +107,13 @@ describe("formatting", () => {
     expect(formatMoney(new Decimal("-13552.4"), "ARS")).toBe("-$\u00a013.552,40");
     expect(formatMoney(new Decimal("1000"), "USD")).toBe("US$\u00a01.000,00");
     expect(formatMoney(new Decimal("0.08"), "USDT")).toBe("0,08\u00a0USDT");
+  });
+
+  it("cuts money to whole units toward zero, without a sign on zero", () => {
+    expect(formatMoneyWhole(new Decimal("1534005.99"), "ARS")).toBe("$\u00a01.534.005");
+    expect(formatMoneyWhole(new Decimal("1000"), "ARS")).toBe("$\u00a01.000");
+    expect(formatMoneyWhole(new Decimal("-13552.4"), "ARS")).toBe("-$\u00a013.552");
+    expect(formatMoneyWhole(new Decimal("-0.5"), "ARS")).toBe("$\u00a00");
   });
 
   it("writes a fee's value with its unit", () => {

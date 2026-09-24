@@ -121,8 +121,10 @@ export function formatMoney(amount: Big, currency: Currency): string {
 
 /** An amount in whole units, rounded down, for tight spaces: "$ 1.534.005". */
 export function formatMoneyWhole(amount: Big, currency: Currency): string {
-  const negative = amount.lt(0);
-  const text = formatNumber(amount.abs().round(0, 0), 0);
+  // Cut toward zero, only for display; a cut to 0 has no sign.
+  const whole = amount.abs().round(0, 0);
+  const negative = amount.lt(0) && whole.gt(0);
+  const text = formatNumber(whole, 0);
   return `${negative ? "-" : ""}${CURRENCY_PREFIX[currency]}${text}${CURRENCY_SUFFIX[currency]}`;
 }
 
