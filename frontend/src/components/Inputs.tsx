@@ -2,14 +2,6 @@ import { RATE_FIELDS } from "../calculator/index.ts";
 import { fieldId, type FormReading, type FormTexts } from "../form/form.ts";
 import { NumberField } from "./NumberField.tsx";
 
-/** Where to find each number, in a line. */
-const PRICE_HELP: Readonly<Record<string, string>> = {
-  mep: "Lo que te pagan por cada dólar vendido por MEP. Lo ves en tu banco o broker.",
-  p2p_usdt_usd: "En Binance P2P, cuántos USD cuesta cada USDT en los avisos para comprar.",
-  bitso_usdt_ars: "En Bitso, cuántos pesos te dan por cada USDT que vendés.",
-  arq_usd_ars: "En la app de ARQ, cuántos pesos te dan por cada dólar digital (USDc).",
-};
-
 interface InputsProps {
   readonly texts: FormTexts;
   readonly reading: FormReading;
@@ -51,7 +43,7 @@ export function Inputs({ texts, reading, onAmount, onPrice }: InputsProps) {
             problem={reading.problems.get(id) ?? null}
             warning={reading.warnings.get(id)}
             echo={reading.echoes.get(id)}
-            help={PRICE_HELP[field.key]}
+            help={field.help}
           />
         );
       })}

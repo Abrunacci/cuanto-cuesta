@@ -127,8 +127,13 @@ describe("numbers read a thousand times off", () => {
       "Valor inusual: leímos 1.030,00 USD por USDT y lo común está entre 0,5 y 2. Revisalo. " +
         "¿Quisiste poner 1,03?",
     );
-    // A jump in the exchange rate must not leave the calculator useless: the route is computed.
-    expect(read.route("binance_bitso")?.status).toBe("complete");
+    // A jump in the exchange rate must not leave the calculator useless: the route is computed,
+    // with the value as typed (1030), not the suggestion. 1000.00 - 4.00 = 996.00 / 1030 = 0.96;
+    // - 0.08 = 0.88; - 0.07 = 0.81; 0.6 % -> 0.01; 0.80 x 1596.21 = 1276.968 -> 1276.96
+    const binance = read.route("binance_bitso");
+    expect(binance?.status === "complete" && binance.result.final.amount.toFixed(2)).toBe(
+      "1276.96",
+    );
   });
 
   it("warns about a MEP pasted in English notation, suggesting the fix", () => {

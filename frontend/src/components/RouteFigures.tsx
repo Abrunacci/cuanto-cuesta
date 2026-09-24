@@ -1,17 +1,20 @@
 import type { MissingInput, RouteComparison } from "../calculator/index.ts";
 import { fieldId, type FeeGap } from "../form/form.ts";
 import { missingInputLabel } from "../form/messages.ts";
+import { joinSpanish } from "../text/lists.ts";
 import { formatMoney } from "../text/numbers.ts";
 
 interface RouteFiguresProps {
   readonly entry: RouteComparison;
   readonly feeGaps: ReadonlyMap<string, FeeGap>;
+  /** Labels of the unusual prices this route was computed with, e.g. ["precio P2P…"]. */
+  readonly unusualPrices: readonly string[];
   /** Take the person to a field, opening the route's card when the field is inside it. */
   readonly onGoToField: (routeId: string, id: string) => void;
 }
 
 /** A route's three figures, or what it still needs, each item a link to its field. */
-export function RouteFigures({ entry, feeGaps, onGoToField }: RouteFiguresProps) {
+export function RouteFigures({ entry, feeGaps, unusualPrices, onGoToField }: RouteFiguresProps) {
   if (entry.status === "incomplete") {
     return (
       <div className="missing">
@@ -56,6 +59,9 @@ export function RouteFigures({ entry, feeGaps, onGoToField }: RouteFiguresProps)
           <dd>{formatMoney(loss.amount.abs(), loss.currency)}</dd>
         </div>
       </dl>
+      {unusualPrices.length > 0 && (
+        <p className="unusual">Calculado con un valor inusual: {joinSpanish(unusualPrices)}.</p>
+      )}
       {entry.result.exhausted && (
         <p className="exhausted">Las comisiones se comen todo el monto en algún paso.</p>
       )}

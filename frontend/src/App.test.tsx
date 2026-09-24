@@ -153,12 +153,20 @@ describe("the calculator page", () => {
     await openCard("Binance P2P + Bitso");
     await type(/^Comisión taker del libro de órdenes de Bitso/, "");
     await openCard("Binance P2P + Bitso");
-    expect(field(/^Comisión taker del libro de órdenes de Bitso/)).not.toBeVisible();
+    const input = field(/^Comisión taker del libro de órdenes de Bitso/);
+    expect(input).not.toBeVisible();
+    // A browser ignores focus() on a field inside a closed <details>: the card must already be
+    // open when the field receives focus, not opened afterwards.
+    let openAtFocus: boolean | undefined;
+    input.addEventListener("focus", () => {
+      openAtFocus = input.closest("details")?.open;
+    });
     await user.click(
       within(results()).getByRole("link", { name: "comisión taker del libro de órdenes de Bitso" }),
     );
-    expect(field(/^Comisión taker del libro de órdenes de Bitso/)).toBeVisible();
-    expect(field(/^Comisión taker del libro de órdenes de Bitso/)).toHaveFocus();
+    expect(openAtFocus).toBe(true);
+    expect(input).toBeVisible();
+    expect(input).toHaveFocus();
   });
 
   it("names the minimum when that is what is missing, and links to it", async () => {
@@ -208,10 +216,13 @@ describe("the calculator page", () => {
     expect(region).toHaveTextContent("Tiene que ser mayor que 0.");
   });
 
-  it("computes with an unusual price but warns about it, suggesting the other reading", async () => {
+  it("computes with an unusual price as typed, and warns about it on leaving the field", async () => {
     const { type, field, user, ranking } = setup();
-    await fillEverything(type);
     await type(/^Precio P2P en Binance/, "1.030");
+    // Nothing is shown while typing in a field not yet left.
+    expect(field(/^Precio P2P en Binance/)).not.toHaveAccessibleDescription(
+      description("Valor inusual"),
+    );
     await user.tab();
     expect(field(/^Precio P2P en Binance/)).toBeValid();
     expect(field(/^Precio P2P en Binance/)).toHaveAccessibleDescription(
@@ -220,7 +231,19 @@ describe("the calculator page", () => {
     expect(field(/^Precio P2P en Binance/)).toHaveAccessibleDescription(
       description("¿Quisiste poner 1,03?"),
     );
-    expect(ranking().find((item) => item.includes("Binance"))).toContain("Llegan al banco");
+    await type(/^Monto en Payoneer/, "1000");
+    await type(/^Dólar MEP \(compra\)/, "1.536,16");
+    await type(/^Precio de venta en Bitso/, "1.596,21");
+    await type(/^Cotización de ARQ/, "1.593,385");
+    // Computed with 1030 as typed, not with the suggestion:
+    // 1000.00 - 4.00 = 996.00 USD / 1030 = 0.9669... -> 0.96 USDT - 0.08 = 0.88; - 0.07 = 0.81;
+    // 0.6 % of 0.81 = 0.00486 -> 0.01; 0.80 x 1596.21 = 1276.968 -> 1276.96
+    const items = ranking();
+    expect(items.at(-1)).toContain("Binance P2P + Bitso");
+    expect(items.at(-1)).toContain("Llegan al banco$ 1.276,96");
+    expect(items.at(-1)).toContain(
+      "Calculado con un valor inusual: precio P2P en Binance (USD por USDT).",
+    );
   });
 
   it("says how a number was read only when it reads two ways", async () => {
@@ -269,6 +292,10 @@ describe("the calculator page", () => {
     expect(screen.getByText("Retirar de Payoneer a una cuenta argentina en USD")).toHaveClass(
       "visually-hidden",
     );
+    // The group keeps its name for screen readers.
+    expect(
+      screen.getByRole("group", { name: "Retirar de Payoneer a una cuenta argentina en USD" }),
+    ).toBeInTheDocument();
     expect(screen.getByText("Comprar AL30D y vender AL30")).not.toHaveClass("visually-hidden");
   });
 
