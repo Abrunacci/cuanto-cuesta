@@ -47,7 +47,12 @@ jobs:
           name: dist
           path: frontend/dist/
           if-no-files-found: error
-          retention-days: 1
+          # Hidden files are uploaded too, so the server's rules decide: it
+          # accepts .well-known/ and rejects any other hidden file, loudly,
+          # instead of the artifact dropping them silently.
+          include-hidden-files: true
+          # Long enough for an approval that comes days later.
+          retention-days: 7
           # A re-run (redeploying an earlier commit) replaces its own artifact.
           overwrite: true
 
@@ -80,6 +85,10 @@ jobs:
           DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
         run: |
           set -euo pipefail
+          if [[ -z "$DEPLOY_SSH_KEY" || -z "$DEPLOY_KNOWN_HOSTS" ]]; then
+            echo "::error::DEPLOY_SSH_KEY or DEPLOY_KNOWN_HOSTS is missing in the production environment."
+            exit 1
+          fi
           ssh_dir="$RUNNER_TEMP/deploy-ssh"
           # The key exists only while this step runs, readable only by us.
           trap 'rm -rf "$ssh_dir"' EXIT
@@ -87,6 +96,8 @@ jobs:
           mkdir "$ssh_dir"
           printf '%s\n' "$DEPLOY_SSH_KEY" > "$ssh_dir/key"
           printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > "$ssh_dir/known_hosts"
+          # Out of the environment of tar and ssh.
+          unset DEPLOY_SSH_KEY DEPLOY_KNOWN_HOSTS
           # The server's identity is always checked against the pinned line.
           tar -C dist -cz . \
             | ssh -i "$ssh_dir/key" \
@@ -104,23 +115,33 @@ jobs:
         shell: bash
         run: rm -rf "$RUNNER_TEMP/deploy-ssh"
 
-      # The site must serve exactly this build's index.html: not the
-      # placeholder, not the previous release. current switches atomically,
-      # so a few retries only cover the network.
+      # The site must serve exactly this build: its index.html and every asset
+      # that index.html references. current switches atomically, so a few
+      # retries only cover the network.
       - name: Check the published site
         shell: bash
         run: |
           set -euo pipefail
           for _ in 1 2 3 4 5; do
+            rm -f served.html
             if curl -fsS --max-time 10 -o served.html "$SITE_URL" && cmp -s served.html dist/index.html; then
+              # The assets index.html loads must be served byte for byte too.
+              while read -r asset; do
+                if ! curl -fsS --max-time 10 "${SITE_URL%/}$asset" | cmp -s - "dist$asset"; then
+                  echo "::error::${SITE_URL%/}$asset is not served as built."
+                  exit 1
+                fi
+              done < <(grep -oE '/assets/[A-Za-z0-9._-]+' dist/index.html | sort -u)
               echo "$SITE_URL serves this build."
               exit 0
             fi
             sleep 3
           done
-          if grep -q 'en construcción' served.html 2>/dev/null; then
+          if [[ ! -s served.html ]]; then
+            echo "::error::$SITE_URL did not answer (see the curl errors above)."
+          elif grep -q 'en construcción' served.html; then
             echo "::error::$SITE_URL still serves the placeholder."
           else
-            echo "::error::$SITE_URL does not serve this build's index.html."
+            echo "::error::$SITE_URL serves something other than this build's index.html."
           fi
           exit 1
