@@ -141,6 +141,18 @@ describe("the calculator page", () => {
     );
   });
 
+  it("asks to review, not to complete, when the MEP holds a value that cannot be used", async () => {
+    const { type } = setup();
+    await type(/^Monto en Payoneer/, "1.000");
+    await type(/^Dólar MEP \(compra\)/, "1,536");
+    // Before the person leaves the field, the summary already tells a wrong value from a missing one.
+    expect(
+      screen.getByText(
+        "Revisá el monto y el dólar MEP: alguno tiene un valor que no se puede usar.",
+      ),
+    ).toBeVisible();
+  });
+
   it("names the minimum when that is what is missing", async () => {
     const { type, user, field, ranking } = setup();
     await fillEverything(type);

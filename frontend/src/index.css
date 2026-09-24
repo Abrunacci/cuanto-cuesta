@@ -151,6 +151,10 @@ h3 {
   color: var(--muted);
 }
 
+.field-problem:empty {
+  display: none;
+}
+
 .field-problem {
   margin: 0.25rem 0 0;
   color: var(--problem);

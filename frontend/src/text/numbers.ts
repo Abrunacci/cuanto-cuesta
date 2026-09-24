@@ -23,9 +23,10 @@ export type ParsedNumber =
       readonly alternative: Big | null;
     };
 
-const AMBIGUOUS = /^\d{1,3}[.,]\d{3}$/;
+// A group of thousands never starts with 0: "0.015" and "0,500" have only one reading.
+const AMBIGUOUS = /^[1-9]\d{0,2}[.,]\d{3}$/;
 
-const THOUSANDS_WITH_COMMA_DECIMALS = /^\d{1,3}(\.\d{3})+(,\d+)?$/;
+const THOUSANDS_WITH_COMMA_DECIMALS = /^[1-9]\d{0,2}(\.\d{3})+(,\d+)?$/;
 const COMMA_DECIMALS = /^\d+(,\d+)?$/;
 const DOT_DECIMALS = /^\d+\.\d+$/;
 

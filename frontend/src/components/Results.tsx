@@ -6,18 +6,20 @@ import { RouteFigures } from "./RouteFigures.tsx";
 interface ResultsProps {
   readonly comparison: Comparison;
   readonly feeGaps: ReadonlyMap<string, FeeGap>;
+  /** The amount or the MEP holds a value that cannot be used, as opposed to being empty. */
+  readonly referenceProblem: boolean;
 }
 
 /**
  * The ranking, best route first. Only the one-line summary is announced to screen readers, so
  * typing in a field does not read out every figure on each keystroke.
  */
-export function Results({ comparison, feeGaps }: ResultsProps) {
+export function Results({ comparison, feeGaps, referenceProblem }: ResultsProps) {
   return (
     <section className="results" aria-labelledby="results-title">
       <h2 id="results-title">Resultado</h2>
       <p className="summary" aria-live="polite" aria-atomic="true">
-        {summary(comparison)}
+        {summary(comparison, referenceProblem)}
       </p>
       <ol className="ranking">
         {comparison.routes.map((entry) => (
@@ -31,9 +33,11 @@ export function Results({ comparison, feeGaps }: ResultsProps) {
   );
 }
 
-function summary({ atReference, routes }: Comparison): string {
+function summary({ atReference, routes }: Comparison, referenceProblem: boolean): string {
   if (atReference === null) {
-    return "Completá el monto y el dólar MEP para comparar las rutas.";
+    return referenceProblem
+      ? "Revisá el monto y el dólar MEP: alguno tiene un valor que no se puede usar."
+      : "Completá el monto y el dólar MEP para comparar las rutas.";
   }
   const best = routes[0];
   const reference = `Al dólar MEP serían ${formatMoney(atReference.amount, atReference.currency)}.`;

@@ -144,6 +144,7 @@ function FeeInputs({
           onFee(id, text);
         }}
         problem={reading.problems.get(valueId) ?? null}
+        echo={reading.echoes.get(valueId)}
         help={help}
       />
       {fee.kind === "percent" && fee.minimum !== null && (
@@ -156,6 +157,7 @@ function FeeInputs({
             onMinimum(id, text);
           }}
           problem={reading.problems.get(minimumId) ?? null}
+          echo={reading.echoes.get(minimumId)}
           help="Se cobra este mínimo cuando el porcentaje da menos. Si no te lo cobran, poné 0."
         />
       )}

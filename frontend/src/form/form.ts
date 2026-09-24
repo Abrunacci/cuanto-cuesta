@@ -52,7 +52,10 @@ export interface FormReading {
   readonly comparison: Comparison;
   /** Why a field cannot be used, by field id; fields that are fine or empty are absent. */
   readonly problems: ReadonlyMap<string, string>;
-  /** How a valid amount or price was read, by field id, e.g. "Leímos 1,03 USD por USDT." */
+  /**
+   * How a valid value was read, by field id, e.g. "Leímos 1,03 USD por USDT.": every amount and
+   * price, and fees typed in an ambiguous way.
+   */
   readonly echoes: ReadonlyMap<string, string>;
   /** Fees that cannot be used, by fee id, and which part of them is missing or wrong. */
   readonly feeGaps: ReadonlyMap<string, FeeGap>;
@@ -212,13 +215,25 @@ function readPrice(key: string, text: string): FieldRead<PositivePrice> {
   });
 }
 
-/** A number between 0 and `cap`, or why it is not. */
+/**
+ * A fee value between 0 and `cap`, or why it is not. An ambiguous text ("1,500") is echoed back
+ * so the person sees how it was read; above the cap, the message says what was read and suggests
+ * the other reading when that one fits.
+ */
 function readBounded(text: string, cap: Big, unit: string): FieldRead<Big> {
-  return readField(text, ({ value }) => {
+  return readField(text, ({ value, alternative }) => {
+    const read = `Leímos ${formatUnambiguous(value)} ${unit}.`;
     const problem = valueProblem(value, cap);
-    return problem === null
-      ? { kind: "ok", value, echo: null }
-      : { kind: "problem", message: valueProblemMessage(problem, unit) };
+    if (problem === null) {
+      return { kind: "ok", value, echo: alternative === null ? null : read };
+    }
+    const message = valueProblemMessage(problem, unit);
+    if (problem.code === "negative") {
+      return { kind: "problem", message };
+    }
+    const fits = alternative !== null && valueProblem(alternative, cap) === null;
+    const fix = fits ? ` ${didYouMean(alternative)}` : "";
+    return { kind: "problem", message: `${message} ${read}${fix}` };
   });
 }
 

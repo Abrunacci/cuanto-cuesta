@@ -99,9 +99,11 @@ describe("readForm", () => {
       minimums: { payoneer_us_withdrawal: "150" },
     });
     const { problems } = readForm(texts);
-    expect(problems.get(fieldId.fee("bitso_taker"))).toBe("Como máximo 20 %.");
+    expect(problems.get(fieldId.fee("bitso_taker"))).toBe("Como máximo 20 %. Leímos 25,00 %.");
     expect(problems.get(fieldId.fee("arq_ach_deposit"))).toBe("No puede ser negativo.");
-    expect(problems.get(fieldId.minimum("payoneer_us_withdrawal"))).toBe("Como máximo 100 USD.");
+    expect(problems.get(fieldId.minimum("payoneer_us_withdrawal"))).toBe(
+      "Como máximo 100 USD. Leímos 150,00 USD.",
+    );
   });
 });
 
@@ -191,5 +193,37 @@ describe("invalid fees are never read as zero", () => {
     expect(readForm(both).feeGaps.get("payoneer_us_withdrawal")).toBe("both");
     const value = filled({ fees: { ...initialTexts().fees, payoneer_us_withdrawal: "" } });
     expect(readForm(value).feeGaps.get("payoneer_us_withdrawal")).toBe("value");
+  });
+});
+
+describe("fees typed with a leading zero or in an ambiguous way", () => {
+  const withFee = (id: string, text: string) =>
+    readForm(filled({ fees: { ...initialTexts().fees, [id]: text } }));
+
+  it("reads 0.015 % as 0,015 %, not as 15 %", () => {
+    // BYMA and broker fees are 0.01 to 0.05 %; typed with a phone's dot they must stay small.
+    const reading = withFee("byma_buy", "0.015");
+    expect(reading.problems.get(fieldId.fee("byma_buy"))).toBeUndefined();
+    const mep = reading.comparison.routes.find((r) => r.route.id === "mep");
+    // 1000.00 - 2 % = 980.00; broker 0.49 twice; BYMA 0.015 % = 0.147 -> 0.15, and 0.10
+    // 980.00 - 0.98 - 0.25 = 978.77 x 1536.16 = 1503547.3232
+    expect(mep?.status === "complete" && mep.result.final.amount.toFixed(2)).toBe("1503547.32");
+  });
+
+  it("says how an ambiguous fee was read", () => {
+    const reading = readForm(filled({ minimums: { payoneer_us_withdrawal: "1,500" } }));
+    expect(reading.echoes.get(fieldId.minimum("payoneer_us_withdrawal"))).toBe("Leímos 1,50 USD.");
+  });
+
+  it("says what was read above the cap, and suggests the other reading when it fits", () => {
+    expect(withFee("bitso_taker", "1.250").problems.get(fieldId.fee("bitso_taker"))).toBe(
+      "Como máximo 20 %. Leímos 1.250,00 %. ¿Quisiste poner 1,25?",
+    );
+  });
+
+  it("does not echo a negative value back", () => {
+    expect(withFee("arq_ach_deposit", "-1").problems.get(fieldId.fee("arq_ach_deposit"))).toBe(
+      "No puede ser negativo.",
+    );
   });
 });

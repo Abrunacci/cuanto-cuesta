@@ -50,7 +50,13 @@ export function App() {
         </p>
       </section>
 
-      <Results comparison={reading.comparison} feeGaps={reading.feeGaps} />
+      <Results
+        comparison={reading.comparison}
+        feeGaps={reading.feeGaps}
+        referenceProblem={
+          reading.problems.has(fieldId.amount) || reading.problems.has(fieldId.price(REFERENCE_KEY))
+        }
+      />
 
       {ROUTES.map((route) => {
         const entry = byRoute.get(route.id);

@@ -27,6 +27,9 @@ describe("parseNumber", () => {
     ["1000", "1000"],
     ["  1 000,50 ", "1000.5"],
     ["-2", "-2"],
+    ["0.015", "0.015"],
+    ["0.500", "0.5"],
+    ["0,500", "0.5"],
     ["0", "0"],
   ])("reads %s as %s", (text, expected) => {
     expect(read(text)).toBe(expected);
@@ -74,12 +77,20 @@ describe("the other reading of ambiguous text", () => {
     expect(alternative(text)).toBe(expected);
   });
 
-  it.each(["1.536,16", "1.03", "1536", "15", "99,9", "1.000.000", "1,5"])(
-    "offers nothing for %s, which reads only one way",
-    (text) => {
-      expect(alternative(text)).toBeNull();
-    },
-  );
+  it.each([
+    "1.536,16",
+    "1.03",
+    "1536",
+    "15",
+    "99,9",
+    "1.000.000",
+    "1,5",
+    "0.015",
+    "0,500",
+    "0.500",
+  ])("offers nothing for %s, which reads only one way", (text) => {
+    expect(alternative(text)).toBeNull();
+  });
 });
 
 describe("formatting", () => {

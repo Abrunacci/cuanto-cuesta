@@ -65,11 +65,10 @@ export function NumberField({
           {unit}
         </span>
       </div>
-      {shownProblem !== null && (
-        <p id={problemId} className="field-problem">
-          {shownProblem}
-        </p>
-      )}
+      {/* Always rendered, so screen readers announce the problem when it appears on leaving. */}
+      <p id={problemId} className="field-problem" aria-live="polite">
+        {shownProblem}
+      </p>
       {echo !== undefined && (
         <p id={echoId} className="field-echo">
           {echo}
