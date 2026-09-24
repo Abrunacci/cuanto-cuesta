@@ -78,7 +78,7 @@ function CompactLine({ text }: { readonly text: BarText }) {
   if (text.kind === "pending") {
     return (
       <span className="result-bar-line">
-        <span className="result-bar-route">{text.text}</span>
+        <span className="result-bar-route">{text.short}</span>
       </span>
     );
   }

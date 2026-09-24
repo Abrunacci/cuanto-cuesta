@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { initialTexts, readForm, type FormTexts } from "./form.ts";
 import { commonMissing } from "./missing.ts";
-import { barText, summaryText } from "./summary.ts";
+import { barText, referenceProblems, summaryText } from "./summary.ts";
 
 const PRICES = {
   mep: "1.536,16",
@@ -89,15 +89,33 @@ describe("barText", () => {
     expect(barText(reading, [])).toEqual({
       kind: "pending",
       text: "Falta completar: monto en USD y dólar MEP (compra).",
+      short: "Falta: monto, MEP",
     });
   });
 
   it("asks to review a wrong amount or MEP before listing what is missing", () => {
     const reading = read({ amount: "0" });
-    expect(barText(reading, ["el monto"])).toEqual({
+    expect(barText(reading, referenceProblems(reading))).toEqual({
       kind: "pending",
       text: "Revisá el monto: tiene un valor que no se puede usar.",
+      short: "Revisá: monto",
     });
+  });
+
+  it("names only the price missing when the amount is fine", () => {
+    const reading = read({ amount: "1000" });
+    const text = barText(reading, referenceProblems(reading));
+    expect(text.kind === "pending" && text.short).toBe("Falta: MEP");
+  });
+
+  it("asks to review the amount and the MEP in a few words", () => {
+    const reading = read({ amount: "0", prices: { ...PRICES, mep: "-1" } });
+    expect(referenceProblems(reading)).toEqual(["amount", "reference"]);
+    const text = barText(reading, referenceProblems(reading));
+    expect(text.kind === "pending" && [text.text, text.short]).toEqual([
+      "Revisá el monto y el dólar MEP: tienen valores que no se pueden usar.",
+      "Revisá: monto, MEP",
+    ]);
   });
 
   it("points to each route when none can be computed and nothing is missing in all", () => {
@@ -111,6 +129,7 @@ describe("barText", () => {
     expect(barText(reading, [])).toEqual({
       kind: "pending",
       text: "Todavía ninguna ruta se puede calcular: mirá qué le falta a cada una.",
+      short: "Mirá qué le falta a cada ruta",
     });
   });
 });

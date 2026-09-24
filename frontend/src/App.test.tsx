@@ -564,16 +564,23 @@ describe("the calculator page", () => {
       );
     });
 
-    it("keeps what is missing to one line while the keyboard is open", () => {
+    it("says what is missing in a few words while the keyboard is open", async () => {
       const viewport = fakeViewport(800);
-      render(<App />);
+      const { type } = setup();
       viewport.height = 470;
       resize(viewport);
-      // jsdom has no layout: this checks the line that cuts with an ellipsis, not the cut.
-      const line = within(bar()).getByText("Falta completar: monto en USD y dólar MEP (compra).");
+      // jsdom has no layout: this checks the line that would cut with an ellipsis, not the cut.
+      const line = within(bar()).getByText("Falta: monto, MEP");
       expect(line.parentElement).toHaveClass("result-bar-line");
-      expect(bar()).toHaveAccessibleName(
-        "Falta completar: monto en USD y dólar MEP (compra). Ver resultado",
+      expect(bar()).toHaveAccessibleName("Falta: monto, MEP Ver resultado");
+      await type(/^Monto en Payoneer/, "0");
+      await type(/^Dólar MEP \(compra\)/, "1.536,16");
+      expect(visible(bar())).toBe("Revisá: monto");
+      // With the keyboard closed, the bar has room for the whole sentence.
+      viewport.height = 800;
+      resize(viewport);
+      expect(visible(bar())).toBe(
+        "Revisá el monto: tiene un valor que no se puede usar. Ver resultado",
       );
     });
 

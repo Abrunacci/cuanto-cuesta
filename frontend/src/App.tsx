@@ -1,23 +1,20 @@
 import { useState } from "react";
 import { flushSync } from "react-dom";
 
-import { REFERENCE_KEY, ROUTES } from "./calculator/index.ts";
+import { ROUTES } from "./calculator/index.ts";
 import { Inputs } from "./components/Inputs.tsx";
 import { ResultBar } from "./components/ResultBar.tsx";
 import { Results } from "./components/Results.tsx";
 import { RouteCard } from "./components/RouteCard.tsx";
 import { fieldId } from "./form/form.ts";
-import { barText } from "./form/summary.ts";
+import { barText, referenceProblems } from "./form/summary.ts";
 import { useForm } from "./form/useForm.ts";
 
 export function App() {
   const form = useForm();
   const { texts, reading } = form;
   const [openRoutes, setOpenRoutes] = useState<ReadonlySet<string>>(new Set());
-  const referenceProblems = [
-    ...(reading.problems.has(fieldId.amount) ? ["el monto"] : []),
-    ...(reading.problems.has(fieldId.price(REFERENCE_KEY)) ? ["el dólar MEP"] : []),
-  ];
+  const problems = referenceProblems(reading);
 
   const setRouteOpen = (routeId: string, open: boolean) => {
     setOpenRoutes((current) => {
@@ -71,7 +68,7 @@ export function App() {
           <Results
             comparison={reading.comparison}
             feeGaps={reading.feeGaps}
-            referenceProblems={referenceProblems}
+            referenceProblems={problems}
             warnings={reading.warnings}
             unchangedFees={reading.unchangedFees}
             onGoToField={goToField}
@@ -103,7 +100,7 @@ export function App() {
       </main>
 
       <ResultBar
-        text={barText(reading, referenceProblems)}
+        text={barText(reading, problems)}
         onOpen={(headingId) => {
           document.getElementById(headingId)?.focus();
         }}
