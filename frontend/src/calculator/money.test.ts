@@ -48,6 +48,7 @@ describe("arithmetic", () => {
 
   it("refuses to mix currencies", () => {
     expect(() => add(money("1", "USD"), money("1", "ARS"))).toThrow(CurrencyMismatchError);
+    expect(() => subtract(money("1", "USD"), money("1", "ARS"))).toThrow(CurrencyMismatchError);
   });
 });
 

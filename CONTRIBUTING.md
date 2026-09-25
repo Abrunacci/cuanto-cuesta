@@ -75,18 +75,21 @@ with `Depends`.
 
 - Use `Decimal` everywhere in Python and a decimal type (big.js) in TypeScript, never floats.
   JSON is parsed with `parse_float=Decimal`, and the API sends amounts as decimal strings.
-- All rounding lives in the calculator's `src/calculator/money.ts`. Amounts credited to the user
-  (each conversion and each step output) round **down** to the minor unit, and fees round **up**.
-  Nothing else rounds. The backend only holds and validates amounts; it does no arithmetic.
+- All rounding of calculated amounts lives in the calculator's `src/calculator/money.ts`. Amounts
+  credited to the user (each conversion and each step output) round **down** to the minor unit,
+  and fees round **up**. Only display code rounds anything else. The backend only holds and
+  validates amounts; it does no arithmetic.
 - The TypeScript calculation was checked to land on the same cent as the Python domain it
   replaced, for the inputs it accepts: positive prices up to 1,000,000 with up to 8 decimals, and
   amounts in whole cents up to 10 million, checked once in `src/calculator/inputs.ts`. `money.ts`
   uses its own big.js constructor and only `money()` builds a `Money`: `+`, `-` and `*` are
   exact, and division keeps 30 decimal places rounding half-even (Python kept 34 significant
-  digits). The calculator's tests keep the domain's hand-checked cases, a frozen table of results
-  computed with the domain, and a division case.
-- In the calculator, arithmetic on amounts goes through `money.ts` (`add`, `subtract` and the
-  rounding helpers), never through plain numbers.
+  digits). The calculator's tests keep the removed Python domain's hand-checked cases, a frozen
+  table of results computed with it, and a division case.
+- In the calculator, amounts are built only with `money()`, and the numbers they are combined with
+  (prices, percentages) only with `money.ts`'s `Decimal`, never plain numbers: that keeps every
+  division at its 30 places. `add` and `subtract` check the currency. A product or quotient
+  (`rates.ts`, `fees.ts`) is rounded right away with `roundedDown` or `roundedUp`.
 - `Money` is signed in both languages. Where only `>= 0` makes sense, the type that owns the value
   checks it: in Python it calls `Money.require_non_negative` in its `__post_init__`.
 
