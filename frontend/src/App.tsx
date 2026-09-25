@@ -8,8 +8,8 @@ import { ResultBar } from "./components/ResultBar.tsx";
 import { Results } from "./components/Results.tsx";
 import { RouteCard } from "./components/RouteCard.tsx";
 import { RESULTS_TITLE_ID, reviewTargetId, routeReviewId } from "./components/ids.ts";
-import { reviewOpensList } from "./form/review.ts";
 import { fieldId } from "./form/form.ts";
+import { reviewOpensList } from "./form/review.ts";
 import { barText, hasAmountProblem } from "./form/summary.ts";
 import { useForm } from "./form/useForm.ts";
 
@@ -135,7 +135,8 @@ export function App() {
  * scrolled into view by the browser, above the phone's bar thanks to `scroll-padding-bottom`.
  * Anything else (the result's title, a route's heading, a review line) goes to the top of the
  * screen: browsers only scroll it as far as needed, or not at all when it shows just above the
- * bar, which leaves the route or the list just opened under the bar.
+ * bar, which leaves the route or the list just opened under the bar. Wide screens have no bar but
+ * do the same, so the route or the list below is in view there too.
  */
 function focusInView(id: string): void {
   const target = document.getElementById(id);

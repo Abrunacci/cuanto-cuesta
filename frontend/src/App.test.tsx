@@ -276,6 +276,9 @@ describe("the calculator page", () => {
     await user.click(first);
     // Straight to what to review: the route's folded list opens, its line focused.
     expect(reviewLine("Binance P2P + Bitso")).toHaveFocus();
+    expect(scrolledToTop()).toEqual([
+      { element: reviewLine("Binance P2P + Bitso"), options: { block: "start" } },
+    ]);
     expect(premium).toBeVisible();
   });
 
@@ -315,7 +318,9 @@ describe("the calculator page", () => {
     }
     await user.click(link);
     // The unusual price is noted under the heading.
-    expect(screen.getByRole("heading", { name: "Binance P2P + Bitso" })).toHaveFocus();
+    const heading = screen.getByRole("heading", { name: "Binance P2P + Bitso" });
+    expect(heading).toHaveFocus();
+    expect(scrolledToTop()).toEqual([{ element: heading, options: { block: "start" } }]);
     // The list of the person's values stays folded.
     expect(
       within(results()).getByRole("link", { name: "recargo P2P por pagar con Payoneer" }),
