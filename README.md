@@ -28,11 +28,12 @@ Stage 1: a calculator that runs entirely in the browser, with no backend.
   marked as their own and can go back to its reference value.
 - The amount and the fees the person set are remembered in the browser (`localStorage`).
   "Restablecer valores de referencia" puts every fee back to its reference value.
-- Money never goes through floating point: amounts are decimals (`big.js`) with the same rounding
-  as the Python domain.
+- Money never goes through floating point: amounts are decimals (`big.js`). Fees round up and
+  what is credited rounds down, to the cent.
 
-The Python backend in `backend/` holds the fee data (`backend/config/fees.yaml`) and the domain
-the calculator was checked against. An API comes in a later stage.
+The Python backend in `backend/` holds the researched fee data (`backend/config/fees.yaml`), with
+the code that loads and checks it. Scheduled jobs and an API that build on it come in later
+stages; the calculation itself lives only in the frontend.
 
 ## Running it locally
 
