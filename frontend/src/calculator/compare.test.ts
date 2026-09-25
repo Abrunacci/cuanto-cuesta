@@ -255,6 +255,34 @@ describe("how each route stands against the others", () => {
     ]);
   });
 
+  it("ties every route that delivers as much as the best, not only the runner-up", () => {
+    const route = (id: string, fee: string) => ({
+      id,
+      name: id,
+      source: "USD" as const,
+      target: "ARS" as const,
+      steps: [
+        { label: "s", feeIds: [fee], conversion: { rateKey: "mep", target: "ARS" as const } },
+      ],
+      warnings: [],
+    });
+    const comparison = compareRoutes(
+      input({
+        routes: [route("d", "one"), route("c", "zero"), route("b", "zero"), route("a", "zero")],
+        fees: new Map([
+          ["zero", fixedFee("zero", "0", "USD")],
+          ["one", fixedFee("one", "1", "USD")],
+        ]),
+      }),
+    );
+    expect(standings(comparison)).toEqual([
+      ["a", "tied", "b"],
+      ["b", "tied", "a"],
+      ["c", "tied", "a"],
+      ["d", "behind", "1536.16", "a"],
+    ]);
+  });
+
   it("calls a zero difference a tie, for the best route and for the one level with it", () => {
     // Routes a and b deliver 1000 x 1536.16 = 1536160.00; c pays a 1 USD fee first:
     // 999 x 1536.16 = 1534623.84, 1536.16 less.

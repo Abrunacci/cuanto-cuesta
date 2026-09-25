@@ -1,13 +1,13 @@
-import { routesInOrder, type Comparison, type CompleteRoute } from "../calculator/index.ts";
+import { routesInOrder, type Comparison } from "../calculator/index.ts";
 import type { FeeGap } from "../form/form.ts";
 import { missingInputLabel } from "../form/messages.ts";
 import { commonMissing, missingFieldId, missingKey } from "../form/missing.ts";
-import { differenceToReview, unusualPrices } from "../form/review.ts";
+import { difference, unusualPrices } from "../form/review.ts";
 import { summaryText } from "../form/summary.ts";
 import { RESULTS_TITLE_ID, routeResultId } from "./ids.ts";
 import { LinkList } from "./LinkList.tsx";
 import { RichText } from "./RichText.tsx";
-import { RouteFigures, RouteMissing, type Difference } from "./RouteFigures.tsx";
+import { RouteFigures, RouteMissing } from "./RouteFigures.tsx";
 import { RouteReview } from "./RouteReview.tsx";
 
 interface ResultsProps {
@@ -75,12 +75,16 @@ export function Results({
               {entry.route.name}
             </h3>
             {entry.status === "complete" ? (
-              <RouteFigures
-                entry={entry}
-                difference={difference(entry, ownFees, warnings)}
-                unusualPrices={unusualPrices(entry.route, warnings)}
-                onGoToField={onGoToField}
-              />
+              <>
+                <RouteFigures
+                  result={entry.result}
+                  feeCost={entry.feeCost}
+                  difference={difference(entry, ownFees, warnings)}
+                  unusualPrices={unusualPrices(entry.route, warnings)}
+                  onGoToField={onGoToField}
+                />
+                <RouteReview route={entry.route} ownFees={ownFees} onGoToField={onGoToField} />
+              </>
             ) : (
               <RouteMissing
                 entry={entry}
@@ -88,9 +92,6 @@ export function Results({
                 skip={listedOnce}
                 onGoToField={onGoToField}
               />
-            )}
-            {entry.status === "complete" && (
-              <RouteReview route={entry.route} ownFees={ownFees} onGoToField={onGoToField} />
             )}
             {entry.route.warnings.map((warning) => (
               <p key={warning} className="warning">
@@ -102,19 +103,4 @@ export function Results({
       </ol>
     </section>
   );
-}
-
-function difference(
-  entry: CompleteRoute,
-  ownFees: ReadonlySet<string>,
-  warnings: ReadonlyMap<string, string>,
-): Difference {
-  const { standing } = entry;
-  return standing.kind === "alone"
-    ? { kind: "alone" }
-    : {
-        kind: "compared",
-        standing,
-        review: differenceToReview(entry.route, standing, ownFees, warnings),
-      };
 }

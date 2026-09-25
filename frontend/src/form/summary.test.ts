@@ -31,7 +31,8 @@ const ONLY_MEP = {
 };
 
 /** Two routes that deliver the same (1000 x 1500, no fees) and a third 1500 behind. */
-function tiedComparison() {
+/** Routes A and B (and D, when asked) deliver the same; C pays a fee and trails. */
+function tiedComparison(withD = false) {
   const route = (id: string, name: string, fee: string) => ({
     id,
     name,
@@ -45,6 +46,7 @@ function tiedComparison() {
       route("c", "Ruta C", "one"),
       route("a", "Ruta A", "zero"),
       route("b", "Ruta B", "zero"),
+      ...(withD ? [route("d", "Ruta D", "zero")] : []),
     ],
     rateDefinitions: [{ key: "mep", base: "USD", quote: "ARS" }],
     amount: validAmount("1000"),
@@ -224,6 +226,12 @@ describe("summaryText", () => {
   it("names the tied routes", () => {
     expect(summaryText(tiedComparison(), false)).toBe(
       "Empatan Ruta A y Ruta B: llegan $\u00a01.500.000,00.",
+    );
+  });
+
+  it("names every tied route, not only the runner-up", () => {
+    expect(summaryText(tiedComparison(true), false)).toBe(
+      "Empatan Ruta A, Ruta B y Ruta D: llegan $\u00a01.500.000,00.",
     );
   });
 

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { ROUTES, routesInOrder, type CompleteRoute } from "../calculator/index.ts";
 import { initialTexts, readForm, type FormTexts } from "./form.ts";
-import { differenceToReview, feesToReview } from "./review.ts";
+import { difference, feesToReview } from "./review.ts";
 
 const route = (id: string) => {
   const found = ROUTES.find((r) => r.id === id);
@@ -58,12 +58,10 @@ describe("differenceToReview", () => {
     const reading = readForm({ ...initialTexts(), amount: "1000", prices: PRICES, ...overrides });
     return routesInOrder(reading.comparison)
       .filter((r): r is CompleteRoute => r.status === "complete")
-      .map(({ route, standing }) => [
-        route.id,
-        standing.kind === "alone"
-          ? "alone"
-          : (differenceToReview(route, standing, reading.ownFees, reading.warnings)?.id ?? null),
-      ]);
+      .map((r) => {
+        const figure = difference(r, reading.ownFees, reading.warnings);
+        return [r.route.id, figure.kind === "compared" ? (figure.review?.id ?? null) : "alone"];
+      });
   };
 
   // Ranking with these prices: Binance P2P + Bitso, ARQ, Dólar MEP.
@@ -112,5 +110,10 @@ describe("differenceToReview", () => {
       ["arq", "binance_bitso"],
       ["mep", "binance_bitso"],
     ]);
+  });
+
+  it("has nothing to compare a lone route with", () => {
+    const only = { ...PRICES, p2p_usdt_usd: "", arq_usd_ars: "" };
+    expect(toReview({ prices: only })).toEqual([["mep", "alone"]]);
   });
 });

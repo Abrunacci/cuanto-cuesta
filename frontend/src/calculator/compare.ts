@@ -1,7 +1,9 @@
 /**
  * Compare routes: rank them by what they deliver and say how each one stands against the others.
  * For each route, `feeCost` is how many more target units it would deliver if every fee were
- * zero; the Python domain (`backend/src/cuanto_cuesta/domain/comparison.py`) computes the same.
+ * zero. The final amount and `feeCost` match the Python domain
+ * (`backend/src/cuanto_cuesta/domain/comparison.py`), which also splits the rest of the cost
+ * against a reference rate; the calculator no longer does.
  *
  * An input that was left empty is never read as zero: a route that needs it is reported as
  * incomplete, with the list of what is missing.

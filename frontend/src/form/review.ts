@@ -9,6 +9,7 @@ import {
   RATE_FIELDS,
   type Ahead,
   type Behind,
+  type CompleteRoute,
   type FeeDefault,
   type Route,
   type Tied,
@@ -71,4 +72,31 @@ export function differenceToReview(
     return standing.other;
   }
   return routeNeedsReview(route, ownFees, warnings) ? route : null;
+}
+
+/**
+ * A route's difference figure: nothing to compare with, or how the route stands and the route
+ * whose values to check before trusting it (null when none).
+ */
+export type Difference =
+  | { readonly kind: "alone" }
+  | {
+      readonly kind: "compared";
+      readonly standing: Ahead | Behind | Tied;
+      readonly review: Route | null;
+    };
+
+export function difference(
+  entry: CompleteRoute,
+  ownFees: ReadonlySet<string>,
+  warnings: ReadonlyMap<string, string>,
+): Difference {
+  const { standing } = entry;
+  return standing.kind === "alone"
+    ? { kind: "alone" }
+    : {
+        kind: "compared",
+        standing,
+        review: differenceToReview(entry.route, standing, ownFees, warnings),
+      };
 }

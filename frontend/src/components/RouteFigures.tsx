@@ -1,30 +1,12 @@
-import type {
-  Ahead,
-  Behind,
-  CompleteRoute,
-  IncompleteRoute,
-  Route,
-  Tied,
-} from "../calculator/index.ts";
+import type { IncompleteRoute, Money, RouteResult } from "../calculator/index.ts";
 import type { FeeGap } from "../form/form.ts";
 import { missingFieldId, missingKey } from "../form/missing.ts";
 import { missingInputLabel } from "../form/messages.ts";
+import type { Difference } from "../form/review.ts";
 import { joinSpanish } from "../text/lists.ts";
 import { formatMoney } from "../text/numbers.ts";
 import { routeResultId } from "./ids.ts";
 import { InPageAnchor } from "./LinkList.tsx";
-
-/**
- * The difference figure: nothing to compare with, or how the route stands and the route whose
- * values to check before trusting it (null when none).
- */
-export type Difference =
-  | { readonly kind: "alone" }
-  | {
-      readonly kind: "compared";
-      readonly standing: Ahead | Behind | Tied;
-      readonly review: Route | null;
-    };
 
 /**
  * Take the person to a field, opening the route's card when the field is inside it; or to any
@@ -33,7 +15,8 @@ export type Difference =
 type GoTo = (routeId: string, id: string) => void;
 
 interface RouteFiguresProps {
-  readonly entry: CompleteRoute;
+  readonly result: RouteResult;
+  readonly feeCost: Money;
   readonly difference: Difference;
   /** Labels of the unusual prices this route was computed with, e.g. ["precio P2P…"]. */
   readonly unusualPrices: readonly string[];
@@ -44,8 +27,14 @@ interface RouteFiguresProps {
  * A route's three figures: what reaches the bank, the fees, and the difference with the best
  * route or, for the best, with the runner-up.
  */
-export function RouteFigures({ entry, difference, unusualPrices, onGoToField }: RouteFiguresProps) {
-  const { final } = entry.result;
+export function RouteFigures({
+  result,
+  feeCost,
+  difference,
+  unusualPrices,
+  onGoToField,
+}: RouteFiguresProps) {
+  const { final } = result;
   const top =
     difference.kind === "compared" &&
     (difference.standing.kind === "ahead" || difference.standing.kind === "tied");
@@ -58,7 +47,7 @@ export function RouteFigures({ entry, difference, unusualPrices, onGoToField }: 
         </div>
         <div className="figure">
           <dt>Comisiones</dt>
-          <dd>{formatMoney(entry.feeCost.amount, entry.feeCost.currency)}</dd>
+          <dd>{formatMoney(feeCost.amount, feeCost.currency)}</dd>
         </div>
         <div className={top ? "figure figure-gain" : "figure"}>
           <dt>Diferencia</dt>
@@ -70,7 +59,7 @@ export function RouteFigures({ entry, difference, unusualPrices, onGoToField }: 
       {unusualPrices.length > 0 && (
         <p className="unusual">Calculado con un valor inusual: {joinSpanish(unusualPrices)}.</p>
       )}
-      {entry.result.exhausted && (
+      {result.exhausted && (
         <p className="exhausted">Las comisiones se comen todo el monto en algún paso.</p>
       )}
     </>
