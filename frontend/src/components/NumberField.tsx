@@ -65,7 +65,7 @@ export function NumberField({
     // a context menu or leaving the window can swallow it.
     const done = new AbortController();
     const settle = (event: Event) => {
-      if (event.type === "blur" && event.target !== window) {
+      if (isElementBlur(event)) {
         return;
       }
       done.abort();
@@ -153,6 +153,11 @@ export function NumberField({
 /** What ends a press: its release, or what can take the release away from the page. */
 const RELEASES = ["pointerup", "pointercancel", "contextmenu", "blur"] as const;
 
+/** A blur of something in the page, not of the window itself. */
+function isElementBlur(event: Event): boolean {
+  return event.type === "blur" && event.target instanceof Node;
+}
+
 /** Whether a mouse button, pen or finger is pressed anywhere on the page right now. */
 function usePointerDown() {
   const down = useRef(false);
@@ -162,7 +167,7 @@ function usePointerDown() {
     };
     const release = (event: Event) => {
       // Captured here, a field's own blur passes by too: only the window's counts.
-      if (event.type !== "blur" || event.target === window) {
+      if (!isElementBlur(event)) {
         down.current = false;
       }
     };
