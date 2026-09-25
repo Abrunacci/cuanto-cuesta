@@ -2,12 +2,11 @@ import type { IncompleteRoute, Money, Route, RouteResult } from "../calculator/i
 import type { FeeGap } from "../form/form.ts";
 import { missingFieldId, missingKey } from "../form/missing.ts";
 import { missingInputLabel } from "../form/messages.ts";
-import type { Difference } from "../form/review.ts";
+import { reviewOpensList, type Difference } from "../form/review.ts";
 import { joinSpanish } from "../text/lists.ts";
 import { formatMoney } from "../text/numbers.ts";
-import { InPageAnchor } from "./LinkList.tsx";
-import { reviewOpensList } from "../form/review.ts";
 import { reviewTargetId } from "./ids.ts";
+import { InPageAnchor } from "./LinkList.tsx";
 
 /**
  * Take the person to a field, opening the route's card when the field is inside it; or to any
