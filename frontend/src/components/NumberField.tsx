@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import { MAX_FIELD_LENGTH } from "../form/form.ts";
 
@@ -47,6 +47,28 @@ export function NumberField({
   const [touched, setTouched] = useState(false);
   const [focused, setFocused] = useState(false);
   const helpHidden = helpWhileNeeded && !focused && value !== "";
+  const input = useRef<HTMLInputElement>(null);
+  const pointerDown = usePointerDown();
+  const leave = () => {
+    setTouched(true);
+    // Hiding the help moves what is below the field. A press elsewhere takes the focus on
+    // pointerdown, so wait until it is released: the click must land where it was pressed.
+    if (!pointerDown.current) {
+      setFocused(false);
+      return;
+    }
+    window.addEventListener(
+      "pointerup",
+      () => {
+        setTimeout(() => {
+          if (document.activeElement !== input.current) {
+            setFocused(false);
+          }
+        });
+      },
+      { once: true },
+    );
+  };
   const shownProblem = touched ? problem : null;
   const shownWarning = touched && problem === null ? (warning ?? null) : null;
   const ids = {
@@ -70,6 +92,7 @@ export function NumberField({
       </label>
       <div className="field-input">
         <input
+          ref={input}
           id={id}
           type="text"
           inputMode="decimal"
@@ -90,10 +113,7 @@ export function NumberField({
           onFocus={() => {
             setFocused(true);
           }}
-          onBlur={() => {
-            setTouched(true);
-            setFocused(false);
-          }}
+          onBlur={leave}
         />
         <span className="unit" aria-hidden="true">
           {unit}
@@ -119,4 +139,26 @@ export function NumberField({
       {children}
     </div>
   );
+}
+
+/** Whether a mouse button, pen or finger is pressed anywhere on the page right now. */
+function usePointerDown() {
+  const down = useRef(false);
+  useEffect(() => {
+    const press = () => {
+      down.current = true;
+    };
+    const release = () => {
+      down.current = false;
+    };
+    window.addEventListener("pointerdown", press, true);
+    window.addEventListener("pointerup", release, true);
+    window.addEventListener("pointercancel", release, true);
+    return () => {
+      window.removeEventListener("pointerdown", press, true);
+      window.removeEventListener("pointerup", release, true);
+      window.removeEventListener("pointercancel", release, true);
+    };
+  }, []);
+  return down;
 }

@@ -1,4 +1,12 @@
-import { act, cleanup, getDefaultNormalizer, render, screen, within } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  getDefaultNormalizer,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it } from "vitest";
 
@@ -329,6 +337,25 @@ describe("the calculator page", () => {
     await user.clear(field(/^Dólar MEP \(compra\)/));
     await user.tab();
     expect(help()).not.toHaveClass("visually-hidden");
+  });
+
+  it("hides the help after a click elsewhere, once the click is done", async () => {
+    const { type, user } = setup();
+    await type(/^Dólar MEP \(compra\)/, "1.536,16");
+    await user.click(screen.getByRole("heading", { name: "Tus datos" }));
+    await waitFor(() => {
+      expect(document.getElementById("price-mep-help")).toHaveClass("visually-hidden");
+    });
+  });
+
+  it("shows a filled price's help again when a result link takes the person there", async () => {
+    const { type, user, results } = setup();
+    await type(/^Dólar MEP \(compra\)/, "-1");
+    await user.tab();
+    expect(document.getElementById("price-mep-help")).toHaveClass("visually-hidden");
+    await user.click(within(results()).getByRole("link", { name: "dólar MEP (compra)" }));
+    expect(screen.getByLabelText(/^Dólar MEP \(compra\)/)).toHaveFocus();
+    expect(document.getElementById("price-mep-help")).not.toHaveClass("visually-hidden");
   });
 
   it("keeps a fee minimum's help in view although the minimum starts filled", async () => {
