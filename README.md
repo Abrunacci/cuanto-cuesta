@@ -79,10 +79,11 @@ exactly as that section describes: required reviewers, deployments from `main` o
 GitHub create it without any protection.
 
 1. **A push to `main`** (a merged pull request) starts the workflow when it changes something the
-   site is built from: `frontend/`, `backend/config/` (the fee data the frontend bundles) or the
-   workflow itself. Other changes, such as the README or the Python code, do not deploy; CI still
-   checks them. The workflow can also be started by hand: **Actions → Deploy → Run workflow**, on
-   `main`.
+   build depends on: `frontend/`, `backend/config/` (the fee data the frontend's bundled copy must
+   match, checked by its tests) or the workflow itself. Other changes, such as the README or the
+   Python code, do not deploy; CI still checks them. The workflow can also be started by hand:
+   **Actions → Deploy → Run workflow**, on `main`. Use that to publish `main` after a rejected or
+   failed deploy when the next pushes do not touch those paths.
 2. **Check and build** runs the same frontend checks as CI (`npm run check`: typecheck, lint,
    format, tests) and `npm run build`. If anything fails, nothing is deployed.
 3. **Deploy to production** waits for approval: the `production` environment requires a reviewer.
@@ -104,10 +105,11 @@ Each release on the server is named after its UTC time and commit
 
 ### Going back
 
-- **Redeploy an earlier commit from GitHub.** Open that commit's run under **Actions → Deploy**,
-  choose **Re-run all jobs**, and approve the deploy. It rebuilds that commit and publishes it as
-  a new release. GitHub keeps runs re-runnable for 30 days; for an older commit, revert to it in a
-  pull request instead.
+- **Redeploy an earlier commit from GitHub.** Open that commit's run under **Actions → Deploy**
+  (or, if it has none because it did not change the site, the run of the last commit before it
+  that deployed), choose **Re-run all jobs**, and approve the deploy. It rebuilds that commit and
+  publishes it as a new release. GitHub keeps runs re-runnable for 30 days; for an older commit,
+  revert to it in a pull request instead.
 - **Switch back on the server, without rebuilding.** The server keeps the last releases, and the
   admin can publish an earlier one with `site-rollback`, instantly and without a CI run. See the
   deploy notes in the
