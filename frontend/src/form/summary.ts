@@ -77,7 +77,7 @@ export function barText(reading: FormReading, problems: ReferenceProblems): BarT
       routeId: best.route.id,
       amount: formatMoney(final.amount, final.currency),
       amountWhole: formatMoneyWhole(final.amount, final.currency),
-      review: routeNeedsReview(best.route, reading.unchangedFees, reading.warnings),
+      review: routeNeedsReview(best.route, reading.ownFees, reading.warnings),
     };
   }
   if (problems.length > 0) {

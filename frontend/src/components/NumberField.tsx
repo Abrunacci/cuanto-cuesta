@@ -1,5 +1,7 @@
 import { useState, type ReactNode } from "react";
 
+import { MAX_FIELD_LENGTH } from "../form/form.ts";
+
 interface NumberFieldProps {
   readonly id: string;
   readonly label: string;
@@ -64,12 +66,18 @@ export function NumberField({
           type="text"
           inputMode="decimal"
           autoComplete="off"
+          maxLength={MAX_FIELD_LENGTH}
           value={value}
           placeholder={placeholder}
           aria-invalid={shownProblem !== null}
           aria-describedby={describedBy === "" ? undefined : describedBy}
           onChange={(event) => {
-            onChange(event.target.value);
+            onChange(event.currentTarget.value);
+          }}
+          // Also on every input: typing the value already there ("0" over "0") changes nothing,
+          // so React fires no onChange, yet the person made a choice (a fee becomes theirs).
+          onInput={(event) => {
+            onChange(event.currentTarget.value);
           }}
           onBlur={() => {
             setTouched(true);

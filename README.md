@@ -1,8 +1,68 @@
 # cuanto-cuesta
 
-Compare how many Argentine pesos you keep when moving USD from Payoneer to an Argentine bank account, route by route.
+Compare how many Argentine pesos reach your bank when you move USD out of Payoneer, route by route:
 
-Work in progress.
+- **Binance P2P + Bitso:** sell USD for USDT on Binance P2P, send the USDT to Bitso over Polygon,
+  sell them for pesos and withdraw to the bank.
+- **ARQ (ex DolarApp):** withdraw from Payoneer to ARQ over ACH (credited as USDc), sell the USDc
+  for pesos and withdraw to the bank.
+- **Dólar MEP:** withdraw to an Argentine USD account, then buy AL30D and sell AL30 through a
+  broker.
+
+For each route the calculator shows the pesos that reach the bank, what the fees cost in pesos,
+and the loss against the MEP dollar. The screen is in Spanish.
+
+## Status
+
+Stage 1: a calculator that runs entirely in the browser, with no backend.
+
+- The person types the amount and the day's prices. Prices start empty on every visit, because an
+  old price misleads.
+- Every fee comes prefilled and can be edited. Most start at a researched value (some are
+  estimates or upper bounds), with its source and the date it was checked. The P2P premium starts
+  at 0, because only the person knows what they pay over the P2P price. A fee the person edits is
+  marked as their own and can go back to its reference value.
+- The amount and the fees the person set are remembered in the browser (`localStorage`).
+  "Restablecer valores de referencia" puts every fee back to its reference value.
+- Money never goes through floating point: amounts are decimals (`big.js`) with the same rounding
+  as the Python domain.
+
+The Python backend in `backend/` holds the fee data (`backend/config/fees.yaml`) and the domain
+the calculator was checked against. An API comes in a later stage.
+
+## Running it locally
+
+You need Node (see `frontend/.nvmrc`) and, for the backend, [uv](https://docs.astral.sh/uv/).
+
+### The calculator
+
+```sh
+cd frontend
+npm install
+npm run dev       # http://localhost:5173
+```
+
+Other commands, from `frontend/`:
+
+```sh
+npm test          # the tests, once
+npm run check     # typecheck, lint, format check and tests
+npm run build     # static files in frontend/dist/
+npm run preview   # serves the build at http://localhost:4173
+```
+
+The build uses absolute paths from the site root (`base: "/"` in `frontend/vite.config.ts`),
+because the site is served from the root of its own subdomain: see [Deploying](#deploying).
+
+### The backend
+
+```sh
+cd backend
+uv sync
+uv run pytest
+uv run mypy
+uv run ruff check . && uv run ruff format --check .
+```
 
 ## Deploying
 
@@ -22,3 +82,7 @@ Each release on the server is named after its UTC time and commit (`20260925T141
 
 - **Redeploy an earlier commit from GitHub.** Open that commit's run under **Actions → Deploy**, choose **Re-run all jobs**, and approve the deploy. It rebuilds that commit and publishes it as a new release. GitHub keeps runs re-runnable for 30 days; for an older commit, revert to it in a pull request instead.
 - **Switch back on the server, without rebuilding.** The server keeps the last releases, and the admin can publish an earlier one with `site-rollback`, instantly and without a CI run. See the deploy notes in the [infra repository's README](https://github.com/Abrunacci/infra/blob/main/ansible/README.md#design-notes). The next deploy publishes its own release as usual, so fix `main` (or reject that deploy) before the next push if the problem is in the code.
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md).

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { FEE_DEFAULTS, type Comparison } from "../calculator/index.ts";
+import type { Comparison } from "../calculator/index.ts";
 import { fieldId, initialTexts, readForm, type FormTexts } from "./form.ts";
 
 const PRICES = {
@@ -251,28 +251,5 @@ describe("fees typed with a leading zero or in an ambiguous way", () => {
     expect(withFee("arq_ach_deposit", "-1").problems.get(fieldId.fee("arq_ach_deposit"))).toBe(
       "No puede ser negativo.",
     );
-  });
-});
-
-describe("fees still at their researched value", () => {
-  it("are all of them at the start", () => {
-    expect(readForm(initialTexts()).unchangedFees.size).toBe(FEE_DEFAULTS.length);
-  });
-
-  it("do not include an edited fee or one with an edited minimum", () => {
-    const edited = readForm(
-      filled({
-        fees: { ...initialTexts().fees, p2p_premium: "1" },
-        minimums: { payoneer_us_withdrawal: "0" },
-      }),
-    ).unchangedFees;
-    expect(edited.has("p2p_premium")).toBe(false);
-    expect(edited.has("payoneer_us_withdrawal")).toBe(false);
-    expect(edited.has("bitso_taker")).toBe(true);
-  });
-
-  it("count a value typed differently but equal, like 0,60 for 0,6, as unchanged", () => {
-    const same = readForm(filled({ fees: { ...initialTexts().fees, bitso_taker: "0,60" } }));
-    expect(same.unchangedFees.has("bitso_taker")).toBe(true);
   });
 });

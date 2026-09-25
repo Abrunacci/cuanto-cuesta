@@ -2,7 +2,7 @@ import { FEE_DEFAULTS, RATE_FIELDS, type Route, type Step } from "../calculator/
 import { fieldId, type FormReading, type FormTexts } from "../form/form.ts";
 import { lowerFirst } from "../text/case.ts";
 import { NumberField } from "./NumberField.tsx";
-import { statusText } from "../form/messages.ts";
+import { feeStatusText, referenceValueText } from "../form/messages.ts";
 import { Provenance, StatusBadge } from "./Provenance.tsx";
 import { RichText } from "./RichText.tsx";
 
@@ -14,6 +14,7 @@ interface RouteCardProps {
   readonly reading: FormReading;
   readonly onFee: (id: string, text: string) => void;
   readonly onMinimum: (id: string, text: string) => void;
+  readonly onResetFee: (id: string) => void;
 }
 
 /** One route's fees, step by step, in a card that stays closed until the person opens it. */
@@ -25,6 +26,7 @@ export function RouteCard({
   reading,
   onFee,
   onMinimum,
+  onResetFee,
 }: RouteCardProps) {
   return (
     <details
@@ -36,7 +38,9 @@ export function RouteCard({
     >
       <summary>
         <span className="route-card-title">{route.name}</span>
-        <span className="route-card-hint">Ajustar comisiones</span>
+        <span className="route-card-hint">
+          Ajustar comisiones{ownCountText(route, texts.ownFees)}
+        </span>
       </summary>
       {route.steps.map((step) => (
         <fieldset key={step.label} className="step">
@@ -56,6 +60,7 @@ export function RouteCard({
               reading={reading}
               onFee={onFee}
               onMinimum={onMinimum}
+              onResetFee={onResetFee}
             />
           ))}
         </fieldset>
@@ -78,6 +83,12 @@ function repeatsItsFee(step: Step): boolean {
   return label !== undefined && withoutFirstWord(label) === withoutFirstWord(step.label);
 }
 
+/** " · 2 con tu valor", or nothing while the route has only researched values. */
+function ownCountText(route: Route, ownFees: ReadonlySet<string>): string {
+  const count = route.steps.flatMap((step) => step.feeIds).filter((id) => ownFees.has(id)).length;
+  return count === 0 ? "" : ` · ${String(count)} con tu valor`;
+}
+
 function withoutFirstWord(text: string): string {
   return text.toLowerCase().split(" ").slice(1).join(" ");
 }
@@ -92,12 +103,14 @@ function FeeInputs({
   reading,
   onFee,
   onMinimum,
+  onResetFee,
 }: {
   readonly id: string;
   readonly texts: FormTexts;
   readonly reading: FormReading;
   readonly onFee: RouteCardProps["onFee"];
   readonly onMinimum: RouteCardProps["onMinimum"];
+  readonly onResetFee: RouteCardProps["onResetFee"];
 }) {
   const feeDefault = FEE_DEFAULTS.find((d) => d.fee.id === id);
   if (feeDefault === undefined) {
@@ -105,6 +118,7 @@ function FeeInputs({
   }
   const { fee, label, note, provenance } = feeDefault;
   const valueId = fieldId.fee(id);
+  const own = texts.ownFees.has(id);
   const minimumId = fieldId.minimum(id);
   return (
     <div className="fee">
@@ -120,9 +134,27 @@ function FeeInputs({
         echo={reading.echoes.get(valueId)}
       >
         <details className="fee-details">
-          <summary aria-label={`${statusText(provenance)}. Detalles de ${label}`}>
-            <StatusBadge provenance={provenance} /> Detalles
+          <summary aria-label={`${feeStatusText(provenance, own)}. Detalles de ${label}`}>
+            <StatusBadge provenance={provenance} own={own} /> Detalles
           </summary>
+          {own && (
+            <p className="provenance">
+              Pusiste tu valor. El de referencia es {referenceValueText(fee)}.{" "}
+              {/* A button: it changes the form. Focus goes to the field, which now holds the
+                  reference value, since this button disappears with the mark. */}
+              <button
+                type="button"
+                className="link-button"
+                aria-label={`Volver al valor de referencia: ${label}`}
+                onClick={() => {
+                  onResetFee(id);
+                  document.getElementById(valueId)?.focus();
+                }}
+              >
+                Volver al valor de referencia
+              </button>
+            </p>
+          )}
           <Provenance provenance={provenance} feeLabel={label} />
           {note !== null && (
             <p className="note">

@@ -2,6 +2,7 @@
 
 import type {
   Big,
+  Fee,
   InputProblem,
   MissingInput,
   Provenance,
@@ -11,7 +12,7 @@ import type { FeeGap } from "./form.ts";
 import { inRange, type PriceCheck } from "./plausible.ts";
 import { FEE_DEFAULTS, RATE_FIELDS } from "../calculator/index.ts";
 import { lowerFirst } from "../text/case.ts";
-import { formatExact, formatNumber, formatUnambiguous } from "../text/numbers.ts";
+import { formatExact, formatFeeValue, formatNumber, formatUnambiguous } from "../text/numbers.ts";
 
 export const NOT_A_NUMBER = "Escribí un número, por ejemplo 1.234,56.";
 
@@ -112,4 +113,18 @@ export function statusText(provenance: Provenance): string {
     case "user_defined":
       return "Lo definís vos";
   }
+}
+
+/** A fee's badge: the person's own value, or how far to trust the researched one. */
+export function feeStatusText(provenance: Provenance, own: boolean): string {
+  return own ? "Tu valor" : statusText(provenance);
+}
+
+/** The researched value of a fee, minimum included: "1 %, mínimo 5 USD". */
+export function referenceValueText(fee: Fee): string {
+  const value = formatFeeValue(fee);
+  if (fee.kind === "fixed" || fee.minimum === null) {
+    return value;
+  }
+  return `${value}, mínimo ${formatExact(fee.minimum.amount)}\u00a0${fee.minimum.currency}`;
 }
