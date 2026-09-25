@@ -661,11 +661,19 @@ h3 {
   .figures {
     grid-template-columns: auto auto minmax(0, 1fr);
     column-gap: 1.5rem;
-    margin: 0.25rem 0 0.5rem;
+    margin: 0.125rem 0 0.25rem;
   }
 
   .ranking > li {
-    padding: 0.5rem 0;
+    padding: 0.25rem 0;
+  }
+
+  .review {
+    margin-bottom: 0.25rem;
+  }
+
+  .review > summary {
+    min-height: 1.25rem;
   }
 
   .figure-main {
