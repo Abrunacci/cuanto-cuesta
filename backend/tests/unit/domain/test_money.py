@@ -20,7 +20,11 @@ def test_rejects_non_finite_amounts(amount: str) -> None:
         usd(amount)
 
 
-def test_require_non_negative_accepts_zero_and_rejects_negatives() -> None:
-    usd("0").require_non_negative("x")
-    with pytest.raises(ValueError, match="x must not be negative"):
-        usd("-0.01").require_non_negative("x")
+def test_accepts_zero() -> None:
+    assert usd("0").amount == Decimal(0)
+
+
+@pytest.mark.parametrize("amount", ["-0.01", "-1"])
+def test_rejects_negative_amounts(amount: str) -> None:
+    with pytest.raises(ValueError, match="must not be negative"):
+        usd(amount)
