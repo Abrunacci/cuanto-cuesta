@@ -47,7 +47,7 @@ describe("readForm", () => {
   it("computes the three routes with the researched fees", () => {
     // Same values as the calculator's end-to-end test for 1000 USD.
     expect(finals(readForm(filled()).comparison)).toEqual([
-      ["binance_bitso", "1534005.69"],
+      ["binance_p2p_bitso", "1534005.69"],
       ["arq", "1524869.44"],
       ["mep", "1503624.13"],
     ]);
@@ -68,7 +68,7 @@ describe("readForm", () => {
   it("leaves a route incomplete when one of its fees is emptied", () => {
     const texts = filled({ fees: { ...initialTexts().fees, bitso_taker: "" } });
     const binance = routesInOrder(readForm(texts).comparison).find(
-      (r) => r.route.id === "binance_bitso",
+      (r) => r.route.id === "binance_p2p_bitso",
     );
     expect(binance?.status === "incomplete" && binance.missing).toEqual([
       { kind: "fee", id: "bitso_taker" },
@@ -133,7 +133,7 @@ describe("numbers read a thousand times off", () => {
     // A jump in the exchange rate must not leave the calculator useless: the route is computed,
     // with the value as typed (1030), not the suggestion. 1000.00 - 4.00 = 996.00 / 1030 = 0.96;
     // - 0.08 = 0.88; - 0.07 = 0.81; 0.6 % -> 0.01; 0.80 x 1596.21 = 1276.968 -> 1276.96
-    const binance = read.route("binance_bitso");
+    const binance = read.route("binance_p2p_bitso");
     expect(binance?.status === "complete" && binance.result.final.amount.toFixed(2)).toBe(
       "1276.96",
     );

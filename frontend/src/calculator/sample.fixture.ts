@@ -69,7 +69,7 @@ export const SAMPLE_PRICES: ReadonlyMap<string, PositivePrice> = new Map([
 ]);
 
 export const BINANCE: Route = {
-  id: "binance_bitso",
+  id: "binance_p2p_bitso",
   name: "Binance + Bitso",
   source: "USD",
   target: "ARS",

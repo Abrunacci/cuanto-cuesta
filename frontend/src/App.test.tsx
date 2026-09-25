@@ -811,7 +811,7 @@ describe("the calculator page", () => {
       "Mejor ruta: Binance P2P + Bitso. Llegan $\u00a01.534.005,69 · revisá los valores de esta " +
         "ruta. Ver resultado",
     );
-    expect(bar).toHaveAttribute("href", "#review-binance_bitso");
+    expect(bar).toHaveAttribute("href", "#review-binance_p2p_bitso");
     await user.click(bar);
     expect(reviewLine("Binance P2P + Bitso")).toHaveFocus();
     // At the top of the screen, so the list just opened is not left under the bar.

@@ -15,7 +15,7 @@ const ids = (list: readonly { fee: { id: string } }[]) => list.map((d) => d.fee.
 
 describe("feesToReview", () => {
   it("lists the user-defined and estimated fees of a route, never the verified ones", () => {
-    const review = feesToReview(route("binance_bitso"), new Set());
+    const review = feesToReview(route("binance_p2p_bitso"), new Set());
     expect(ids(review.toSet)).toEqual(["p2p_premium"]);
     expect(ids(review.estimated)).toEqual(["payoneer_p2p_transfer", "binance_p2p_taker"]);
     expect(review.own).toEqual([]);
@@ -23,7 +23,7 @@ describe("feesToReview", () => {
 
   it("moves the fees the person set to their own, whatever the value", () => {
     const review = feesToReview(
-      route("binance_bitso"),
+      route("binance_p2p_bitso"),
       new Set(["p2p_premium", "binance_p2p_taker"]),
     );
     expect(ids(review.toSet)).toEqual([]);
@@ -32,7 +32,7 @@ describe("feesToReview", () => {
   });
 
   it("lists a verified fee the person set as their own", () => {
-    expect(ids(feesToReview(route("binance_bitso"), new Set(["bitso_taker"])).own)).toEqual([
+    expect(ids(feesToReview(route("binance_p2p_bitso"), new Set(["bitso_taker"])).own)).toEqual([
       "bitso_taker",
     ]);
   });
@@ -115,8 +115,8 @@ describe("differenceToReview", () => {
 
   // Ranking with these prices: Binance P2P + Bitso, ARQ, Dólar MEP.
   it("is nothing when neither route compared has anything to review", () => {
-    expect(toReview({ ownFees: settled("binance_bitso", "arq", "mep") })).toEqual([
-      ["binance_bitso", null],
+    expect(toReview({ ownFees: settled("binance_p2p_bitso", "arq", "mep") })).toEqual([
+      ["binance_p2p_bitso", null],
       ["arq", null],
       ["mep", null],
     ]);
@@ -124,16 +124,16 @@ describe("differenceToReview", () => {
 
   it("points a trailing route at the best one when only the best has something to review", () => {
     expect(toReview({ ownFees: settled("arq", "mep") })).toEqual([
-      ["binance_bitso", "binance_bitso"],
-      ["arq", "binance_bitso"],
-      ["mep", "binance_bitso"],
+      ["binance_p2p_bitso", "binance_p2p_bitso"],
+      ["arq", "binance_p2p_bitso"],
+      ["mep", "binance_p2p_bitso"],
     ]);
   });
 
   it("points a route at itself when only it has something to review", () => {
     // ARQ is the runner-up, so the best route's difference rests on it too.
-    expect(toReview({ ownFees: settled("binance_bitso", "mep") })).toEqual([
-      ["binance_bitso", "arq"],
+    expect(toReview({ ownFees: settled("binance_p2p_bitso", "mep") })).toEqual([
+      ["binance_p2p_bitso", "arq"],
       ["arq", "arq"],
       ["mep", null],
     ]);
@@ -142,22 +142,22 @@ describe("differenceToReview", () => {
   it("prefers the other route when both have something to review", () => {
     // With the reference values every route has estimates.
     expect(toReview({})).toEqual([
-      ["binance_bitso", "arq"],
-      ["arq", "binance_bitso"],
-      ["mep", "binance_bitso"],
+      ["binance_p2p_bitso", "arq"],
+      ["arq", "binance_p2p_bitso"],
+      ["mep", "binance_p2p_bitso"],
     ]);
   });
 
   it("counts an unusual price of the other route", () => {
     expect(
       toReview({
-        ownFees: settled("binance_bitso", "arq", "mep"),
+        ownFees: settled("binance_p2p_bitso", "arq", "mep"),
         prices: { ...PRICES, bitso_usdt_ars: "60.000" },
       }),
     ).toEqual([
-      ["binance_bitso", "binance_bitso"],
-      ["arq", "binance_bitso"],
-      ["mep", "binance_bitso"],
+      ["binance_p2p_bitso", "binance_p2p_bitso"],
+      ["arq", "binance_p2p_bitso"],
+      ["mep", "binance_p2p_bitso"],
     ]);
   });
 

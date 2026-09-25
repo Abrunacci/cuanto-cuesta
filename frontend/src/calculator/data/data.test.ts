@@ -138,7 +138,7 @@ describe("the bundled data, calculated end to end", () => {
     // Binance: 1000.00 - 4.00 = 996.00 USD / 1.03 = 966.99 USDT - 0.08 = 966.91; - 0.07 = 966.84;
     // 0.6 % = 5.80104 -> 5.81; 961.03 x 1596.21 = 1534005.6963
     expect(summarize("1000.00")).toEqual([
-      ["binance_bitso", "1534005.69", "15706.71"],
+      ["binance_p2p_bitso", "1534005.69", "15706.71"],
       ["arq", "1524869.44", "68515.56"],
       ["mep", "1503624.13", "32535.87"],
     ]);
@@ -147,7 +147,7 @@ describe("the bundled data, calculated end to end", () => {
   it("computes the three routes for 100 USD, where the Payoneer minimum applies to ARQ", () => {
     expect(summarize("100.00")).toEqual([
       ["mep", "150359.34", "3256.66"],
-      ["binance_bitso", "147633.46", "7326.60"],
+      ["binance_p2p_bitso", "147633.46", "7326.60"],
       ["arq", "122690.64", "36647.86"],
     ]);
   });
@@ -174,7 +174,7 @@ describe("the bundled data, calculated end to end", () => {
     });
     expect(mep?.status === "complete" && mep.standing).toMatchObject({
       kind: "behind",
-      other: { id: "binance_bitso" },
+      other: { id: "binance_p2p_bitso" },
     });
     const figures = [binance, mep].map((r) =>
       r?.status === "complete" && (r.standing.kind === "ahead" || r.standing.kind === "behind")
@@ -185,7 +185,7 @@ describe("the bundled data, calculated end to end", () => {
     );
     // 2378992.00 - 2202330.00 = 176662.00
     expect(figures).toEqual([
-      ["binance_bitso", "2378992.00", "21008.00", "176662.00"],
+      ["binance_p2p_bitso", "2378992.00", "21008.00", "176662.00"],
       ["mep", "2202330.00", "47670.00", "176662.00"],
     ]);
     expect(arq?.status).toBe("incomplete");

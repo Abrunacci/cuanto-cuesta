@@ -105,7 +105,7 @@ describe("barText", () => {
       kind: "best",
       lead: "best",
       route: "Binance P2P + Bitso",
-      routeId: "binance_bitso",
+      routeId: "binance_p2p_bitso",
       amount: "$\u00a01.534.005,69",
       amountWhole: "$\u00a01.534.005",
       // The P2P premium is still at the 0 the person has to set.
@@ -120,7 +120,10 @@ describe("barText", () => {
       ...typed(ALL_SET),
     });
     const text = barText(reading, false);
-    expect(text.kind === "best" && [text.routeId, text.review]).toEqual(["binance_bitso", false]);
+    expect(text.kind === "best" && [text.routeId, text.review]).toEqual([
+      "binance_p2p_bitso",
+      false,
+    ]);
   });
 
   it.each([
@@ -133,7 +136,10 @@ describe("barText", () => {
       ...typed(fees),
     });
     const text = barText(reading, false);
-    expect(text.kind === "best" && [text.routeId, text.review]).toEqual(["binance_bitso", true]);
+    expect(text.kind === "best" && [text.routeId, text.review]).toEqual([
+      "binance_p2p_bitso",
+      true,
+    ]);
   });
 
   it("has nothing to review once the premium is set by hand to 0, its default", () => {
@@ -143,7 +149,10 @@ describe("barText", () => {
       ...typed({ ...ALL_SET, p2p_premium: "0" }),
     });
     const text = barText(reading, false);
-    expect(text.kind === "best" && [text.routeId, text.review]).toEqual(["binance_bitso", false]);
+    expect(text.kind === "best" && [text.routeId, text.review]).toEqual([
+      "binance_p2p_bitso",
+      false,
+    ]);
   });
 
   it("asks to review a best route computed with an unusual price", () => {
@@ -153,7 +162,10 @@ describe("barText", () => {
       ...typed(ALL_SET),
     });
     const text = barText(reading, false);
-    expect(text.kind === "best" && [text.routeId, text.review]).toEqual(["binance_bitso", true]);
+    expect(text.kind === "best" && [text.routeId, text.review]).toEqual([
+      "binance_p2p_bitso",
+      true,
+    ]);
   });
 
   it("says what is missing while no route can be computed", () => {

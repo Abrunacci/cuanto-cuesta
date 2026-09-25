@@ -11,7 +11,7 @@ export const TARGET_CURRENCY = "ARS";
 
 export const ROUTES: readonly Route[] = [
   {
-    id: "binance_bitso",
+    id: "binance_p2p_bitso",
     name: "Binance P2P + Bitso",
     source: "USD",
     target: "ARS",

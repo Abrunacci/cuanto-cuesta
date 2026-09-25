@@ -11,7 +11,7 @@ vi.mock("./calculator/data/routes.ts", async (importOriginal) => {
   return {
     ...real,
     ROUTES: real.ROUTES.map((route) =>
-      route.id === "binance_bitso" ? { ...route, steps: route.steps.slice(0, 2) } : route,
+      route.id === "binance_p2p_bitso" ? { ...route, steps: route.steps.slice(0, 2) } : route,
     ),
   };
 });
@@ -53,7 +53,9 @@ describe("a route whose data is wrong", () => {
     await type(/^Monto en Payoneer/, "0");
     expect(errors).toHaveBeenCalledTimes(1);
     expect(errors).toHaveBeenCalledWith(
-      expect.stringContaining("binance_bitso: Route binance_bitso ends in USDT, it declares ARS"),
+      expect.stringContaining(
+        "binance_p2p_bitso: Route binance_p2p_bitso ends in USDT, it declares ARS",
+      ),
     );
   });
 });
