@@ -267,20 +267,24 @@ describe("summaryText", () => {
     expect(comparison.failed).toHaveLength(2);
     const text =
       "No se puede calcular ninguna ruta: hay un problema con las cotizaciones o comisiones que usan. No es un error en lo que cargaste.";
+    const bar = { kind: "pending", text, short: "Ninguna ruta se puede calcular" };
     expect(summaryText(comparison, false)).toBe(text);
-    // A wrong amount would not make any route computable either.
-    expect(summaryText(comparison, true)).toBe(text);
-    expect(barText({ ...read({}), comparison }, false)).toEqual({
-      kind: "pending",
-      text,
-      short: "Ninguna ruta se puede calcular",
-    });
+    expect(barText({ ...read({}), comparison }, false)).toEqual(bar);
+    // A wrong amount (read as none) would not make any route computable either.
+    const withoutAmount = withFailures("USDT", null);
+    expect(withoutAmount.failed).toHaveLength(2);
+    expect(summaryText(withoutAmount, true)).toBe(text);
+    expect(barText({ ...read({}), comparison: withoutAmount }, true)).toEqual(bar);
   });
 
   it("asks for what is missing when some routes failed and the rest are incomplete", () => {
     const comparison = withFailures("USD", null);
     expect([comparison.failed.length, comparison.incomplete.length]).toEqual([1, 1]);
     expect(summaryText(comparison, false)).toBe("Completá el monto para comparar las rutas.");
+    expect(barText({ ...read({}), comparison }, false)).toMatchObject({
+      kind: "pending",
+      short: "Falta: monto",
+    });
   });
 
   it.each([
