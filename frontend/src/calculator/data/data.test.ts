@@ -99,6 +99,26 @@ describe("the bundled routes and fees", () => {
     expect(withSpread.final.amount.toFixed(2)).toBe("1428300.00");
   });
 
+  it("mark Binance P2P + Bitso as the one risky route, with what it risks", () => {
+    expect(ROUTES.filter((r) => r.risk !== null).map((r) => [r.id, r.risk])).toEqual([
+      [
+        "binance_p2p_bitso",
+        {
+          label: "Riesgo de bloqueo",
+          detail: "con riesgo de bloqueo de tu cuenta de Binance",
+        },
+      ],
+    ]);
+  });
+
+  it("warn on the P2P route that paying with Payoneer can get the Binance account blocked", () => {
+    // Payoneer is not a payment method in Binance's USD P2P ads: the warning must not suggest
+    // there are ads that accept it.
+    expect(ROUTES.find((r) => r.id === "binance_p2p_bitso")?.warnings).toEqual([
+      "Pagar P2P con Payoneer puede hacer que Binance bloquee tu cuenta. El precio P2P es el de la oferta genérica USDT/USD.",
+    ]);
+  });
+
   it("warn on the MEP route with a link to the BCRA rules", () => {
     const [warning] = ROUTES.find((r) => r.id === "mep")?.warnings ?? [];
     expect(warning).toBe(
@@ -168,25 +188,27 @@ describe("the bundled data, calculated end to end", () => {
       fees,
     });
     const [binance, mep, arq] = routesInOrder(comparison);
+    // Binance P2P + Bitso delivers more, but it is risky: the MEP route is the best one, with no
+    // other route without risk to compare it with.
     expect(binance?.status === "complete" && binance.standing).toMatchObject({
-      kind: "ahead",
+      kind: "over",
       other: { id: "mep" },
     });
-    expect(mep?.status === "complete" && mep.standing).toMatchObject({
-      kind: "behind",
-      other: { id: "binance_p2p_bitso" },
-    });
+    expect(mep?.status === "complete" && mep.standing).toEqual({ kind: "unrivaled" });
     const figures = [binance, mep].map((r) =>
-      r?.status === "complete" && (r.standing.kind === "ahead" || r.standing.kind === "behind")
-        ? [r.route.id, r.result.final, r.feeCost, r.standing.by].map((v) =>
-            typeof v === "string" ? v : v.amount.toFixed(2),
-          )
+      r?.status === "complete"
+        ? [
+            r.route.id,
+            r.result.final.amount.toFixed(2),
+            r.feeCost.amount.toFixed(2),
+            r.standing.kind === "over" ? r.standing.by.amount.toFixed(2) : null,
+          ]
         : null,
     );
     // 2378992.00 - 2202330.00 = 176662.00
     expect(figures).toEqual([
       ["binance_p2p_bitso", "2378992.00", "21008.00", "176662.00"],
-      ["mep", "2202330.00", "47670.00", "176662.00"],
+      ["mep", "2202330.00", "47670.00", null],
     ]);
     expect(arq?.status).toBe("incomplete");
   });

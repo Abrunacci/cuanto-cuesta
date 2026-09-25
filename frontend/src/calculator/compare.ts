@@ -44,7 +44,10 @@ export type MissingInput =
   | { readonly kind: "rate"; readonly key: string }
   | { readonly kind: "fee"; readonly id: string };
 
-/** The best route, `by` more than the runner-up (`other`). `by` is positive. */
+/**
+ * The best route, `by` more than the runner-up (`other`). Among routes without risk when there is
+ * one, else among the risky ones. `by` is positive.
+ */
 export interface Ahead {
   readonly kind: "ahead";
   readonly other: Route;
@@ -54,6 +57,16 @@ export interface Ahead {
 /** `by` less than the best route (`other`). `by` is positive. */
 export interface Behind {
   readonly kind: "behind";
+  readonly other: Route;
+  readonly by: Money;
+}
+
+/**
+ * A risky route that delivers `by` more than the best route (`other`), the best one without
+ * risk: it is never recommended over it. `by` is positive.
+ */
+export interface Over {
+  readonly kind: "over";
   readonly other: Route;
   readonly by: Money;
 }
@@ -69,8 +82,13 @@ export interface Alone {
   readonly kind: "alone";
 }
 
+/** The best route when every other route computed is risky: none to compare it with. */
+export interface Unrivaled {
+  readonly kind: "unrivaled";
+}
+
 /** How a complete route stands against the other complete routes. */
-export type Standing = Ahead | Behind | Tied | Alone;
+export type Standing = Ahead | Behind | Over | Tied | Alone | Unrivaled;
 
 export interface CompleteRoute<S extends Standing = Standing> {
   readonly status: "complete";
@@ -100,15 +118,29 @@ export type DataError =
 export type RouteComparison = CompleteRoute | IncompleteRoute | FailedRoute;
 
 /**
- * The complete routes, best (most received) first. The best one is compared with the runner-up
- * and every other one with the best, so the best is never behind and only a lone route is alone.
+ * The complete routes. The best is the one that delivers most among those without risk: a risky
+ * route (`Route.risk`) is never the best while another one can be computed. The best one is
+ * compared with the runner-up without risk, and every other one with the best.
+ *
+ * - `alone`: one route could be computed, risky or not.
+ * - `ranked`: several, at least one without risk. `above` holds the risky routes that deliver at
+ *   least as much as the best, most first; `rest` the routes that deliver at most as much. At
+ *   least one of the two holds a route.
+ * - `risky`: several, every one risky. They are compared among themselves, best first, but none
+ *   is recommended.
  */
 export type Ranking =
   | { readonly kind: "none" }
   | { readonly kind: "alone"; readonly only: CompleteRoute<Alone> }
   | {
       readonly kind: "ranked";
-      readonly best: CompleteRoute<Ahead | Tied>;
+      readonly above: readonly CompleteRoute<Over | Tied>[];
+      readonly best: CompleteRoute<Ahead | Tied | Unrivaled>;
+      readonly rest: readonly CompleteRoute<Behind | Tied>[];
+    }
+  | {
+      readonly kind: "risky";
+      readonly leader: CompleteRoute<Ahead | Tied>;
       readonly rest: readonly [
         CompleteRoute<Behind | Tied>,
         ...(readonly CompleteRoute<Behind | Tied>[]),
@@ -170,7 +202,9 @@ export function routesInOrder({ ranking, incomplete, failed }: Comparison): Rout
     case "alone":
       return [ranking.only, ...incomplete, ...failed];
     case "ranked":
-      return [ranking.best, ...ranking.rest, ...incomplete, ...failed];
+      return [...ranking.above, ranking.best, ...ranking.rest, ...incomplete, ...failed];
+    case "risky":
+      return [ranking.leader, ...ranking.rest, ...incomplete, ...failed];
   }
 }
 
@@ -215,35 +249,64 @@ function isDataError(error: unknown): error is DataError {
 
 type Unranked = Omit<CompleteRoute, "standing">;
 
-/** Standings for complete routes sorted best first. */
+/** Standings for complete routes sorted by what they deliver, most first. */
 function rank(sorted: readonly Unranked[]): Ranking {
-  const [best, runnerUp, ...others] = sorted;
-  if (best === undefined) {
+  const [first, second, ...others] = sorted;
+  if (first === undefined) {
     return { kind: "none" };
   }
-  if (runnerUp === undefined) {
-    return { kind: "alone", only: { ...best, standing: { kind: "alone" } } };
+  if (second === undefined) {
+    return { kind: "alone", only: { ...first, standing: { kind: "alone" } } };
   }
-  // Sorted best first, so these differences are never negative.
-  const lead = subtract(best.result.final, runnerUp.result.final);
-  const trail = (entry: Unranked): CompleteRoute<Behind | Tied> => {
-    const by = subtract(best.result.final, entry.result.final);
+  const bestIndex = sorted.findIndex((entry) => entry.route.risk === null);
+  const best = sorted[bestIndex];
+  if (best === undefined) {
     return {
-      ...entry,
-      standing: by.amount.eq(0)
-        ? { kind: "tied", other: best.route }
-        : { kind: "behind", other: best.route, by },
+      kind: "risky",
+      leader: { ...first, standing: lead(first, second) },
+      rest: [trail(first, second), ...others.map((entry) => trail(first, entry))],
     };
-  };
+  }
+  const below = sorted.slice(bestIndex + 1);
+  const runnerUp = below.find((entry) => entry.route.risk === null);
   return {
     kind: "ranked",
+    above: sorted.slice(0, bestIndex).map((entry) => over(best, entry)),
     best: {
       ...best,
-      standing: lead.amount.eq(0)
-        ? { kind: "tied", other: runnerUp.route }
-        : { kind: "ahead", other: runnerUp.route, by: lead },
+      standing: runnerUp === undefined ? { kind: "unrivaled" } : lead(best, runnerUp),
     },
-    rest: [trail(runnerUp), ...others.map(trail)],
+    rest: below.map((entry) => trail(best, entry)),
+  };
+}
+
+/** How `best` stands against `runnerUp`, which delivers at most as much. */
+function lead(best: Unranked, runnerUp: Unranked): Ahead | Tied {
+  const by = subtract(best.result.final, runnerUp.result.final);
+  return by.amount.eq(0)
+    ? { kind: "tied", other: runnerUp.route }
+    : { kind: "ahead", other: runnerUp.route, by };
+}
+
+/** `entry`, which delivers at most as much as `best`, against it. */
+function trail(best: Unranked, entry: Unranked): CompleteRoute<Behind | Tied> {
+  const by = subtract(best.result.final, entry.result.final);
+  return {
+    ...entry,
+    standing: by.amount.eq(0)
+      ? { kind: "tied", other: best.route }
+      : { kind: "behind", other: best.route, by },
+  };
+}
+
+/** A risky `entry`, which delivers at least as much as `best`, against it. */
+function over(best: Unranked, entry: Unranked): CompleteRoute<Over | Tied> {
+  const by = subtract(entry.result.final, best.result.final);
+  return {
+    ...entry,
+    standing: by.amount.eq(0)
+      ? { kind: "tied", other: best.route }
+      : { kind: "over", other: best.route, by },
   };
 }
 

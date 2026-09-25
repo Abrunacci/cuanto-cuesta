@@ -49,7 +49,20 @@ const LEADS: Readonly<Record<BarLead, { full: string; short: string }>> = {
   best: { full: "Mejor ruta", short: "Mejor" },
   tied: { full: "Empatan", short: "Empate" },
   alone: { full: "Única ruta calculada", short: "Única" },
+  risky: { full: "Solo con riesgo", short: "Solo con riesgo" },
 };
+
+/** After the route's name when it is risky: seen as "· riesgo", heard in full. */
+function RiskMark({ risky }: { readonly risky: boolean }) {
+  return risky ? (
+    <>
+      {" "}
+      <span className="result-bar-risk">
+        · riesgo <span className="visually-hidden">de bloqueo</span>
+      </span>
+    </>
+  ) : null;
+}
 
 function FullText({ text }: { readonly text: BarText }) {
   if (text.kind === "pending") {
@@ -59,6 +72,7 @@ function FullText({ text }: { readonly text: BarText }) {
     <>
       <span className="result-bar-label">
         {LEADS[text.lead].full}: {text.route}
+        <RiskMark risky={text.risky} />
         <span className="visually-hidden">.</span>
       </span>{" "}
       <span className="result-bar-amount">
@@ -92,6 +106,7 @@ function CompactLine({ text }: { readonly text: BarText }) {
     <span className="result-bar-line">
       <span className="result-bar-route">
         {LEADS[text.lead].short}: {text.route}
+        <RiskMark risky={text.risky} />
       </span>{" "}
       <span className="result-bar-figure">
         &nbsp;· {text.amountWhole}

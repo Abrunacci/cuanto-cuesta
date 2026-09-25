@@ -1,6 +1,11 @@
 import { useEffect } from "react";
 
-import { routesInOrder, type Comparison, type RouteComparison } from "../calculator/index.ts";
+import {
+  routesInOrder,
+  type Comparison,
+  type Ranking,
+  type RouteComparison,
+} from "../calculator/index.ts";
 import type { FeeGap } from "../form/form.ts";
 import { missingInputLabel } from "../form/messages.ts";
 import { commonMissing, missingFieldId, missingKey } from "../form/missing.ts";
@@ -79,11 +84,18 @@ export function Results({
       <ol className="ranking">
         {routes.map((entry) => (
           <li key={entry.route.id}>
-            <h3 id={routeResultId(entry.route.id)} tabIndex={-1}>
-              {entry.route.name}
-            </h3>
+            {/* The label stays out of the heading, whose name is the route's. */}
+            <div className="route-heading">
+              <h3 id={routeResultId(entry.route.id)} tabIndex={-1}>
+                {entry.route.name}
+              </h3>
+              {entry.route.risk !== null && (
+                <span className="risk-badge">{entry.route.risk.label}</span>
+              )}
+            </div>
             <RouteBody
               entry={entry}
+              ranking={comparison.ranking}
               feeGaps={feeGaps}
               skip={listedOnce}
               warnings={warnings}
@@ -109,6 +121,7 @@ export function Results({
 /** Under a route's name: its figures, what it still needs, or that its data is wrong. */
 function RouteBody({
   entry,
+  ranking,
   feeGaps,
   skip,
   warnings,
@@ -118,6 +131,7 @@ function RouteBody({
   onGoToField,
 }: {
   readonly entry: RouteComparison;
+  readonly ranking: Ranking;
   readonly feeGaps: ReadonlyMap<string, FeeGap>;
   readonly skip: ReadonlySet<string>;
   readonly warnings: ReadonlyMap<string, string>;
@@ -133,7 +147,7 @@ function RouteBody({
           <RouteFigures
             result={entry.result}
             feeCost={entry.feeCost}
-            difference={difference(entry, ownFees, warnings)}
+            difference={difference(entry, ranking, ownFees, warnings)}
             unusualPrices={unusualPrices(entry.route, warnings)}
             ownFees={ownFees}
             onGoToField={onGoToField}

@@ -108,6 +108,7 @@ describe("fees inside a step", () => {
         },
       ],
       warnings: [],
+      risk: null,
     };
     return runRoute(
       route,
@@ -154,6 +155,7 @@ describe("fees inside a step", () => {
         { label: "t", feeIds: ["f"], conversion: null },
       ],
       warnings: [],
+      risk: null,
     };
     const result = runRoute(route, money("5.00", "USD"), new Map([["f", fee]]), new Map());
     expect(cents(result.final)).toBe("0.00 USD");
@@ -173,6 +175,7 @@ describe("fees that consume the whole amount after converting", () => {
         { label: "s", feeIds: ["f"], conversion: { rateKey: "p2p_usdt_usd", target: "USDT" } },
       ],
       warnings: [],
+      risk: null,
     };
     // 100.00 / 1.03 = 97.08 USDT, minus 1000 USDT
     const result = runRoute(route, money("100.00", "USD"), new Map([["f", fee]]), SAMPLE_RATES);
@@ -206,7 +209,15 @@ describe("invalid input", () => {
 });
 
 describe("routeProblems", () => {
-  const base: Route = { id: "r", name: "r", source: "USD", target: "ARS", steps: [], warnings: [] };
+  const base: Route = {
+    id: "r",
+    name: "r",
+    source: "USD",
+    target: "ARS",
+    steps: [],
+    warnings: [],
+    risk: null,
+  };
 
   it("accepts the sample routes", () => {
     expect([BINANCE, ARQ, MEP_ROUTE].flatMap(routeProblems)).toEqual([]);

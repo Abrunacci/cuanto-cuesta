@@ -10,10 +10,12 @@ export type {
   ComparisonInput,
   IncompleteRoute,
   MissingInput,
+  Over,
   Ranking,
   RouteComparison,
   Standing,
   Tied,
+  Unrivaled,
 } from "./compare.ts";
 export { FEE_DEFAULTS } from "./data/fees.ts";
 export type { FeeDefault, Provenance } from "./data/fees.ts";
@@ -27,5 +29,5 @@ export { feeProblems, MAX_PERCENT, maxFixed, valueCap, valueProblem } from "./li
 export type { FeeProblem, ValueProblem } from "./limits.ts";
 export { Decimal, money } from "./money.ts";
 export type { Big, Currency, Money } from "./money.ts";
-export type { Route, RouteResult, Step, StepResult } from "./routes.ts";
+export type { Route, RouteResult, RouteRisk, Step, StepResult } from "./routes.ts";
 export type { RateDefinition } from "./rates.ts";

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { compareRoutes, fixedFee, routesInOrder } from "../calculator/index.ts";
+import { compareRoutes, fixedFee, routesInOrder, type Route } from "../calculator/index.ts";
 import { validAmount, validPrice } from "../calculator/sample.fixture.ts";
 import { initialTexts, readForm, type FormTexts } from "./form.ts";
 import { commonMissing } from "./missing.ts";
@@ -19,35 +19,60 @@ const typed = (fees: Readonly<Record<string, string>>) => ({
   ownFees: new Set(Object.keys(fees)),
 });
 const ALL_SET = { p2p_premium: "0,1", payoneer_p2p_transfer: "3", binance_p2p_taker: "0,07" };
+/** ARQ's estimates, set by the person. */
+const ARQ_SET = { payoneer_us_withdrawal: "4", arq_usd_usdc_conversion: "0" };
 /** The example from the issue: ARQ's price left empty. */
 const EXAMPLE = {
   amount: "1500",
   prices: { mep: "1500", p2p_usdt_usd: "1", bitso_usdt_ars: "1600", arq_usd_ars: "" },
 };
+/** Only Binance P2P + Bitso, which is risky, can be computed. */
+const ONLY_P2P = { ...EXAMPLE, prices: { ...EXAMPLE.prices, mep: "" } };
 /** Only the MEP route can be computed. */
 const ONLY_MEP = {
   amount: "1000",
   prices: { mep: "1.536,16", p2p_usdt_usd: "", bitso_usdt_ars: "", arq_usd_ars: "" },
 };
 
-/** Two routes that deliver the same (1000 x 1500, no fees) and a third 1500 behind. */
-/** Routes A and B (and D, when asked) deliver the same; C pays a fee and trails. */
-function tiedComparison(withD = false) {
-  const route = (id: string, name: string, fee: string) => ({
+/** A route converting at the MEP after one fee; risky ones say "con riesgo de <ID>". */
+function testRoute(id: string, name: string, fee: string, risky = false): Route {
+  return {
     id,
     name,
-    source: "USD" as const,
-    target: "ARS" as const,
-    steps: [{ label: "s", feeIds: [fee], conversion: { rateKey: "mep", target: "ARS" as const } }],
+    source: "USD",
+    target: "ARS",
+    steps: [{ label: "s", feeIds: [fee], conversion: { rateKey: "mep", target: "ARS" } }],
     warnings: [],
-  });
+    risk: risky ? { label: "Riesgo", detail: `con riesgo de ${id.toUpperCase()}` } : null,
+  };
+}
+
+/**
+ * Routes A and B (and D, when asked) deliver the same (1000 x 1500, no fees); C pays a 1 USD fee
+ * and trails by 1500. The routes named in `risky` are risky.
+ */
+function tiedComparison(withD = false, risky: readonly string[] = []) {
+  const route = (id: string, fee: string) =>
+    testRoute(id, `Ruta ${id.toUpperCase()}`, fee, risky.includes(id));
+  return comparisonOf([
+    route("c", "one"),
+    route("a", "zero"),
+    route("b", "zero"),
+    ...(withD ? [route("d", "zero")] : []),
+  ]);
+}
+
+/** Two risky routes: A delivers 1500 more than C. */
+function riskyComparison() {
+  return comparisonOf([
+    testRoute("c", "Ruta C", "one", true),
+    testRoute("a", "Ruta A", "zero", true),
+  ]);
+}
+
+function comparisonOf(routes: readonly Route[]) {
   return compareRoutes({
-    routes: [
-      route("c", "Ruta C", "one"),
-      route("a", "Ruta A", "zero"),
-      route("b", "Ruta B", "zero"),
-      ...(withD ? [route("d", "Ruta D", "zero")] : []),
-    ],
+    routes,
     target: "ARS",
     rateDefinitions: [{ key: "mep", base: "USD", quote: "ARS" }],
     amount: validAmount("1000"),
@@ -74,6 +99,7 @@ function withFailures(target: "USD" | "USDT", amount: string | null = "1000") {
         ? [{ label: "s", feeIds: ["zero"], conversion: { rateKey: "mep", target: "ARS" as const } }]
         : [{ label: "s", feeIds: ["zero"], conversion: null }],
     warnings: [],
+    risk: null,
   });
   return compareRoutes({
     routes: [route("a", "ARS"), route("b", "USD")],
@@ -99,41 +125,66 @@ describe("commonMissing", () => {
 });
 
 describe("barText", () => {
-  it("names the best route and what reaches the bank", () => {
+  // With PRICES, Binance P2P + Bitso delivers most (1534005.69) but is risky: the bar shows ARQ
+  // (1524869.44), the best route without risk.
+  it("names the best route without risk and what reaches the bank", () => {
     const reading = read({ amount: "1000", prices: PRICES });
     expect(barText(reading, false)).toEqual({
       kind: "best",
       lead: "best",
-      route: "Binance P2P + Bitso",
-      routeId: "binance_p2p_bitso",
-      amount: "$\u00a01.534.005,69",
-      amountWhole: "$\u00a01.534.005",
-      // The P2P premium is still at the 0 the person has to set.
+      route: "ARQ (ex DolarApp)",
+      routeId: "arq",
+      amount: "$\u00a01.524.869,44",
+      amountWhole: "$\u00a01.524.869",
+      // Two of ARQ's fees are estimates.
       review: true,
+      risky: false,
     });
   });
 
-  it("has nothing to review once the best route's estimates and premium are set", () => {
+  it("has nothing to review once the best route's estimates are set", () => {
     const reading = read({
       amount: "1000",
       prices: PRICES,
-      ...typed(ALL_SET),
+      ...typed(ARQ_SET),
     });
     const text = barText(reading, false);
-    expect(text.kind === "best" && [text.routeId, text.review]).toEqual([
-      "binance_p2p_bitso",
-      false,
-    ]);
+    expect(text.kind === "best" && [text.routeId, text.review]).toEqual(["arq", false]);
   });
 
-  it.each([
-    ["the P2P premium is still at 0", { payoneer_p2p_transfer: "3", binance_p2p_taker: "0,07" }],
-    ["a fee is still an estimate", { p2p_premium: "0,1", binance_p2p_taker: "0,07" }],
-  ])("asks to review the best route while %s", (_, fees) => {
+  it("asks to review the best route while a fee is still an estimate", () => {
     const reading = read({
       amount: "1000",
       prices: PRICES,
-      ...typed(fees),
+      ...typed({ payoneer_us_withdrawal: "4" }),
+    });
+    const text = barText(reading, false);
+    expect(text.kind === "best" && [text.routeId, text.review]).toEqual(["arq", true]);
+  });
+
+  it("asks to review a best route computed with an unusual price", () => {
+    const reading = read({
+      amount: "1000",
+      prices: { ...PRICES, arq_usd_ars: "60.000" },
+      ...typed(ARQ_SET),
+    });
+    const text = barText(reading, false);
+    expect(text.kind === "best" && [text.routeId, text.review]).toEqual(["arq", true]);
+  });
+
+  it("marks a lone risky route as risky", () => {
+    expect(barText(read(ONLY_P2P), false)).toMatchObject({
+      kind: "best",
+      lead: "alone",
+      route: "Binance P2P + Bitso",
+      risky: true,
+    });
+  });
+
+  it("asks to review a lone risky route while the P2P premium is still at 0", () => {
+    const reading = read({
+      ...ONLY_P2P,
+      ...typed({ payoneer_p2p_transfer: "3", binance_p2p_taker: "0,07" }),
     });
     const text = barText(reading, false);
     expect(text.kind === "best" && [text.routeId, text.review]).toEqual([
@@ -144,8 +195,7 @@ describe("barText", () => {
 
   it("has nothing to review once the premium is set by hand to 0, its default", () => {
     const reading = read({
-      amount: "1000",
-      prices: PRICES,
+      ...ONLY_P2P,
       ...typed({ ...ALL_SET, p2p_premium: "0" }),
     });
     const text = barText(reading, false);
@@ -155,17 +205,14 @@ describe("barText", () => {
     ]);
   });
 
-  it("asks to review a best route computed with an unusual price", () => {
-    const reading = read({
-      amount: "1000",
-      prices: { ...PRICES, bitso_usdt_ars: "60.000" },
-      ...typed(ALL_SET),
+  it("leads with the risky route that delivers most when every route computed is risky", () => {
+    const reading = { ...read({ amount: "1000" }), comparison: riskyComparison() };
+    expect(barText(reading, false)).toMatchObject({
+      kind: "best",
+      lead: "risky",
+      route: "Ruta A",
+      risky: true,
     });
-    const text = barText(reading, false);
-    expect(text.kind === "best" && [text.routeId, text.review]).toEqual([
-      "binance_p2p_bitso",
-      true,
-    ]);
   });
 
   it("says what is missing while no route can be computed", () => {
@@ -201,7 +248,7 @@ describe("barText", () => {
     expect(barText(reading, false)).toMatchObject({
       kind: "best",
       lead: "best",
-      route: "Binance P2P + Bitso",
+      route: "ARQ (ex DolarApp)",
     });
   });
 
@@ -240,25 +287,47 @@ describe("barText", () => {
 });
 
 describe("summaryText", () => {
-  it("gives the best route and how much more it leaves than the runner-up", () => {
+  it("gives the best route without risk, and how much more the risky one leaves", () => {
     const reading = read({ amount: "1000", prices: PRICES });
-    // 1534005.69 - 1524869.44 = 9136.25
+    // ARQ 1524869.44 - MEP 1503624.13 = 21245.31; Binance 1534005.69 - ARQ = 9136.25
     expect(summaryText(reading.comparison, false)).toBe(
-      "Mejor ruta: Binance P2P + Bitso, llegan $\u00a01.534.005,69: $\u00a09.136,25 más que ARQ (ex DolarApp).",
+      "Mejor ruta: ARQ (ex DolarApp), llegan $\u00a01.524.869,44: $\u00a021.245,31 más que Dólar MEP. " +
+        "Binance P2P + Bitso deja $\u00a09.136,25 más, con riesgo de bloqueo de tu cuenta de Binance.",
     );
   });
 
-  it("compares the routes with each other, not with the MEP, in the example", () => {
-    // 2378992.00 - 2202330.00 = 176662.00; ARQ has no price and is left out.
+  it("says nothing of a risky route that leaves less than the best one", () => {
+    // Bitso at 1.500: Binance delivers 1000 / 1.03 ... x 1500, less than ARQ.
+    const reading = read({ amount: "1000", prices: { ...PRICES, bitso_usdt_ars: "1.500" } });
+    expect(summaryText(reading.comparison, false)).toBe(
+      "Mejor ruta: ARQ (ex DolarApp), llegan $\u00a01.524.869,44: $\u00a021.245,31 más que Dólar MEP.",
+    );
+  });
+
+  it("compares with no route when every other route computed is risky, in the example", () => {
+    // ARQ has no price; 2378992.00 - 2202330.00 = 176662.00
     expect(summaryText(read(EXAMPLE).comparison, false)).toBe(
-      "Mejor ruta: Binance P2P + Bitso, llegan $\u00a02.378.992,00: $\u00a0176.662,00 más que Dólar MEP.",
+      "Mejor ruta: Dólar MEP, llegan $\u00a02.202.330,00. " +
+        "Binance P2P + Bitso deja $\u00a0176.662,00 más, con riesgo de bloqueo de tu cuenta de Binance.",
     );
   });
 
-  it("computes Binance P2P + Bitso without the MEP", () => {
+  it("says the only route computed is risky", () => {
     const reading = read({ ...EXAMPLE, prices: { ...EXAMPLE.prices, mep: "" } });
     expect(summaryText(reading.comparison, false)).toBe(
-      "Por ahora solo se puede calcular Binance P2P + Bitso: llegan $\u00a02.378.992,00.",
+      "Por ahora solo se puede calcular Binance P2P + Bitso, con riesgo de bloqueo de tu cuenta de Binance: llegan $\u00a02.378.992,00.",
+    );
+  });
+
+  it("recommends none when every route computed is risky", () => {
+    expect(summaryText(riskyComparison(), false)).toBe(
+      "Por ahora solo se pueden calcular rutas con riesgo: Ruta A, llegan $\u00a01.500.000,00, con riesgo de A.",
+    );
+  });
+
+  it("leaves a risky route tied with the best one out of the tie", () => {
+    expect(summaryText(tiedComparison(false, ["b"]), false)).toBe(
+      "Mejor ruta: Ruta A, llegan $\u00a01.500.000,00: $\u00a01.500,00 más que Ruta C.",
     );
   });
 

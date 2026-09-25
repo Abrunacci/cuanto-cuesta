@@ -27,7 +27,7 @@ interface RouteFiguresProps {
 
 /**
  * A route's three figures: what reaches the bank, the fees, and the difference with the best
- * route or, for the best, with the runner-up.
+ * route without risk or, for that one, with the runner-up without risk.
  */
 export function RouteFigures({
   result,
@@ -38,9 +38,7 @@ export function RouteFigures({
   onGoToField,
 }: RouteFiguresProps) {
   const { final } = result;
-  const top =
-    difference.kind === "compared" &&
-    (difference.standing.kind === "ahead" || difference.standing.kind === "tied");
+  const top = difference.kind === "compared" && difference.recommended;
   return (
     <>
       <dl className="figures">
@@ -82,8 +80,13 @@ function DifferenceText({
   readonly ownFees: ReadonlySet<string>;
   readonly onGoToField: GoTo;
 }) {
-  if (difference.kind === "alone") {
-    return <span className="figure-detail">Todavía no hay otra ruta para comparar</span>;
+  switch (difference.kind) {
+    case "alone":
+      return <span className="figure-detail">Todavía no hay otra ruta para comparar</span>;
+    case "unrivaled":
+      return <span className="figure-detail">Única ruta sin riesgo</span>;
+    case "compared":
+      break;
   }
   const { standing, review } = difference;
   const reviewLink = review !== null && (
@@ -91,12 +94,13 @@ function DifferenceText({
   );
   switch (standing.kind) {
     case "ahead":
+    case "over":
     case "behind":
       return (
         <>
           {formatMoney(standing.by.amount, standing.by.currency)}{" "}
           <span className="figure-detail">
-            {standing.kind === "ahead" ? "más" : "menos"} que {standing.other.name}
+            {standing.kind === "behind" ? "menos" : "más"} que {standing.other.name}
             {reviewLink}
           </span>
         </>

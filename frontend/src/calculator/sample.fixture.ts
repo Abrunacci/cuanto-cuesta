@@ -92,6 +92,7 @@ export const BINANCE: Route = {
     { label: "Withdraw to bank", feeIds: ["bitso_ars_withdrawal"], conversion: null },
   ],
   warnings: [],
+  risk: null,
 };
 
 export const ARQ: Route = {
@@ -114,6 +115,7 @@ export const ARQ: Route = {
     { label: "Withdraw to bank", feeIds: ["arq_ars_withdrawal"], conversion: null },
   ],
   warnings: [],
+  risk: null,
 };
 
 export const MEP_ROUTE: Route = {
@@ -135,6 +137,7 @@ export const MEP_ROUTE: Route = {
     },
   ],
   warnings: ["90-day cross restriction"],
+  risk: null,
 };
 
 export const SAMPLE_ROUTES: readonly Route[] = [BINANCE, ARQ, MEP_ROUTE];

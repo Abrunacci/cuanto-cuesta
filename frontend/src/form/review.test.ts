@@ -108,12 +108,13 @@ describe("differenceToReview", () => {
     return routesInOrder(reading.comparison)
       .filter((r): r is CompleteRoute => r.status === "complete")
       .map((r) => {
-        const figure = difference(r, reading.ownFees, reading.warnings);
-        return [r.route.id, figure.kind === "compared" ? (figure.review?.id ?? null) : "alone"];
+        const figure = difference(r, reading.comparison.ranking, reading.ownFees, reading.warnings);
+        return [r.route.id, figure.kind === "compared" ? (figure.review?.id ?? null) : figure.kind];
       });
   };
 
-  // Ranking with these prices: Binance P2P + Bitso, ARQ, Dólar MEP.
+  // Ranking with these prices: Binance P2P + Bitso, which is risky and delivers more than ARQ; ARQ,
+  // the best route without risk, compared with Dólar MEP; and Dólar MEP.
   it("is nothing when neither route compared has anything to review", () => {
     expect(toReview({ ownFees: settled("binance_p2p_bitso", "arq", "mep") })).toEqual([
       ["binance_p2p_bitso", null],
@@ -122,20 +123,21 @@ describe("differenceToReview", () => {
     ]);
   });
 
-  it("points a trailing route at the best one when only the best has something to review", () => {
-    expect(toReview({ ownFees: settled("arq", "mep") })).toEqual([
-      ["binance_p2p_bitso", "binance_p2p_bitso"],
-      ["arq", "binance_p2p_bitso"],
-      ["mep", "binance_p2p_bitso"],
+  it("points every other route at the best one when only the best has something to review", () => {
+    // The risky route above it too: its difference is with the best route.
+    expect(toReview({ ownFees: settled("binance_p2p_bitso", "mep") })).toEqual([
+      ["binance_p2p_bitso", "arq"],
+      ["arq", "arq"],
+      ["mep", "arq"],
     ]);
   });
 
   it("points a route at itself when only it has something to review", () => {
-    // ARQ is the runner-up, so the best route's difference rests on it too.
-    expect(toReview({ ownFees: settled("binance_p2p_bitso", "mep") })).toEqual([
-      ["binance_p2p_bitso", "arq"],
-      ["arq", "arq"],
-      ["mep", null],
+    // The MEP route is the runner-up without risk, so the best route's difference rests on it.
+    expect(toReview({ ownFees: settled("binance_p2p_bitso", "arq") })).toEqual([
+      ["binance_p2p_bitso", null],
+      ["arq", "mep"],
+      ["mep", "mep"],
     ]);
   });
 
@@ -143,21 +145,22 @@ describe("differenceToReview", () => {
     // With the reference values every route has estimates.
     expect(toReview({})).toEqual([
       ["binance_p2p_bitso", "arq"],
-      ["arq", "binance_p2p_bitso"],
-      ["mep", "binance_p2p_bitso"],
+      ["arq", "mep"],
+      ["mep", "arq"],
     ]);
   });
 
   it("counts an unusual price of the other route", () => {
+    // ARQ at 60,000 delivers most, ahead of the risky route too.
     expect(
       toReview({
         ownFees: settled("binance_p2p_bitso", "arq", "mep"),
-        prices: { ...PRICES, bitso_usdt_ars: "60.000" },
+        prices: { ...PRICES, arq_usd_ars: "60.000" },
       }),
     ).toEqual([
-      ["binance_p2p_bitso", "binance_p2p_bitso"],
-      ["arq", "binance_p2p_bitso"],
-      ["mep", "binance_p2p_bitso"],
+      ["arq", "arq"],
+      ["binance_p2p_bitso", "arq"],
+      ["mep", "arq"],
     ]);
   });
 

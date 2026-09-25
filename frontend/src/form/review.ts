@@ -9,6 +9,8 @@ import {
   RATE_FIELDS,
   type Ahead,
   type Behind,
+  type Over,
+  type Ranking,
   type CompleteRoute,
   type FeeDefault,
   type Route,
@@ -100,7 +102,7 @@ export function routeNeedsReview(
  */
 export function differenceToReview(
   route: Route,
-  standing: Ahead | Behind | Tied,
+  standing: Ahead | Behind | Over | Tied,
   ownFees: ReadonlySet<string>,
   warnings: ReadonlyMap<string, string>,
 ): Route | null {
@@ -111,28 +113,52 @@ export function differenceToReview(
 }
 
 /**
- * A route's difference figure: nothing to compare with, or how the route stands and the route
- * whose values to check before trusting it (null when none).
+ * A route's difference figure: nothing to compare with (no other route, or no other route
+ * without risk), or how the route stands, whether it is the recommended one (the best without
+ * risk, or tied with it), and the route whose values to check before trusting it (null when none).
  */
 export type Difference =
   | { readonly kind: "alone" }
+  | { readonly kind: "unrivaled" }
   | {
       readonly kind: "compared";
-      readonly standing: Ahead | Behind | Tied;
+      readonly standing: Ahead | Behind | Over | Tied;
+      readonly recommended: boolean;
       readonly review: Route | null;
     };
 
 export function difference(
   entry: CompleteRoute,
+  ranking: Ranking,
   ownFees: ReadonlySet<string>,
   warnings: ReadonlyMap<string, string>,
 ): Difference {
   const { standing } = entry;
-  return standing.kind === "alone"
-    ? { kind: "alone" }
-    : {
+  switch (standing.kind) {
+    case "alone":
+    case "unrivaled":
+      return { kind: standing.kind };
+    case "ahead":
+    case "behind":
+    case "over":
+    case "tied":
+      return {
         kind: "compared",
         standing,
+        recommended: isRecommended(entry, ranking),
         review: differenceToReview(entry.route, standing, ownFees, warnings),
       };
+  }
+}
+
+/**
+ * The best route without risk, and any route without risk tied with it. When every route
+ * computed is risky, none is.
+ */
+function isRecommended(entry: CompleteRoute, ranking: Ranking): boolean {
+  return (
+    ranking.kind === "ranked" &&
+    entry.route.risk === null &&
+    (entry === ranking.best || entry.standing.kind === "tied")
+  );
 }

@@ -34,8 +34,12 @@ export const ROUTES: readonly Route[] = [
       { label: "Retirar ARS al banco", feeIds: ["bitso_ars_withdrawal"], conversion: null },
     ],
     warnings: [
-      "El precio P2P es el de la oferta genérica USDT/USD, no el de avisos que acepten Payoneer.",
+      "Pagar P2P con Payoneer puede hacer que Binance bloquee tu cuenta. El precio P2P es el de la oferta genérica USDT/USD.",
     ],
+    risk: {
+      label: "Riesgo de bloqueo",
+      detail: "con riesgo de bloqueo de tu cuenta de Binance",
+    },
   },
   {
     id: "arq",
@@ -57,6 +61,7 @@ export const ROUTES: readonly Route[] = [
       { label: "Retirar ARS al banco", feeIds: ["arq_ars_withdrawal"], conversion: null },
     ],
     warnings: [],
+    risk: null,
   },
   {
     id: "mep",
@@ -83,6 +88,7 @@ export const ROUTES: readonly Route[] = [
     warnings: [
       "[Verificá las restricciones sobre el dólar MEP](https://www.bcra.gob.ar/Pdfs/comytexord/A8481.pdf)",
     ],
+    risk: null,
   },
 ];
 
