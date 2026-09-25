@@ -2,6 +2,7 @@ import { FEE_DEFAULTS, RATE_FIELDS, type Route, type Step } from "../calculator/
 import { cardOf } from "../form/cards.ts";
 import { fieldId, type FormReading, type FormTexts } from "../form/form.ts";
 import { lowerFirst } from "../text/case.ts";
+import { joinSpanish } from "../text/lists.ts";
 import { NumberField } from "./NumberField.tsx";
 import { feeStatusText, referenceValueText } from "../form/messages.ts";
 import { InPageAnchor } from "./LinkList.tsx";
@@ -83,8 +84,8 @@ export function RouteCard({
 }
 
 /**
- * "Estas comisiones se ajustan en <route>": the step's fees whose fields another route's card
- * holds, with a link that opens that card at the first one.
+ * "Estas comisiones se ajustan en <route>": the step's fees whose fields other routes' cards
+ * hold, one line per card, with a link that opens that card at its first one.
  */
 function SetElsewhere({
   feeIds,
@@ -93,28 +94,41 @@ function SetElsewhere({
   readonly feeIds: readonly string[];
   readonly onGoToField: RouteCardProps["onGoToField"];
 }) {
-  const [first] = feeIds;
-  const card = first === undefined ? undefined : cardOf(first);
-  if (first === undefined || card === undefined) {
-    return null;
+  const byCard = new Map<Route, string[]>();
+  for (const id of feeIds) {
+    const card = cardOf(id);
+    if (card !== undefined) {
+      byCard.set(card, [...(byCard.get(card) ?? []), id]);
+    }
   }
-  const id = fieldId.fee(first);
-  return (
-    <p className="muted small">
-      {feeIds.length === 1 ? "Esta comisión se ajusta en " : "Estas comisiones se ajustan en "}
-      <InPageAnchor
-        link={{
-          key: id,
-          href: `#${id}`,
-          text: card.name,
-          onClick: () => {
-            onGoToField(card.id, id);
-          },
-        }}
-      />
-      .
-    </p>
-  );
+  return [...byCard].map(([card, ids]) => {
+    const [first] = ids;
+    if (first === undefined) {
+      return null;
+    }
+    const id = fieldId.fee(first);
+    const labels = ids.map((fee) =>
+      lowerFirst(FEE_DEFAULTS.find((d) => d.fee.id === fee)?.label ?? fee),
+    );
+    return (
+      <p key={card.id} className="muted small">
+        {ids.length === 1 ? "Esta comisión se ajusta en " : "Estas comisiones se ajustan en "}
+        <InPageAnchor
+          link={{
+            key: id,
+            href: `#${id}`,
+            text: card.name,
+            // Several steps link to the same card: the name says which fees each one is for.
+            label: `${card.name}: ${joinSpanish(labels)}`,
+            onClick: () => {
+              onGoToField(card.id, id);
+            },
+          }}
+        />
+        .
+      </p>
+    );
+  });
 }
 
 /**

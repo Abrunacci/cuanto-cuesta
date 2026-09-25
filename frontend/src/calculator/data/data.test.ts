@@ -35,7 +35,7 @@ describe("the bundled routes and fees", () => {
     }
   });
 
-  it("share the Bitso leg between the two Binance routes, and no fee among every route", () => {
+  it("share the Bitso leg between the two Binance routes, and no fee is used by every route", () => {
     const routesOf = (id: string) => ROUTES.filter((r) => feeIds(r).has(id)).map((r) => r.id);
     const shared = [...usedFeeIds].filter((id) => routesOf(id).length > 1);
     expect(shared.map((id) => [id, routesOf(id)])).toEqual(
@@ -182,6 +182,13 @@ describe("the bundled data, calculated end to end", () => {
       ["mep", "1503624.13", "32535.87"],
       ["binance_card_bitso", "1483996.43", "39554.09"],
     ]);
+  });
+
+  it("computes the card route for the 10 USD observed on Binance's final payment screen", () => {
+    // 2 % = 0.20, as seen; 9.80 x 0.95448 = 9.353904 -> 9.35 USDT (Binance credited 9.35393217);
+    // - 0.07 = 9.28; 0.6 % = 0.05568 -> 0.06; 9.22 x 1596.21 = 14717.0562
+    const card = summarize("10.00").find(([id]) => id === "binance_card_bitso");
+    expect(card?.[1]).toBe("14717.05");
   });
 
   it("computes the four routes for 100 USD, where the Payoneer minimum applies to ARQ", () => {

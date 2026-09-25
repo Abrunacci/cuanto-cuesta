@@ -66,7 +66,7 @@ async function fillEverything(type: (name: RegExp, text: string) => Promise<void
   await type(/^Precio P2P en Binance/, "1,03");
   await type(/^Precio de venta en Bitso/, "1.596,21");
   await type(/^Cotización de ARQ/, "1.593,385");
-  await type(/^Binance con tarjeta/, "0,95448");
+  await type(/^Binance con tarjeta \(USDT por USD\)/, "0,95448");
 }
 
 /** The elements scrolled to the top of the screen, with the options used. */
@@ -104,7 +104,9 @@ describe("the calculator page", () => {
     ]);
     expect(within(inputs).getByLabelText(/^Precio de venta en Bitso/)).toHaveValue("");
     // The card price is the one on the final payment screen, not the list's.
-    expect(within(inputs).getByLabelText(/^Binance con tarjeta/)).toHaveAccessibleDescription(
+    expect(
+      within(inputs).getByLabelText(/^Binance con tarjeta \(USDT por USD\)/),
+    ).toHaveAccessibleDescription(
       "En Binance, Comprar con tarjeta: los USDT por cada USD de la pantalla final de pago, " +
         "antes de confirmar. No uses el de la lista de métodos de pago: es más alto que el real.",
     );
@@ -159,11 +161,22 @@ describe("the calculator page", () => {
     expect(within(card).getByText(/^Estas comisiones se ajustan en/)).toHaveTextContent(
       "Estas comisiones se ajustan en Binance con tarjeta + Bitso.",
     );
-    const [first] = within(card).getAllByRole("link", { name: "Binance con tarjeta + Bitso" });
-    if (first === undefined) {
-      throw new Error("expected a link");
-    }
-    await user.click(first);
+    expect(
+      within(card)
+        .getAllByText(/^Esta comisión se ajusta en/)
+        .map((p) => p.textContent),
+    ).toEqual([
+      "Esta comisión se ajusta en Binance con tarjeta + Bitso.",
+      "Esta comisión se ajusta en Binance con tarjeta + Bitso.",
+    ]);
+    // With no field of its own, a step keeps its title in view.
+    expect(within(card).getByText("Retirar ARS al banco")).not.toHaveClass("visually-hidden");
+    // Each link says which fees it is for.
+    await user.click(
+      within(card).getByRole("link", {
+        name: "Binance con tarjeta + Bitso: retiro de USDT de Binance por Polygon y depósito de USDT en Bitso",
+      }),
+    );
     expect(field(/^Retiro de USDT de Binance por Polygon/)).toBeVisible();
     expect(field(/^Retiro de USDT de Binance por Polygon/)).toHaveFocus();
   });
@@ -273,15 +286,15 @@ describe("the calculator page", () => {
     });
     // Missing under both Binance routes. From the P2P route, whose card does not hold the field,
     // the link opens the card that does.
-    const links = within(results()).getAllByRole("link", {
-      name: "comisión taker del libro de órdenes de Bitso",
-    });
-    expect(links).toHaveLength(2);
-    const [, fromP2p] = links;
-    if (fromP2p === undefined) {
-      throw new Error("expected a link");
+    const name = "comisión taker del libro de órdenes de Bitso";
+    expect(within(results()).getAllByRole("link", { name })).toHaveLength(2);
+    const p2p = within(results())
+      .getByRole("heading", { name: "Binance P2P + Bitso" })
+      .closest("li");
+    if (p2p === null) {
+      throw new Error("expected the route");
     }
-    await user.click(fromP2p);
+    await user.click(within(p2p).getByRole("link", { name }));
     expect(openAtFocus).toBe(true);
     expect(input).toBeVisible();
     expect(input).toHaveFocus();
