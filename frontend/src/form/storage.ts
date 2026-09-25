@@ -2,18 +2,17 @@
  * What the form remembers between visits: the amount and the fees the person set. Prices are not
  * kept: a price from another day misleads, so they start empty on every visit.
  *
- * The stored text carries a format version. Anything that does not match it exactly (another
- * version, a fee that no longer exists, a hand-edited value) is dropped, never trusted.
+ * The stored text carries a format version. Texts are restored as typed and then read like
+ * anything typed, so a wrong one shows its problem; what does not fit the format (another
+ * version, a fee that no longer exists, a value that is not text or is longer than a field
+ * allows) is dropped.
  */
 
 import { FEE_DEFAULTS } from "../calculator/index.ts";
-import { initialTexts, type FormTexts } from "./form.ts";
+import { initialTexts, MAX_FIELD_LENGTH, type FormTexts } from "./form.ts";
 
 export const STORAGE_KEY = "cuanto-cuesta:form";
 export const FORMAT_VERSION = 1;
-
-/** Longer than anyone types in a number field: such a text was not written by this app. */
-const MAX_TEXT_LENGTH = 64;
 
 interface Stored {
   readonly version: typeof FORMAT_VERSION;
@@ -115,7 +114,7 @@ function textsOf(record: Readonly<Record<string, unknown>>): Record<string, stri
 }
 
 function isFieldText(value: string | undefined): value is string {
-  return value !== undefined && value.length <= MAX_TEXT_LENGTH;
+  return value !== undefined && value.length <= MAX_FIELD_LENGTH;
 }
 
 /**

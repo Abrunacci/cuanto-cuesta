@@ -14,6 +14,7 @@ interface RouteCardProps {
   readonly reading: FormReading;
   readonly onFee: (id: string, text: string) => void;
   readonly onMinimum: (id: string, text: string) => void;
+  readonly onResetFee: (id: string) => void;
 }
 
 /** One route's fees, step by step, in a card that stays closed until the person opens it. */
@@ -25,6 +26,7 @@ export function RouteCard({
   reading,
   onFee,
   onMinimum,
+  onResetFee,
 }: RouteCardProps) {
   return (
     <details
@@ -58,6 +60,7 @@ export function RouteCard({
               reading={reading}
               onFee={onFee}
               onMinimum={onMinimum}
+              onResetFee={onResetFee}
             />
           ))}
         </fieldset>
@@ -100,12 +103,14 @@ function FeeInputs({
   reading,
   onFee,
   onMinimum,
+  onResetFee,
 }: {
   readonly id: string;
   readonly texts: FormTexts;
   readonly reading: FormReading;
   readonly onFee: RouteCardProps["onFee"];
   readonly onMinimum: RouteCardProps["onMinimum"];
+  readonly onResetFee: RouteCardProps["onResetFee"];
 }) {
   const feeDefault = FEE_DEFAULTS.find((d) => d.fee.id === id);
   if (feeDefault === undefined) {
@@ -134,7 +139,20 @@ function FeeInputs({
           </summary>
           {own && (
             <p className="provenance">
-              Pusiste tu valor. El de referencia es {referenceValueText(fee)}.
+              Pusiste tu valor. El de referencia es {referenceValueText(fee)}.{" "}
+              {/* A button: it changes the form. Focus goes to the field, which now holds the
+                  reference value, since this button disappears with the mark. */}
+              <button
+                type="button"
+                className="link-button"
+                aria-label={`Volver al valor de referencia: ${label}`}
+                onClick={() => {
+                  onResetFee(id);
+                  document.getElementById(valueId)?.focus();
+                }}
+              >
+                Volver al valor de referencia
+              </button>
             </p>
           )}
           <Provenance provenance={provenance} feeLabel={label} />

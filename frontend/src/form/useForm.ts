@@ -13,6 +13,8 @@ export interface Form {
   readonly setMinimum: (id: string, text: string) => void;
   /** Every fee back to its researched value, and none the person's own. */
   readonly resetFees: () => void;
+  /** One fee back to its researched value, minimum included, and no longer the person's own. */
+  readonly resetFee: (id: string) => void;
 }
 
 /**
@@ -49,6 +51,21 @@ export function useForm(): Form {
         minimums: { ...current.minimums, [id]: text },
         ownFees: own(current, id),
       }));
+    },
+    resetFee: (id) => {
+      const start = initialTexts();
+      setTexts((current) => {
+        const ownFees = new Set(current.ownFees);
+        ownFees.delete(id);
+        const minimum = start.minimums[id];
+        return {
+          ...current,
+          fees: { ...current.fees, [id]: start.fees[id] ?? "" },
+          minimums:
+            minimum === undefined ? current.minimums : { ...current.minimums, [id]: minimum },
+          ownFees,
+        };
+      });
     },
     resetFees: () => {
       const start = initialTexts();

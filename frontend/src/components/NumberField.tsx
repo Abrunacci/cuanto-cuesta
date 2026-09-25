@@ -1,5 +1,7 @@
 import { useState, type ReactNode } from "react";
 
+import { MAX_FIELD_LENGTH } from "../form/form.ts";
+
 interface NumberFieldProps {
   readonly id: string;
   readonly label: string;
@@ -64,6 +66,7 @@ export function NumberField({
           type="text"
           inputMode="decimal"
           autoComplete="off"
+          maxLength={MAX_FIELD_LENGTH}
           value={value}
           placeholder={placeholder}
           aria-invalid={shownProblem !== null}

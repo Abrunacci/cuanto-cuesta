@@ -97,6 +97,7 @@ export function App() {
               reading={reading}
               onFee={form.setFee}
               onMinimum={form.setMinimum}
+              onResetFee={form.resetFee}
             />
           ))}
         </section>

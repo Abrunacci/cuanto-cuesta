@@ -67,6 +67,9 @@ export interface FormReading {
   readonly ownFees: ReadonlySet<string>;
 }
 
+/** Longer than any number anyone types; fields stop there, and storage drops anything longer. */
+export const MAX_FIELD_LENGTH = 64;
+
 export const fieldId = {
   amount: "amount",
   price: (key: string) => `price-${key}`,

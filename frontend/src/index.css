@@ -390,6 +390,17 @@ h3 {
   border-color: var(--problem);
 }
 
+/* Looks like a link, next to text; it is a button because it changes the form. */
+.link-button {
+  padding: 0;
+  font: inherit;
+  color: var(--accent);
+  text-decoration: underline;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
 .reset-confirm {
   margin: 0.75rem 0;
   padding: 0.75rem 1rem;

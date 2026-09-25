@@ -839,6 +839,61 @@ describe("the calculator page", () => {
       });
     });
 
+    it("puts one fee back to its reference value from its Detalles", async () => {
+      const { user, type, field, openCard, ranking } = setup();
+      await fillEverything(type);
+      await openCard("Binance P2P + Bitso");
+      await type(PREMIUM, "0,5");
+      await type(/^Comisión taker de Binance P2P/, "0,07");
+      await user.click(premiumDetails("Tu valor"));
+      await user.click(
+        screen.getByRole("button", {
+          name: "Volver al valor de referencia: Recargo P2P por pagar con Payoneer",
+        }),
+      );
+      expect(field(PREMIUM)).toHaveValue("0");
+      expect(field(PREMIUM)).toHaveFocus();
+      expect(premiumDetails("Lo definís vos")).toBeInTheDocument();
+      const binance = ranking().find((item) => item.includes("Binance"));
+      expect(binance).toContain("Recargo P2P por pagar con Payoneer: está en 0 %, poné tu valor.");
+      // The other fee stays the person's own, on screen and in storage.
+      expect(binance).toContain("Con tu valor: comisión taker de Binance P2P.");
+      expect(JSON.parse(localStorage.getItem("cuanto-cuesta:form") ?? "")).toMatchObject({
+        fees: { binance_p2p_taker: "0,07" },
+      });
+      expect(localStorage.getItem("cuanto-cuesta:form")).not.toContain("p2p_premium");
+    });
+
+    it("puts a fee's minimum back too", async () => {
+      const { user, type, field, openCard } = setup();
+      await openCard("ARQ (ex DolarApp)");
+      await type(/^Retiro de Payoneer a una cuenta de EE.UU. \(%\)/, "2");
+      await type(/^Retiro de Payoneer a una cuenta de EE.UU.: mínimo/, "0");
+      await user.click(
+        screen.getByText("Detalles", {
+          selector:
+            '[aria-label="Tu valor. Detalles de Retiro de Payoneer a una cuenta de EE.UU."]',
+          exact: false,
+        }),
+      );
+      await user.click(
+        screen.getByRole("button", {
+          name: "Volver al valor de referencia: Retiro de Payoneer a una cuenta de EE.UU.",
+        }),
+      );
+      expect(field(/^Retiro de Payoneer a una cuenta de EE.UU. \(%\)/)).toHaveValue("4");
+      expect(field(/^Retiro de Payoneer a una cuenta de EE.UU.: mínimo/)).toHaveValue("20");
+    });
+
+    it("stops a field at the length storage keeps, so nothing is lost on reload", async () => {
+      const first = setup();
+      await first.user.type(first.field(/^Monto en Payoneer/), "1".repeat(70));
+      expect(first.field(/^Monto en Payoneer/)).toHaveValue("1".repeat(64));
+      cleanup();
+      const again = setup();
+      expect(again.field(/^Monto en Payoneer/)).toHaveValue("1".repeat(64));
+    });
+
     it("keeps working where the browser blocks site data", async () => {
       const blocked = () => {
         throw new DOMException("blocked", "SecurityError");
