@@ -71,7 +71,10 @@ export interface Over {
   readonly by: Money;
 }
 
-/** Delivers the same as `other`: the runner-up for the best route, else the best one. */
+/**
+ * Delivers the same as `other`: for the best route, its runner-up; for any other route, the best
+ * one, or the leader when every route computed is risky.
+ */
 export interface Tied {
   readonly kind: "tied";
   readonly other: Route;

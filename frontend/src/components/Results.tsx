@@ -33,7 +33,8 @@ interface ResultsProps {
 }
 
 /**
- * The ranking, best route first, each with its warnings so they are seen even while the route's
+ * The routes by what they deliver, most first (a risky route can come before the best one, which
+ * is never risky), each with its warnings so they are seen even while the route's
  * card is closed. What every route is missing is listed once, above them. Only the one-line
  * summary is announced to screen readers, so typing does not read out every figure.
  */

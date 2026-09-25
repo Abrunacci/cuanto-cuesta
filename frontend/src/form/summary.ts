@@ -1,6 +1,6 @@
 /** The one-line summary of the results, and the shorter text of the bar that keeps it in view. */
 
-import type { CompleteRoute, Comparison, Ranking } from "../calculator/index.ts";
+import type { CompleteRoute, Comparison, Ranking, RouteRisk } from "../calculator/index.ts";
 import { joinSpanish } from "../text/lists.ts";
 import { formatMoney, formatMoneyWhole } from "../text/numbers.ts";
 import { fieldId, type FormReading } from "./form.ts";
@@ -123,8 +123,8 @@ export type BarText =
       readonly amountWhole: string;
       /** The result rests on an estimate, a value to set or an unusual price. */
       readonly review: boolean;
-      /** The route is risky: only when no route without risk can be computed. */
-      readonly risky: boolean;
+      /** What the route risks; only a risky route when no route without risk can be computed. */
+      readonly risk: RouteRisk | null;
     }
   | {
       readonly kind: "pending";
@@ -148,7 +148,7 @@ export function barText(reading: FormReading, amountHasProblem: boolean): BarTex
       amount: formatMoney(final.amount, final.currency),
       amountWhole: formatMoneyWhole(final.amount, final.currency),
       review: routeNeedsReview(entry.route, reading.ownFees, reading.warnings),
-      risky: entry.route.risk !== null,
+      risk: entry.route.risk,
     };
   }
   if (allFailed(comparison)) {

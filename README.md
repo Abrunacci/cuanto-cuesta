@@ -3,15 +3,17 @@
 Compare how many Argentine pesos reach your bank when you move USD out of Payoneer, route by route:
 
 - **Binance P2P + Bitso:** sell USD for USDT on Binance P2P, send the USDT to Bitso over Polygon,
-  sell them for pesos and withdraw to the bank.
+  sell them for pesos and withdraw to the bank. Paying a P2P order with Payoneer can get the
+  Binance account blocked, so this route is marked as risky.
 - **ARQ (ex DolarApp):** withdraw from Payoneer to ARQ over ACH (credited as USDc), sell the USDc
   for pesos and withdraw to the bank.
 - **Dólar MEP:** withdraw to an Argentine USD account, then buy AL30D and sell AL30 through a
   broker.
 
 For each route the calculator shows the pesos that reach the bank, what the fees cost in pesos,
-and how much more or less it leaves than the other routes: the best one against the runner-up,
-every other one against the best. Each route needs only the prices it converts with, so the MEP
+and how much more or less it leaves than the other routes. A risky route is never recommended:
+the best route is the best one without risk, compared with the runner-up without risk, and every
+other route is compared with it. A risky route that leaves more says how much more. Each route needs only the prices it converts with, so the MEP
 price is needed only for the MEP route. The screen is in Spanish.
 
 ## Status

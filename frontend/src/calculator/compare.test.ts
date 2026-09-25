@@ -401,6 +401,81 @@ describe("routes with a risk", () => {
     ]);
   });
 
+  it("ties the best route with its runner-up without risk, a risky route above both", () => {
+    // b and c deliver 1000 x 1536.16 and tie; d pays 1 USD and trails. Then a, risky and free of
+    // fees too, ties with them: it comes first by id, but b stays the best.
+    const route = (id: string, fee: string, risk: boolean) => ({
+      id,
+      name: id,
+      source: "USD" as const,
+      target: "ARS" as const,
+      steps: [
+        { label: "s", feeIds: [fee], conversion: { rateKey: "mep", target: "ARS" as const } },
+      ],
+      warnings: [],
+      risk: risk ? RISK : null,
+    });
+    const comparison = compareRoutes(
+      input({
+        routes: [route("d", "one", false), route("c", "zero", false), route("b", "zero", false)],
+        fees: new Map([
+          ["zero", fixedFee("zero", "0", "USD")],
+          ["one", fixedFee("one", "1", "USD")],
+        ]),
+      }),
+    );
+    expect(standings(comparison)).toEqual([
+      ["b", "tied", "c"],
+      ["c", "tied", "b"],
+      ["d", "behind", "1536.16", "b"],
+    ]);
+    const withRisky = compareRoutes(
+      input({
+        routes: [
+          route("d", "one", false),
+          route("c", "zero", false),
+          route("b", "zero", false),
+          route("a", "zero", true),
+        ],
+        fees: new Map([
+          ["zero", fixedFee("zero", "0", "USD")],
+          ["one", fixedFee("one", "1", "USD")],
+        ]),
+      }),
+    );
+    expect(standings(withRisky)).toEqual([
+      ["a", "tied", "b"],
+      ["b", "tied", "c"],
+      ["c", "tied", "b"],
+      ["d", "behind", "1536.16", "b"],
+    ]);
+  });
+
+  it("ties the leader when every route computed is risky and two deliver the same", () => {
+    const route = (id: string) => ({
+      id,
+      name: id,
+      source: "USD" as const,
+      target: "ARS" as const,
+      steps: [
+        { label: "s", feeIds: ["zero"], conversion: { rateKey: "mep", target: "ARS" as const } },
+      ],
+      warnings: [],
+      risk: RISK,
+    });
+    const comparison = compareRoutes(
+      input({
+        routes: [route("b"), route("a")],
+        fees: new Map([["zero", fixedFee("zero", "0", "USD")]]),
+      }),
+    );
+    expect(comparison.ranking.kind).toBe("risky");
+    expect(standings(comparison)).toEqual([
+      ["a", "tied", "b"],
+      ["b", "tied", "a"],
+    ]);
+  });
+
   it("ties a risky route that delivers as much as the best, above or below it by id", () => {
     // a, b and c deliver 1000 x 1536.16; a and c are risky, so b is the best.
     const route = (id: string, risk: boolean) => ({

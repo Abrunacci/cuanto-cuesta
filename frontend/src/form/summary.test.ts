@@ -138,7 +138,7 @@ describe("barText", () => {
       amountWhole: "$\u00a01.524.869",
       // Two of ARQ's fees are estimates.
       review: true,
-      risky: false,
+      risk: null,
     });
   });
 
@@ -177,7 +177,7 @@ describe("barText", () => {
       kind: "best",
       lead: "alone",
       route: "Binance P2P + Bitso",
-      risky: true,
+      risk: { label: "Riesgo de bloqueo", detail: "con riesgo de bloqueo de tu cuenta de Binance" },
     });
   });
 
@@ -211,7 +211,7 @@ describe("barText", () => {
       kind: "best",
       lead: "risky",
       route: "Ruta A",
-      risky: true,
+      risk: { label: "Riesgo", detail: "con riesgo de A" },
     });
   });
 

@@ -349,6 +349,8 @@ describe("the calculator page", () => {
     ).toBeVisible();
     const [binance, ...others] = ranking();
     expect(binance).toContain("Binance P2P + BitsoRiesgo de bloqueo");
+    // The label is next to the heading, not in its name.
+    expect(screen.getByRole("heading", { name: "Binance P2P + Bitso" })).toBeInTheDocument();
     expect(binance).toContain("Llegan al banco$ 2.378.992,00");
     expect(binance).toContain("DiferenciaTodavía no hay otra ruta para comparar");
     expect(binance).not.toContain("revisá");
@@ -357,12 +359,12 @@ describe("the calculator page", () => {
     const bar = screen.getByRole("link", { name: /Ver resultado$/ });
     expect(visible(bar)).toMatch(/^Única ruta calculada: Binance P2P \+ Bitso · riesgo Llegan/);
     expect(bar).toHaveAccessibleName(
-      /^Única ruta calculada: Binance P2P \+ Bitso · riesgo de bloqueo\. Llegan/,
+      /^Única ruta calculada: Binance P2P \+ Bitso · Riesgo de bloqueo\. Llegan/,
     );
   });
 
   it("shows routes that deliver the same as tied", async () => {
-    const { type, ranking } = setup();
+    const { type, ranking, results } = setup();
     await fillEverything(type);
     // MEP: 978.82 x 1557.86502115 = 1524869.44..., as much as ARQ.
     // A tie is ordered by route id, so ARQ comes first.
@@ -377,6 +379,13 @@ describe("the calculator page", () => {
     // Both tied routes have estimates, so each difference points at the other one.
     expect(second).toContain("DiferenciaIgual que Dólar MEP · revisá");
     expect(third).toContain("DiferenciaIgual que ARQ (ex DolarApp) · revisá");
+    // Both tied routes are marked as a gain; the risky one above them is not.
+    const differences = within(results()).getAllByText("Diferencia");
+    expect(differences.map((dt) => dt.parentElement?.classList.contains("figure-gain"))).toEqual([
+      false,
+      true,
+      true,
+    ]);
     expect(screen.getByRole("link", { name: /Ver resultado$/ })).toHaveTextContent(
       "Empatan: ARQ (ex DolarApp) y Dólar MEP",
     );
@@ -1000,9 +1009,13 @@ describe("the calculator page", () => {
       viewport.height = 470;
       resize(viewport);
       expect(visible(bar())).toBe("Única: Binance P2P + Bitso · riesgo · $ 2.378.992 \u26a0\ufe0e");
+      expect(bar()).toHaveAccessibleName(
+        "Única: Binance P2P + Bitso · Riesgo de bloqueo · $\u00a02.378.992, revisá los valores " +
+          "de esta ruta. Ver resultado",
+      );
       const route = screen.getByText(/^Única: Binance P2P \+ Bitso$/);
       expect(route).toHaveClass("result-bar-route");
-      expect(within(bar()).getByText(/· riesgo/)).not.toHaveClass("result-bar-route");
+      expect(within(bar()).getByText("· riesgo")).not.toHaveClass("result-bar-route");
     });
 
     it("shows no alert in the one-line bar when there is nothing to review", async () => {
