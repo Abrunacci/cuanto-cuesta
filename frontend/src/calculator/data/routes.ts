@@ -34,6 +34,7 @@ export const ROUTES: readonly Route[] = [
       { label: "Retirar ARS al banco", feeIds: ["bitso_ars_withdrawal"], conversion: null },
     ],
     warnings: [],
+    // Adding funds with a card is a standard Binance feature, not a payment from a third party.
     risk: null,
   },
   {
@@ -170,6 +171,6 @@ export const RATE_FIELDS: readonly RateField[] = [
     quote: "USDT",
     label: "Binance con tarjeta (USDT por USD)",
     shortLabel: "precio con tarjeta",
-    help: "En Binance, Comprar con tarjeta: los USDT por cada USD de la pantalla final de pago, antes de confirmar. No uses el de la lista de métodos de pago: es más alto que el real.",
+    help: "En Binance, Comprar con tarjeta: el precio de la pantalla final de pago (1 USD ≈ … USDT), antes de confirmar. No lo que recibís dividido lo que pagás, que ya descuenta la comisión, ni el de la lista de métodos de pago, que es más alto que el real.",
   },
 ];

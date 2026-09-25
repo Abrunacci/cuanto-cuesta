@@ -29,7 +29,8 @@ fees:
     note: >-
       Binance dice "hasta alrededor de 2 %". Observado el 25/09/2026 en la pantalla final de
       pago, antes de confirmar la compra: 0,20 USD con 10 USD y 2,00 USD con 100 USD. Si tu
-      pantalla final muestra otra comisión, poné la tuya.
+      pantalla final muestra otra comisión, poné la tuya. Payoneer debitó exactamente el monto en
+      USD cargado en Binance (observado el 25/09/2026): la tarjeta no suma cargos.
 
   - id: payoneer_p2p_transfer
     label: Transferencia de Payoneer al comprador P2P
