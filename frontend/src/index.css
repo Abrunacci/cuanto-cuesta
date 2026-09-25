@@ -109,13 +109,16 @@ html {
   }
 
   .page {
-    max-width: 72rem;
+    max-width: 87.5rem;
     padding-bottom: 3rem;
   }
 
   .layout {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     grid-template-areas: "header header" "inputs results" "fees results";
+    /* The result spans two rows; the last one takes its extra height, so no gap opens under
+       the data. */
+    grid-template-rows: auto auto 1fr;
     column-gap: 1.5rem;
     align-items: start;
   }
@@ -590,5 +593,81 @@ h3 {
 @media (min-width: 64rem) {
   .result-bar {
     display: none;
+  }
+}
+
+/*
+ * Wide screens: the data and the result fit on one screen. A compact header, each field's label
+ * next to its input, a route's three figures in one row and warnings without a box.
+ */
+@media (min-width: 64rem) {
+  .page {
+    padding-top: 1rem;
+  }
+
+  .layout-header {
+    display: flex;
+    flex-wrap: wrap;
+    column-gap: 1rem;
+    align-items: baseline;
+  }
+
+  .layout-header h1,
+  .layout-header .lead {
+    margin: 0;
+  }
+
+  .card,
+  .results {
+    margin-top: 1rem;
+  }
+
+  .layout-inputs .field {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    column-gap: 1rem;
+    align-items: center;
+    margin-bottom: 0.625rem;
+  }
+
+  .layout-inputs .field label {
+    margin-bottom: 0;
+  }
+
+  /* Problems, warnings and help go under the label and the input, across both. */
+  .layout-inputs .field > :not(label, .field-input) {
+    grid-column: 1 / -1;
+  }
+
+  .layout-inputs .field-input input {
+    width: 10rem;
+    min-height: 2.5rem;
+    padding: 0.375rem 0.75rem;
+  }
+
+  .layout-inputs .field-help {
+    margin-bottom: 0;
+  }
+
+  /* The amounts take their width; the difference, a sentence, takes the rest. */
+  .figures {
+    grid-template-columns: auto auto minmax(0, 1fr);
+    column-gap: 1.5rem;
+    margin: 0.25rem 0 0.5rem;
+  }
+
+  .ranking > li {
+    padding: 0.5rem 0;
+  }
+
+  .figure-main {
+    grid-column: auto;
+  }
+
+  .warning {
+    padding: 0.125rem 0.5rem;
+    background: none;
+    border-left-width: 3px;
+    border-radius: 0;
   }
 }
