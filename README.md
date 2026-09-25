@@ -21,13 +21,4 @@ Each release on the server is named after its UTC time and commit (`20260925T141
 ### Going back
 
 - **Redeploy an earlier commit from GitHub.** Open that commit's run under **Actions → Deploy**, choose **Re-run all jobs**, and approve the deploy. It rebuilds that commit and publishes it as a new release. GitHub keeps runs re-runnable for 30 days; for an older commit, revert to it in a pull request instead.
-- **Switch back on the server, without rebuilding.** The last 5 releases stay on the server, plus the published one:
-
-  ```sh
-  ssh -t ops@server.abrunacci.dev sudo site-rollback cuanto-cuesta --list   # * marks the published release
-  ssh -t ops@server.abrunacci.dev sudo site-rollback cuanto-cuesta          # back to the previous release
-  ssh -t ops@server.abrunacci.dev sudo site-rollback cuanto-cuesta <release>
-  ssh -t ops@server.abrunacci.dev sudo site-rollback cuanto-cuesta placeholder   # unpublish: back to the placeholder page
-  ```
-
-  This is instant and needs no CI run. The next deploy publishes its own release as usual, so fix `main` (or reject that deploy) before the next push if the problem is in the code.
+- **Switch back on the server, without rebuilding.** The server keeps the last releases, and the admin can publish an earlier one with `site-rollback`, instantly and without a CI run. See the deploy notes in the [infra repository's README](https://github.com/Abrunacci/infra/blob/main/ansible/README.md#design-notes). The next deploy publishes its own release as usual, so fix `main` (or reject that deploy) before the next push if the problem is in the code.
