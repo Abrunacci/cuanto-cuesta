@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import { MAX_FIELD_LENGTH } from "../form/form.ts";
 
@@ -17,6 +17,11 @@ interface NumberFieldProps {
   readonly echo?: string | undefined;
   /** Short help, part of the field's description. */
   readonly help?: string | undefined;
+  /**
+   * Show the help only while the field is empty or focused. It stays in the description, so
+   * screen readers still read it, and it never hides while the person types.
+   */
+  readonly helpWhileNeeded?: boolean;
   /** More about the field, outside its description (e.g. a collapsible "Detalles"). */
   readonly children?: ReactNode;
   readonly placeholder?: string;
@@ -32,6 +37,7 @@ export function NumberField({
   warning,
   echo,
   help,
+  helpWhileNeeded = false,
   children,
   placeholder,
 }: NumberFieldProps) {
@@ -39,6 +45,31 @@ export function NumberField({
   // not flag the field at "1"; after that it updates as they fix it. The results summary
   // reflects the current text at every keystroke.
   const [touched, setTouched] = useState(false);
+  const [focused, setFocused] = useState(false);
+  const helpHidden = helpWhileNeeded && !focused && value !== "";
+  const input = useRef<HTMLInputElement>(null);
+  const pointerDown = usePointerDown();
+  const leave = () => {
+    setTouched(true);
+    // Hiding the help moves what is below the field. A press elsewhere takes the focus on
+    // pointerdown, so wait until it is released: the click must land where it was pressed.
+    if (!pointerDown.current) {
+      setFocused(false);
+      return;
+    }
+    // A cancelled press (a drag, a touch that turns into a scroll) ends without a pointerup.
+    const done = new AbortController();
+    const settle = () => {
+      done.abort();
+      setTimeout(() => {
+        if (document.activeElement !== input.current) {
+          setFocused(false);
+        }
+      });
+    };
+    window.addEventListener("pointerup", settle, { signal: done.signal });
+    window.addEventListener("pointercancel", settle, { signal: done.signal });
+  };
   const shownProblem = touched ? problem : null;
   const shownWarning = touched && problem === null ? (warning ?? null) : null;
   const ids = {
@@ -62,6 +93,7 @@ export function NumberField({
       </label>
       <div className="field-input">
         <input
+          ref={input}
           id={id}
           type="text"
           inputMode="decimal"
@@ -79,9 +111,10 @@ export function NumberField({
           onInput={(event) => {
             onChange(event.currentTarget.value);
           }}
-          onBlur={() => {
-            setTouched(true);
+          onFocus={() => {
+            setFocused(true);
           }}
+          onBlur={leave}
         />
         <span className="unit" aria-hidden="true">
           {unit}
@@ -100,11 +133,33 @@ export function NumberField({
         </p>
       )}
       {help !== undefined && (
-        <p id={ids.help} className="field-help">
+        <p id={ids.help} className={helpHidden ? "field-help visually-hidden" : "field-help"}>
           {help}
         </p>
       )}
       {children}
     </div>
   );
+}
+
+/** Whether a mouse button, pen or finger is pressed anywhere on the page right now. */
+function usePointerDown() {
+  const down = useRef(false);
+  useEffect(() => {
+    const press = () => {
+      down.current = true;
+    };
+    const release = () => {
+      down.current = false;
+    };
+    window.addEventListener("pointerdown", press, true);
+    window.addEventListener("pointerup", release, true);
+    window.addEventListener("pointercancel", release, true);
+    return () => {
+      window.removeEventListener("pointerdown", press, true);
+      window.removeEventListener("pointerup", release, true);
+      window.removeEventListener("pointercancel", release, true);
+    };
+  }, []);
+  return down;
 }

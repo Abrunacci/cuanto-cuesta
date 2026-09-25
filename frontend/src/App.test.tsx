@@ -1,4 +1,12 @@
-import { act, cleanup, getDefaultNormalizer, render, screen, within } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  getDefaultNormalizer,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it } from "vitest";
 
@@ -308,6 +316,61 @@ describe("the calculator page", () => {
     expect(screen.getByRole("link", { name: /Ver resultado$/ })).toHaveTextContent(
       "Empatan: ARQ (ex DolarApp) y Binance P2P + Bitso",
     );
+  });
+
+  it("hides a price's help once the person leaves it filled, never while typing", async () => {
+    const { type, user, field } = setup();
+    // jsdom has no stylesheet: the class is what hides the help on screen.
+    const help = () => document.getElementById("price-mep-help");
+    expect(help()).not.toHaveClass("visually-hidden");
+    await type(/^Dólar MEP \(compra\)/, "1.536,16");
+    expect(field(/^Dólar MEP \(compra\)/)).toHaveFocus();
+    expect(help()).not.toHaveClass("visually-hidden");
+    await user.tab();
+    expect(help()).toHaveClass("visually-hidden");
+    // Screen readers still read it with the field.
+    expect(field(/^Dólar MEP \(compra\)/)).toHaveAccessibleDescription(
+      description("Lo que te pagan por cada dólar vendido por MEP."),
+    );
+    await user.click(field(/^Dólar MEP \(compra\)/));
+    expect(help()).not.toHaveClass("visually-hidden");
+    await user.clear(field(/^Dólar MEP \(compra\)/));
+    await user.tab();
+    expect(help()).not.toHaveClass("visually-hidden");
+  });
+
+  it("hides the help after a click elsewhere, once the click is done", async () => {
+    const { type, user } = setup();
+    await type(/^Dólar MEP \(compra\)/, "1.536,16");
+    const heading = screen.getByRole("heading", { name: "Tus datos" });
+    await user.pointer({ keys: "[MouseLeft>]", target: heading });
+    // Pressed but not released: the page must not move under the pointer yet.
+    expect(document.getElementById("price-mep-help")).not.toHaveClass("visually-hidden");
+    await user.pointer({ keys: "[/MouseLeft]", target: heading });
+    await waitFor(() => {
+      expect(document.getElementById("price-mep-help")).toHaveClass("visually-hidden");
+    });
+  });
+
+  it("shows a filled price's help again when a result link takes the person there", async () => {
+    const { type, user, results } = setup();
+    await type(/^Dólar MEP \(compra\)/, "-1");
+    await user.tab();
+    expect(document.getElementById("price-mep-help")).toHaveClass("visually-hidden");
+    await user.click(within(results()).getByRole("link", { name: "dólar MEP (compra)" }));
+    expect(screen.getByLabelText(/^Dólar MEP \(compra\)/)).toHaveFocus();
+    expect(document.getElementById("price-mep-help")).not.toHaveClass("visually-hidden");
+  });
+
+  it("keeps a fee minimum's help in view although the minimum starts filled", async () => {
+    const { openCard } = setup();
+    await openCard("ARQ (ex DolarApp)");
+    const minimum = screen.getAllByText(
+      "Se cobra este mínimo cuando el porcentaje da menos. Si no te lo cobran, poné 0.",
+    );
+    for (const help of minimum) {
+      expect(help).not.toHaveClass("visually-hidden");
+    }
   });
 
   it("explains an invalid value once the person leaves the field", async () => {
@@ -890,9 +953,12 @@ describe("the calculator page", () => {
       const again = setup();
       expect(again.field(/^Monto en Payoneer/)).toHaveValue("1000");
       expect(again.field(/^Dólar MEP \(compra\)/)).toHaveValue("");
+      // The amount came back filled, so its help is hidden; the empty price still shows its own.
+      expect(document.getElementById("amount-help")).toHaveClass("visually-hidden");
+      expect(document.getElementById("price-mep-help")).not.toHaveClass("visually-hidden");
       expect(
         screen.getByText(
-          "El monto queda guardado en este navegador; las cotizaciones no, cargá las del día.",
+          "Punto para miles y coma para decimales (1.536,16). El monto queda guardado en este navegador; las cotizaciones no.",
         ),
       ).toBeVisible();
       await again.openCard("Binance P2P + Bitso");

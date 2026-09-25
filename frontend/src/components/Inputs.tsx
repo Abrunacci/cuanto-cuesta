@@ -15,10 +15,8 @@ export function Inputs({ texts, reading, onAmount, onPrice }: InputsProps) {
     <section className="card" aria-labelledby="inputs-title">
       <h2 id="inputs-title">Tus datos</h2>
       <p className="muted small">
-        Podés usar punto para los miles y coma para los decimales: 1.536,16.
-      </p>
-      <p className="muted small">
-        El monto queda guardado en este navegador; las cotizaciones no, cargá las del día.
+        Punto para miles y coma para decimales (1.536,16). El monto queda guardado en este
+        navegador; las cotizaciones no.
       </p>
       <NumberField
         id={fieldId.amount}
@@ -29,6 +27,7 @@ export function Inputs({ texts, reading, onAmount, onPrice }: InputsProps) {
         problem={reading.problems.get(fieldId.amount) ?? null}
         echo={reading.echoes.get(fieldId.amount)}
         help="Los dólares de tu cuenta de Payoneer que querés pasar a pesos."
+        helpWhileNeeded
         placeholder="Ej.: 1.000"
       />
       {RATE_FIELDS.map((field) => {
@@ -47,6 +46,7 @@ export function Inputs({ texts, reading, onAmount, onPrice }: InputsProps) {
             warning={reading.warnings.get(id)}
             echo={reading.echoes.get(id)}
             help={field.help}
+            helpWhileNeeded
           />
         );
       })}
