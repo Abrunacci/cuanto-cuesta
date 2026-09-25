@@ -188,6 +188,14 @@ describe("invalid input", () => {
     );
   });
 
+  it("refuses a result in a currency other than the one the route declares", () => {
+    // ARQ with its last conversion left out ends in USD, not ARS.
+    const broken: Route = { ...ARQ, steps: ARQ.steps.filter((step) => step.conversion === null) };
+    expect(() => runRoute(broken, money("1000", "USD"), SAMPLE_FEES, SAMPLE_RATES)).toThrow(
+      CurrencyMismatchError,
+    );
+  });
+
   it("needs every fee and rate the route uses", () => {
     const fees = new Map([...SAMPLE_FEES].filter(([id]) => id !== "arq_ach_deposit"));
     expect(() => runRoute(ARQ, money("1000", "USD"), fees, SAMPLE_RATES)).toThrow(UnknownFeeError);

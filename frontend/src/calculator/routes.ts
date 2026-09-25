@@ -124,6 +124,11 @@ export function runRoute(
     results.push(result.step);
     current = result.step.amountOut;
   }
+  if (current.currency !== route.target) {
+    throw new CurrencyMismatchError(
+      `Route ${route.id} ends in ${current.currency}, it declares ${route.target}`,
+    );
+  }
   return { route, steps: results, final: current, exhausted };
 }
 
