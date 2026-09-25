@@ -17,6 +17,11 @@ interface NumberFieldProps {
   readonly echo?: string | undefined;
   /** Short help, part of the field's description. */
   readonly help?: string | undefined;
+  /**
+   * Show the help only while the field is empty or focused. It stays in the description, so
+   * screen readers still read it, and it never hides while the person types.
+   */
+  readonly helpWhileNeeded?: boolean;
   /** More about the field, outside its description (e.g. a collapsible "Detalles"). */
   readonly children?: ReactNode;
   readonly placeholder?: string;
@@ -32,6 +37,7 @@ export function NumberField({
   warning,
   echo,
   help,
+  helpWhileNeeded = false,
   children,
   placeholder,
 }: NumberFieldProps) {
@@ -39,6 +45,8 @@ export function NumberField({
   // not flag the field at "1"; after that it updates as they fix it. The results summary
   // reflects the current text at every keystroke.
   const [touched, setTouched] = useState(false);
+  const [focused, setFocused] = useState(false);
+  const helpHidden = helpWhileNeeded && !focused && value !== "";
   const shownProblem = touched ? problem : null;
   const shownWarning = touched && problem === null ? (warning ?? null) : null;
   const ids = {
@@ -79,8 +87,12 @@ export function NumberField({
           onInput={(event) => {
             onChange(event.currentTarget.value);
           }}
+          onFocus={() => {
+            setFocused(true);
+          }}
           onBlur={() => {
             setTouched(true);
+            setFocused(false);
           }}
         />
         <span className="unit" aria-hidden="true">
@@ -100,7 +112,7 @@ export function NumberField({
         </p>
       )}
       {help !== undefined && (
-        <p id={ids.help} className="field-help">
+        <p id={ids.help} className={helpHidden ? "field-help visually-hidden" : "field-help"}>
           {help}
         </p>
       )}
