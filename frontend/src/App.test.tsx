@@ -47,14 +47,14 @@ function setup() {
   const openCard = async (name: string) => {
     await user.click(screen.getByText(name, { selector: ".route-card-title" }));
   };
-  /** The line that opens a route's review list in the result. */
+  /** The line that opens a route's review list in the result, found by what it says. */
   const reviewLine = (name: string) => {
-    const heading = within(results()).getByRole("heading", { name });
-    const line = heading.parentElement?.querySelector(".review > summary");
-    if (!(line instanceof HTMLElement)) {
-      throw new Error(`${name} has no review list`);
+    const route = within(results()).getByRole("heading", { name }).closest("li");
+    if (route === null) {
+      throw new Error(`${name} is not in the ranking`);
     }
-    return line;
+    // The list inside can also say "Con tu valor: …"; the line is the one that opens it.
+    return within(route).getByText(/^(Qué revisar|Con tu valor):/, { selector: "summary" });
   };
   return { user, field, type, results, ranking, openCard, reviewLine };
 }
@@ -260,14 +260,14 @@ describe("the calculator page", () => {
     if (first === undefined) {
       throw new Error("expected a link");
     }
-    expect(reviewLine("Binance P2P + Bitso").parentElement).not.toHaveAttribute("open");
+    const premium = within(results()).getByRole("link", {
+      name: "Recargo P2P por pagar con Payoneer",
+    });
+    expect(premium).not.toBeVisible();
     await user.click(first);
     // Straight to what to review: the route's folded list opens, its line focused.
     expect(reviewLine("Binance P2P + Bitso")).toHaveFocus();
-    expect(reviewLine("Binance P2P + Bitso").parentElement).toHaveAttribute("open");
-    expect(
-      within(results()).getByRole("link", { name: "Recargo P2P por pagar con Payoneer" }),
-    ).toBeVisible();
+    expect(premium).toBeVisible();
   });
 
   it("points at the route's own values once the other route has nothing to review", async () => {
@@ -286,6 +286,31 @@ describe("the calculator page", () => {
     expect(
       within(results()).queryByRole("link", { name: "Revisá los valores de Binance P2P + Bitso" }),
     ).toBeNull();
+  });
+
+  it("takes a difference's review to the heading when the route only has an unusual price", async () => {
+    const { type, user, openCard, results, reviewLine } = setup();
+    await fillEverything(type);
+    await openCard("Binance P2P + Bitso");
+    await type(/^Recargo P2P por pagar con Payoneer/, "0,1");
+    await type(/^Transferencia de Payoneer al comprador P2P/, "3");
+    await type(/^Comisión taker de Binance P2P/, "0,07");
+    await type(/^Precio de venta en Bitso/, "60.000");
+    // Its fees are all the person's own: a list to open exists, but holds nothing to check.
+    expect(reviewLine("Binance P2P + Bitso")).toHaveTextContent("Con tu valor: 3 comisiones");
+    const [link] = within(results()).getAllByRole("link", {
+      name: "Revisá los valores de Binance P2P + Bitso",
+    });
+    if (link === undefined) {
+      throw new Error("expected a link");
+    }
+    await user.click(link);
+    // The unusual price is noted under the heading.
+    expect(screen.getByRole("heading", { name: "Binance P2P + Bitso" })).toHaveFocus();
+    // The list of the person's values stays folded.
+    expect(
+      within(results()).getByRole("link", { name: "recargo P2P por pagar con Payoneer" }),
+    ).not.toBeVisible();
   });
 
   it("computes Binance P2P + Bitso without the MEP, with nothing to compare it with", async () => {
@@ -771,7 +796,7 @@ describe("the calculator page", () => {
     expect(bar).toHaveAttribute("href", "#review-binance_bitso");
     await user.click(bar);
     expect(reviewLine("Binance P2P + Bitso")).toHaveFocus();
-    expect(reviewLine("Binance P2P + Bitso").parentElement).toHaveAttribute("open");
+    expect(screen.getByRole("link", { name: "Recargo P2P por pagar con Payoneer" })).toBeVisible();
   });
 
   it("drops the review mark once the best route's values are set", async () => {
