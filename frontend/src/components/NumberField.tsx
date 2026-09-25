@@ -57,17 +57,18 @@ export function NumberField({
       setFocused(false);
       return;
     }
-    window.addEventListener(
-      "pointerup",
-      () => {
-        setTimeout(() => {
-          if (document.activeElement !== input.current) {
-            setFocused(false);
-          }
-        });
-      },
-      { once: true },
-    );
+    // A cancelled press (a drag, a touch that turns into a scroll) ends without a pointerup.
+    const done = new AbortController();
+    const settle = () => {
+      done.abort();
+      setTimeout(() => {
+        if (document.activeElement !== input.current) {
+          setFocused(false);
+        }
+      });
+    };
+    window.addEventListener("pointerup", settle, { signal: done.signal });
+    window.addEventListener("pointercancel", settle, { signal: done.signal });
   };
   const shownProblem = touched ? problem : null;
   const shownWarning = touched && problem === null ? (warning ?? null) : null;

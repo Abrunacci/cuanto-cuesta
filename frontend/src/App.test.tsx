@@ -342,7 +342,11 @@ describe("the calculator page", () => {
   it("hides the help after a click elsewhere, once the click is done", async () => {
     const { type, user } = setup();
     await type(/^Dólar MEP \(compra\)/, "1.536,16");
-    await user.click(screen.getByRole("heading", { name: "Tus datos" }));
+    const heading = screen.getByRole("heading", { name: "Tus datos" });
+    await user.pointer({ keys: "[MouseLeft>]", target: heading });
+    // Pressed but not released: the page must not move under the pointer yet.
+    expect(document.getElementById("price-mep-help")).not.toHaveClass("visually-hidden");
+    await user.pointer({ keys: "[/MouseLeft]", target: heading });
     await waitFor(() => {
       expect(document.getElementById("price-mep-help")).toHaveClass("visually-hidden");
     });
