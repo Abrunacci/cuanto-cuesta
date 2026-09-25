@@ -86,10 +86,10 @@ with `Depends`.
   exact, and division keeps 30 decimal places rounding half-even (Python kept 34 significant
   digits). The calculator's tests keep the removed Python domain's hand-checked cases, a frozen
   table of results computed with it, and a division case.
-- In the calculator, amounts are built only with `money()`, and the numbers they are combined with
-  (prices, percentages) only with `money.ts`'s `Decimal`, never plain numbers: that keeps every
-  division at its 30 places. `add` and `subtract` check the currency. A product or quotient
-  (`rates.ts`, `fees.ts`) is rounded right away with `roundedDown` or `roundedUp`.
+- In the calculator, amounts are built only with `money()`, which keeps every division at its 30
+  places; prices and percentages are parsed with `money.ts`'s `Decimal`, never from floats. `add`
+  and `subtract` check the currency. A product or quotient (`rates.ts`, `fees.ts`) is rounded
+  right away with `roundedDown` or `roundedUp`.
 - `Money` is signed in both languages. Where only `>= 0` makes sense, the type that owns the value
   checks it: in Python it calls `Money.require_non_negative` in its `__post_init__`.
 
