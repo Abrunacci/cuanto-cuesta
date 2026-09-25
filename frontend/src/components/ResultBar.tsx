@@ -52,16 +52,20 @@ const LEADS: Readonly<Record<BarLead, { full: string; short: string }>> = {
   risky: { full: "Solo con riesgo", short: "Solo con riesgo" },
 };
 
-/** After the route's name when it is risky: seen as "· riesgo", heard in full. */
-function RiskMark({ risky }: { readonly risky: boolean }) {
-  return risky ? (
-    <>
-      {" "}
-      <span className="result-bar-risk">
-        · riesgo <span className="visually-hidden">de bloqueo</span>
-      </span>
-    </>
-  ) : null;
+/**
+ * After the route's name when it is risky: seen as "· riesgo", heard in full. In the one-line bar
+ * it sits outside the name, which a narrow phone cuts, so it is never cut with it.
+ */
+function RiskMark({ risky, compact }: { readonly risky: boolean; readonly compact: boolean }) {
+  if (!risky) {
+    return null;
+  }
+  const mark = (
+    <span className="result-bar-risk">
+      {compact ? "\u00a0" : ""}· riesgo <span className="visually-hidden">de bloqueo</span>
+    </span>
+  );
+  return compact ? mark : <> {mark}</>;
 }
 
 function FullText({ text }: { readonly text: BarText }) {
@@ -72,7 +76,7 @@ function FullText({ text }: { readonly text: BarText }) {
     <>
       <span className="result-bar-label">
         {LEADS[text.lead].full}: {text.route}
-        <RiskMark risky={text.risky} />
+        <RiskMark risky={text.risky} compact={false} />
         <span className="visually-hidden">.</span>
       </span>{" "}
       <span className="result-bar-amount">
@@ -106,8 +110,8 @@ function CompactLine({ text }: { readonly text: BarText }) {
     <span className="result-bar-line">
       <span className="result-bar-route">
         {LEADS[text.lead].short}: {text.route}
-        <RiskMark risky={text.risky} />
-      </span>{" "}
+      </span>
+      <RiskMark risky={text.risky} compact />{" "}
       <span className="result-bar-figure">
         &nbsp;· {text.amountWhole}
         {text.review ? (

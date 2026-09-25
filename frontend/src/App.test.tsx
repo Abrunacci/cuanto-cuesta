@@ -991,6 +991,20 @@ describe("the calculator page", () => {
       );
     });
 
+    it("keeps a risky route's mark in the one-line bar, outside the name it may cut", async () => {
+      const viewport = fakeViewport(800);
+      const { type } = setup();
+      await type(/^Monto en Payoneer/, "1500");
+      await type(/^Precio P2P en Binance/, "1");
+      await type(/^Precio de venta en Bitso/, "1600");
+      viewport.height = 470;
+      resize(viewport);
+      expect(visible(bar())).toBe("Única: Binance P2P + Bitso · riesgo · $ 2.378.992 \u26a0\ufe0e");
+      const route = screen.getByText(/^Única: Binance P2P \+ Bitso$/);
+      expect(route).toHaveClass("result-bar-route");
+      expect(within(bar()).getByText(/· riesgo/)).not.toHaveClass("result-bar-route");
+    });
+
     it("shows no alert in the one-line bar when there is nothing to review", async () => {
       const viewport = fakeViewport(800);
       const { type, openCard } = setup();
