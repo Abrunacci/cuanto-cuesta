@@ -120,8 +120,11 @@ export function App() {
         text={bar}
         targetId={barTarget}
         onOpen={(id) => {
-          // The whole result is in no card and no route's list: goToField only focuses it.
-          goToField(barRoute?.id ?? "", id);
+          if (barRoute === undefined) {
+            document.getElementById(id)?.focus();
+          } else {
+            goToField(barRoute.id, id);
+          }
         }}
       />
     </>

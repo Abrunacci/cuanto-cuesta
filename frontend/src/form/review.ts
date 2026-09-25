@@ -58,7 +58,7 @@ export function reviewSummary(review: FeesToReview): string | null {
 }
 
 /** Whether any fee holds a value to set or an estimate; the person's own values do not count. */
-export function hasFeesToCheck({ toSet, estimated }: FeesToReview): boolean {
+function hasFeesToCheck({ toSet, estimated }: FeesToReview): boolean {
   return toSet.length > 0 || estimated.length > 0;
 }
 
@@ -90,7 +90,7 @@ export function routeNeedsReview(
   ownFees: ReadonlySet<string>,
   warnings: ReadonlyMap<string, string>,
 ): boolean {
-  return reviewOpensList(route, ownFees) || unusualPrices(route, warnings).length > 0;
+  return hasFeesToCheck(feesToReview(route, ownFees)) || unusualPrices(route, warnings).length > 0;
 }
 
 /**
