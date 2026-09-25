@@ -87,7 +87,7 @@ describe("the bundled data, calculated end to end", () => {
       atReference: comparison.atReference?.amount.toFixed(2),
       routes: comparison.routes.map((r) =>
         r.status === "complete"
-          ? [r.route.id, ...[r.result.final, r.feeCost, r.fxLoss].map((m) => m.amount.toFixed(2))]
+          ? [r.route.id, ...[r.result.final, r.feeCost, r.fxLoss].map((m) => m?.amount.toFixed(2))]
           : [r.route.id, "incomplete"],
       ),
     };
@@ -115,5 +115,44 @@ describe("the bundled data, calculated end to end", () => {
         ["arq", "122690.64", "36647.86", "-5722.50"],
       ],
     });
+  });
+
+  it("compares the routes with each other for 1500 USD with ARQ's price left empty", () => {
+    // The example that showed the MEP route "losing" its own fees against the MEP.
+    const comparison = compareRoutes({
+      routes: ROUTES,
+      rateDefinitions: RATE_FIELDS,
+      referenceKey: REFERENCE_KEY,
+      amount: validAmount("1500.00"),
+      prices: new Map([
+        ["mep", validPrice("1500")],
+        ["p2p_usdt_usd", validPrice("1")],
+        ["bitso_usdt_ars", validPrice("1600")],
+        ["arq_usd_ars", null],
+      ]),
+      fees,
+    });
+    const [binance, mep, arq] = comparison.routes;
+    expect(binance?.status === "complete" && binance.standing).toMatchObject({
+      kind: "ahead",
+      other: { id: "mep" },
+    });
+    expect(mep?.status === "complete" && mep.standing).toMatchObject({
+      kind: "behind",
+      other: { id: "binance_bitso" },
+    });
+    const figures = [binance, mep].map((r) =>
+      r?.status === "complete" && (r.standing.kind === "ahead" || r.standing.kind === "behind")
+        ? [r.route.id, r.result.final, r.feeCost, r.standing.by].map((v) =>
+            typeof v === "string" ? v : v.amount.toFixed(2),
+          )
+        : null,
+    );
+    // 2378992.00 - 2202330.00 = 176662.00
+    expect(figures).toEqual([
+      ["binance_bitso", "2378992.00", "21008.00", "176662.00"],
+      ["mep", "2202330.00", "47670.00", "176662.00"],
+    ]);
+    expect(arq?.status).toBe("incomplete");
   });
 });

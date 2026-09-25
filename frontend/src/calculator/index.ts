@@ -6,6 +6,7 @@ export type {
   IncompleteRoute,
   MissingInput,
   RouteComparison,
+  Standing,
 } from "./compare.ts";
 export { FEE_DEFAULTS } from "./data/fees.ts";
 export type { FeeDefault, Provenance } from "./data/fees.ts";
