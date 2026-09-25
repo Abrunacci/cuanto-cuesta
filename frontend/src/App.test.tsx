@@ -90,7 +90,7 @@ describe("the calculator page", () => {
   it("says what each route is missing, each item a link to its field", () => {
     const { ranking, results } = setup();
     expect(
-      screen.getByText("Completá el monto y el dólar MEP para comparar las rutas."),
+      screen.getByText("Completá el monto y las cotizaciones para comparar las rutas."),
     ).toBeVisible();
     expect(ranking()[0]).toContain("Falta completar o corregir:");
     expect(
@@ -99,22 +99,26 @@ describe("the calculator page", () => {
   });
 
   it("ranks the routes as soon as everything is typed, without a button", async () => {
-    const { type, ranking } = setup();
+    const { type, ranking, results } = setup();
     await fillEverything(type);
+    // 1534005.69 - 1524869.44 = 9136.25; 1534005.69 - 1503624.13 = 30381.56
     expect(
       screen.getByText(
-        "Al dólar MEP serían $ 1.536.160,00. Mejor ruta: Binance P2P + Bitso, llegan $ 1.534.005,69.",
+        "Mejor ruta: Binance P2P + Bitso, llegan $ 1.534.005,69: $ 9.136,25 más que ARQ (ex DolarApp).",
       ),
     ).toBeVisible();
     const [first, second, third] = ranking();
     expect(first).toContain("Binance P2P + Bitso");
     expect(first).toContain("Llegan al banco$ 1.534.005,69");
     expect(first).toContain("Comisiones$ 15.706,71");
-    expect(first).toContain("Pérdida vs. dólar MEP$ 2.154,31");
+    expect(first).toContain("Diferencia$ 9.136,25 más que ARQ (ex DolarApp)");
     expect(second).toContain("ARQ (ex DolarApp)");
     expect(second).toContain("$ 1.524.869,44");
+    expect(second).toContain("Diferencia$ 9.136,25 menos que Binance P2P + Bitso");
     expect(third).toContain("Dólar MEP");
     expect(third).toContain("$ 1.503.624,13");
+    expect(third).toContain("Diferencia$ 30.381,56 menos que Binance P2P + Bitso");
+    expect(results()).not.toHaveTextContent(/vs\. dólar MEP|Al dólar MEP/);
   });
 
   it("keeps a currency sign on the same line as its number", async () => {
@@ -199,11 +203,65 @@ describe("the calculator page", () => {
     expect(field(/^Retiro de Payoneer a una cuenta de EE.UU.: mínimo/)).toHaveFocus();
   });
 
-  it("shows a gain when a route beats the MEP", async () => {
+  it("compares the MEP route with the best one, not with the MEP itself", async () => {
+    const { type, ranking } = setup();
+    await type(/^Monto en Payoneer/, "1500");
+    await type(/^Dólar MEP \(compra\)/, "1500");
+    await type(/^Precio P2P en Binance/, "1");
+    await type(/^Precio de venta en Bitso/, "1600");
+    expect(
+      screen.getByText(
+        "Mejor ruta: Binance P2P + Bitso, llegan $ 2.378.992,00: $ 176.662,00 más que Dólar MEP.",
+      ),
+    ).toBeVisible();
+    const [binance, mep, arq] = ranking();
+    expect(binance).toContain("Llegan al banco$ 2.378.992,00");
+    expect(binance).toContain("Comisiones$ 21.008,00");
+    expect(binance).toContain("Diferencia$ 176.662,00 más que Dólar MEP");
+    // Its fees stay in their own figure; the difference is with the best route.
+    expect(mep).toContain("Llegan al banco$ 2.202.330,00");
+    expect(mep).toContain("Comisiones$ 47.670,00");
+    expect(mep).toContain("Diferencia$ 176.662,00 menos que Binance P2P + Bitso");
+    expect(arq).toContain("ARQ (ex DolarApp)Falta completar o corregir:");
+    expect(arq).not.toContain("Diferencia");
+  });
+
+  it("computes Binance P2P + Bitso without the MEP, with nothing to compare it with", async () => {
+    const { type, ranking, results } = setup();
+    await type(/^Monto en Payoneer/, "1500");
+    await type(/^Precio P2P en Binance/, "1");
+    await type(/^Precio de venta en Bitso/, "1600");
+    expect(
+      screen.getByText(
+        "Por ahora solo se puede calcular Binance P2P + Bitso: llegan $ 2.378.992,00.",
+      ),
+    ).toBeVisible();
+    const [binance, ...others] = ranking();
+    expect(binance).toContain("Llegan al banco$ 2.378.992,00");
+    expect(binance).toContain("DiferenciaTodavía no hay otra ruta para comparar");
+    expect(others.find((item) => item.startsWith("Dólar MEP"))).toContain("dólar MEP (compra)");
+    expect(within(results()).getAllByRole("link", { name: "dólar MEP (compra)" })).toHaveLength(1);
+    expect(screen.getByRole("link", { name: /Ver resultado$/ })).toHaveTextContent(
+      "Única ruta calculada: Binance P2P + Bitso",
+    );
+  });
+
+  it("shows routes that deliver the same as tied", async () => {
     const { type, ranking } = setup();
     await fillEverything(type);
-    await type(/^Dólar MEP \(compra\)/, "1.400");
-    expect(ranking()[0]).toContain("Ganancia vs. dólar MEP");
+    // ARQ: 1000.00 - 40.00 - 3.00 = 957.00 x 1602.9317555 = 1534005.690..., as much as Binance.
+    // A tie is ordered by route id, so ARQ comes first.
+    await type(/^Cotización de ARQ/, "1.602,9317555");
+    expect(
+      screen.getByText("Empatan ARQ (ex DolarApp) y Binance P2P + Bitso: llegan $ 1.534.005,69."),
+    ).toBeVisible();
+    const [first, second, third] = ranking();
+    expect(first).toContain("DiferenciaIgual que Binance P2P + Bitso");
+    expect(second).toContain("DiferenciaIgual que ARQ (ex DolarApp)");
+    expect(third).toContain("Diferencia$ 30.381,56 menos que ARQ (ex DolarApp)");
+    expect(screen.getByRole("link", { name: /Ver resultado$/ })).toHaveTextContent(
+      "Empatan: ARQ (ex DolarApp) y Binance P2P + Bitso",
+    );
   });
 
   it("explains an invalid value once the person leaves the field", async () => {
@@ -267,7 +325,7 @@ describe("the calculator page", () => {
     }
   });
 
-  it("says every route was computed with an unusual MEP, since it is their reference", async () => {
+  it("says only the MEP route was computed with an unusual MEP", async () => {
     const { type, user, ranking } = setup();
     await fillEverything(type);
     await type(/^Dólar MEP \(compra\)/, "1,536");
@@ -275,7 +333,9 @@ describe("the calculator page", () => {
     const items = ranking();
     expect(items).toHaveLength(3);
     for (const item of items) {
-      expect(item).toContain("Calculado con un valor inusual: dólar MEP (compra).");
+      expect(item.includes("Calculado con un valor inusual: dólar MEP (compra).")).toBe(
+        item.startsWith("Dólar MEP"),
+      );
     }
   });
 
@@ -290,18 +350,18 @@ describe("the calculator page", () => {
     );
   });
 
-  it("asks to review the reference fields that hold a wrong value", async () => {
-    const { type, results } = setup();
+  it("asks to review the amount when it holds a wrong value", async () => {
+    const { type, results, ranking } = setup();
     await type(/^Monto en Payoneer/, "0");
     expect(
       within(results()).getByText("Revisá el monto: tiene un valor que no se puede usar."),
     ).toBeVisible();
+    // A wrong MEP only concerns the MEP route, which lists it.
     await type(/^Dólar MEP \(compra\)/, "-1");
     expect(
-      within(results()).getByText(
-        "Revisá el monto y el dólar MEP: tienen valores que no se pueden usar.",
-      ),
+      within(results()).getByText("Revisá el monto: tiene un valor que no se puede usar."),
     ).toBeVisible();
+    expect(ranking().find((item) => item.startsWith("Dólar MEP"))).toContain("dólar MEP (compra)");
   });
 
   it("shows each fee's status without opening Detalles, and its source inside", async () => {
@@ -403,21 +463,20 @@ describe("the calculator page", () => {
     await openCard("ARQ (ex DolarApp)");
     await type(/^Retiro de Payoneer a una cuenta de EE.UU.: mínimo/, "0");
     // 100 USD: 4 % = 4.00; 96.00 - 3.00 = 93.00 x 1593.385 = 148184.805
-    expect(ranking().find((item) => item.includes("ARQ"))).toContain("$ 148.184,80");
+    expect(ranking().find((item) => item.startsWith("ARQ"))).toContain("$ 148.184,80");
   });
 
-  it("lists once what every route is missing, and under each route only its own", () => {
-    const { ranking, results } = setup();
+  it("lists once what every route is missing, and under each route only its own", async () => {
+    const { ranking, results, type } = setup();
+    await type(/^Dólar MEP \(compra\)/, "1.536,16");
     // The block listed once comes before the ranking, so it is the first of its kind.
     const [listedOnce] = within(results()).getAllByText(/^Falta completar o corregir:/);
-    expect(listedOnce).toHaveTextContent(
-      "Falta completar o corregir: monto en USD y dólar MEP (compra).",
-    );
+    expect(listedOnce).toHaveTextContent("Falta completar o corregir: monto en USD.");
     expect(within(results()).getAllByRole("link", { name: "monto en USD" })).toHaveLength(1);
     const binance = ranking().find((item) => item.includes("Binance"));
     expect(binance).toContain("precio P2P en Binance (USD por USDT)");
     expect(binance).not.toContain("monto en USD");
-    // ARQ and MEP need nothing beyond what is listed once, so they only say they are waiting.
+    // The MEP route needs nothing beyond what is listed once, so it only says it is waiting.
     const mep = ranking().find((item) => item.startsWith("Dólar MEP"));
     expect(mep).not.toContain("Falta completar o corregir");
     expect(mep).toContain("Se calcula cuando completes lo de arriba.");
@@ -426,7 +485,7 @@ describe("the calculator page", () => {
   it("keeps the best route in a bar that updates as the person types", async () => {
     const { type } = setup();
     const bar = () => screen.getByRole("link", { name: /Ver resultado$/ });
-    expect(bar()).toHaveTextContent("Falta completar: monto en USD y dólar MEP (compra).");
+    expect(bar()).toHaveTextContent("Falta completar: monto en USD.");
     await fillEverything(type);
     expect(visible(bar())).toBe(
       "Mejor ruta: Binance P2P + Bitso Llegan $ 1.534.005,69 · revisá Ver resultado",
@@ -570,9 +629,9 @@ describe("the calculator page", () => {
       viewport.height = 470;
       resize(viewport);
       // jsdom has no layout: this checks the line that would cut with an ellipsis, not the cut.
-      const line = within(bar()).getByText("Falta: monto, MEP");
+      const line = within(bar()).getByText("Falta: monto");
       expect(line.parentElement).toHaveClass("result-bar-line");
-      expect(bar()).toHaveAccessibleName("Falta: monto, MEP. Ver resultado");
+      expect(bar()).toHaveAccessibleName("Falta: monto. Ver resultado");
       await type(/^Monto en Payoneer/, "0");
       await type(/^Dólar MEP \(compra\)/, "1.536,16");
       expect(visible(bar())).toBe("Revisá: monto");

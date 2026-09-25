@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
 
-import type { BarText } from "../form/summary.ts";
+import type { BarLead, BarText } from "../form/summary.ts";
 import { RESULTS_TITLE_ID, routeResultId } from "./ids.ts";
 
 interface ResultBarProps {
@@ -46,6 +46,13 @@ export function ResultBar({ text, onOpen }: ResultBarProps) {
 
 const REVIEW_DETAIL = "los valores de esta ruta.";
 
+/** How the bar introduces the route it names, in full and in the one-line bar. */
+const LEADS: Readonly<Record<BarLead, { full: string; short: string }>> = {
+  best: { full: "Mejor ruta", short: "Mejor" },
+  tied: { full: "Empatan", short: "Empate" },
+  alone: { full: "Única ruta calculada", short: "Única" },
+};
+
 function FullText({ text }: { readonly text: BarText }) {
   if (text.kind === "pending") {
     return <span className="result-bar-label">{text.text}</span>;
@@ -53,7 +60,7 @@ function FullText({ text }: { readonly text: BarText }) {
   return (
     <>
       <span className="result-bar-label">
-        Mejor ruta: {text.route}
+        {LEADS[text.lead].full}: {text.route}
         <span className="visually-hidden">.</span>
       </span>{" "}
       <span className="result-bar-amount">
@@ -85,7 +92,9 @@ function CompactLine({ text }: { readonly text: BarText }) {
   }
   return (
     <span className="result-bar-line">
-      <span className="result-bar-route">Mejor: {text.route}</span>{" "}
+      <span className="result-bar-route">
+        {LEADS[text.lead].short}: {text.route}
+      </span>{" "}
       <span className="result-bar-figure">
         &nbsp;· {text.amountWhole}
         {text.review ? (

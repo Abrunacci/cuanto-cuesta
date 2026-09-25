@@ -4,13 +4,7 @@
  * set are theirs to trust.
  */
 
-import {
-  FEE_DEFAULTS,
-  RATE_FIELDS,
-  REFERENCE_KEY,
-  type FeeDefault,
-  type Route,
-} from "../calculator/index.ts";
+import { FEE_DEFAULTS, RATE_FIELDS, type FeeDefault, type Route } from "../calculator/index.ts";
 import { lowerFirst } from "../text/case.ts";
 import { fieldId } from "./form.ts";
 
@@ -34,12 +28,11 @@ export function feesToReview(route: Route, ownFees: ReadonlySet<string>): FeesTo
   };
 }
 
-/** Labels of the unusual prices a route's result depends on: its conversions and the MEP. */
+/** Labels of the unusual prices a route's result depends on: the rates it converts with. */
 export function unusualPrices(route: Route, warnings: ReadonlyMap<string, string>): string[] {
-  const keys = new Set([
-    ...route.steps.flatMap((step) => (step.conversion !== null ? [step.conversion.rateKey] : [])),
-    REFERENCE_KEY,
-  ]);
+  const keys = new Set(
+    route.steps.flatMap((step) => (step.conversion !== null ? [step.conversion.rateKey] : [])),
+  );
   return RATE_FIELDS.filter(
     (field) => keys.has(field.key) && warnings.has(fieldId.price(field.key)),
   ).map((field) => lowerFirst(field.label));
