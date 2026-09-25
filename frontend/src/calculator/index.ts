@@ -5,6 +5,8 @@ export type {
   Behind,
   CompleteRoute,
   Comparison,
+  DataError,
+  FailedRoute,
   ComparisonInput,
   IncompleteRoute,
   MissingInput,

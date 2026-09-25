@@ -8,14 +8,16 @@ import {
 } from "./compare.ts";
 import { fixedFee, type Fee } from "./fees.ts";
 import { positivePrice, type PositivePrice } from "./inputs.ts";
-import { CurrencyMismatchError, Decimal, type Money } from "./money.ts";
+import { Decimal, type Money } from "./money.ts";
 import {
+  ARQ,
+  BINANCE,
+  MEP_ROUTE,
   SAMPLE_FEES,
   SAMPLE_PRICES,
   SAMPLE_RATE_DEFINITIONS,
   SAMPLE_ROUTES,
   validAmount,
-  validPrice,
 } from "./sample.fixture.ts";
 
 const cents = (value: Money | null) => (value === null ? null : value.amount.toFixed(2));
@@ -206,8 +208,8 @@ describe("ordering", () => {
 describe("how each route stands against the others", () => {
   const standings = (comparison: ReturnType<typeof compareRoutes>) =>
     routesInOrder(comparison).map((r) => {
-      if (r.status === "incomplete") {
-        return [r.route.id, "incomplete"];
+      if (r.status !== "complete") {
+        return [r.route.id, r.status];
       }
       const { standing } = r;
       switch (standing.kind) {
@@ -313,31 +315,58 @@ describe("how each route stands against the others", () => {
   });
 });
 
-function withMep(price: string | null) {
-  return new Map<string, PositivePrice | null>([
-    ...SAMPLE_PRICES,
-    ["mep", price === null ? null : validPrice(price)],
-  ]);
-}
+describe("routes whose own data is wrong", () => {
+  const failures = (comparison: ReturnType<typeof compareRoutes>) =>
+    comparison.failed.map((r) => [r.route.id, r.error.name, r.error.message]);
+  const ids = (comparison: ReturnType<typeof compareRoutes>) =>
+    routesInOrder(comparison).map((r) => [r.route.id, r.status]);
 
-describe("currencies", () => {
-  it("refuses to rank routes that end in different currencies", () => {
-    const route = (id: string, target: "USD" | "ARS") => ({
-      id,
-      name: id,
+  it("fails a route whose result is not in the currency it declares, and ranks the others", () => {
+    // ARQ's first two steps charge only USD fees and convert nothing: it ends in USD, not ARS.
+    const brokenArq = { ...ARQ, steps: ARQ.steps.slice(0, 2) };
+    const comparison = compareRoutes(input({ routes: [BINANCE, brokenArq, MEP_ROUTE] }));
+    expect(failures(comparison)).toEqual([
+      ["arq", "CurrencyMismatchError", "Route arq ends in USD, it declares ARS"],
+    ]);
+    expect(ids(comparison)).toEqual([
+      ["binance_bitso", "complete"],
+      ["mep", "complete"],
+      ["arq", "failed"],
+    ]);
+  });
+
+  it("fails a route that ends in a different currency than the others", () => {
+    const usd = {
+      id: "usd",
+      name: "usd",
       source: "USD" as const,
-      target,
-      steps: [{ label: "s", feeIds: ["f"], conversion: null }],
+      target: "USD" as const,
+      steps: [{ label: "s", feeIds: ["arq_ach_deposit"], conversion: null }],
       warnings: [],
-    });
-    expect(() =>
-      compareRoutes(
-        input({
-          routes: [route("ars", "ARS"), route("usd", "USD")],
-          prices: withMep(null),
-          fees: new Map([["f", fixedFee("f", "0", "USD")]]),
-        }),
-      ),
-    ).toThrow(CurrencyMismatchError);
+    };
+    const comparison = compareRoutes(input({ routes: [BINANCE, usd, MEP_ROUTE] }));
+    expect(failures(comparison)).toEqual([
+      ["usd", "CurrencyMismatchError", "Route usd ends in USD, the others in ARS"],
+    ]);
+    expect(ids(comparison)).toEqual([
+      ["binance_bitso", "complete"],
+      ["mep", "complete"],
+      ["usd", "failed"],
+    ]);
+  });
+
+  it("fails the routes that convert with a rate whose definition is wrong", () => {
+    const rateDefinitions = SAMPLE_RATE_DEFINITIONS.map((d) =>
+      d.key === "bitso_usdt_ars" ? { ...d, base: "ARS" as const } : d,
+    );
+    const comparison = compareRoutes(input({ rateDefinitions }));
+    expect(failures(comparison)).toEqual([
+      ["binance_bitso", "InvalidRateError", "Rate bitso_usdt_ars: base and quote must differ"],
+    ]);
+    expect(ids(comparison)).toEqual([
+      ["arq", "complete"],
+      ["mep", "complete"],
+      ["binance_bitso", "failed"],
+    ]);
   });
 });

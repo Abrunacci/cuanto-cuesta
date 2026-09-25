@@ -1,4 +1,6 @@
-import { routesInOrder, type Comparison } from "../calculator/index.ts";
+import { useEffect } from "react";
+
+import { routesInOrder, type Comparison, type RouteComparison } from "../calculator/index.ts";
 import type { FeeGap } from "../form/form.ts";
 import { missingInputLabel } from "../form/messages.ts";
 import { commonMissing, missingFieldId, missingKey } from "../form/missing.ts";
@@ -39,6 +41,7 @@ export function Results({
   const listedOnce = new Set(common.map(missingKey));
   // Common inputs are the amount and the prices at the top: every fee belongs to one route (a
   // data test enforces it), so no route card needs opening from here.
+  useLogFailures(comparison.failed);
   const routes = routesInOrder(comparison);
   const [firstRoute] = routes;
   return (
@@ -74,25 +77,14 @@ export function Results({
             <h3 id={routeResultId(entry.route.id)} tabIndex={-1}>
               {entry.route.name}
             </h3>
-            {entry.status === "complete" ? (
-              <>
-                <RouteFigures
-                  result={entry.result}
-                  feeCost={entry.feeCost}
-                  difference={difference(entry, ownFees, warnings)}
-                  unusualPrices={unusualPrices(entry.route, warnings)}
-                  onGoToField={onGoToField}
-                />
-                <RouteReview route={entry.route} ownFees={ownFees} onGoToField={onGoToField} />
-              </>
-            ) : (
-              <RouteMissing
-                entry={entry}
-                feeGaps={feeGaps}
-                skip={listedOnce}
-                onGoToField={onGoToField}
-              />
-            )}
+            <RouteBody
+              entry={entry}
+              feeGaps={feeGaps}
+              skip={listedOnce}
+              warnings={warnings}
+              ownFees={ownFees}
+              onGoToField={onGoToField}
+            />
             {entry.route.warnings.map((warning) => (
               <p key={warning} className="warning">
                 <strong>Atención:</strong> <RichText text={warning} />
@@ -103,4 +95,56 @@ export function Results({
       </ol>
     </section>
   );
+}
+
+/** Under a route's name: its figures, what it still needs, or that its data is wrong. */
+function RouteBody({
+  entry,
+  feeGaps,
+  skip,
+  warnings,
+  ownFees,
+  onGoToField,
+}: {
+  readonly entry: RouteComparison;
+  readonly feeGaps: ReadonlyMap<string, FeeGap>;
+  readonly skip: ReadonlySet<string>;
+  readonly warnings: ReadonlyMap<string, string>;
+  readonly ownFees: ReadonlySet<string>;
+  readonly onGoToField: ResultsProps["onGoToField"];
+}) {
+  switch (entry.status) {
+    case "complete":
+      return (
+        <>
+          <RouteFigures
+            result={entry.result}
+            feeCost={entry.feeCost}
+            difference={difference(entry, ownFees, warnings)}
+            unusualPrices={unusualPrices(entry.route, warnings)}
+            onGoToField={onGoToField}
+          />
+          <RouteReview route={entry.route} ownFees={ownFees} onGoToField={onGoToField} />
+        </>
+      );
+    case "incomplete":
+      return <RouteMissing entry={entry} feeGaps={feeGaps} skip={skip} onGoToField={onGoToField} />;
+    case "failed":
+      return (
+        <p className="missing">
+          No se puede calcular esta ruta: hay un problema con las cotizaciones o comisiones que usa.
+          No es un error en lo que cargaste.
+        </p>
+      );
+  }
+}
+
+/** Log what is wrong with the failed routes' data, once each time it changes, for whoever fixes it. */
+function useLogFailures(failed: Comparison["failed"]): void {
+  const report = failed.map(({ route, error }) => `${route.id}: ${error.message}`).join("\n");
+  useEffect(() => {
+    if (report !== "") {
+      console.error(`Routes that cannot be computed because of their data:\n${report}`);
+    }
+  }, [report]);
 }
