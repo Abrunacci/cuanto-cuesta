@@ -166,6 +166,12 @@ html {
   font-variant-numeric: tabular-nums;
 }
 
+.result-bar-risk {
+  color: var(--unusual);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
 .result-bar-review {
   color: var(--unusual);
   font-size: 0.95rem;
@@ -194,7 +200,8 @@ html {
   text-overflow: ellipsis;
 }
 
-.result-bar-figure {
+.result-bar-figure,
+.result-bar-line .result-bar-risk {
   flex-shrink: 0;
 }
 
@@ -453,6 +460,25 @@ h3 {
 
 .ranking > li:last-child {
   border-bottom: 0;
+}
+
+/* A route's name, and the label of what it risks when it does. */
+.route-heading {
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: 0.5rem;
+  align-items: baseline;
+}
+
+.risk-badge {
+  padding: 0 0.5rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text);
+  white-space: nowrap;
+  background: var(--warning-bg);
+  border: 1px solid var(--warning-border);
+  border-radius: 999px;
 }
 
 .figures {

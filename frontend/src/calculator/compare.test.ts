@@ -43,7 +43,7 @@ describe("final and fee cost, as the Python domain tests had them", () => {
     const comparison = compareRoutes(input());
     expect(routesInOrder(comparison).map((r) => r.route.id)).toEqual([
       "arq",
-      "binance_bitso",
+      "binance_p2p_bitso",
       "mep",
     ]);
   });
@@ -55,7 +55,7 @@ describe("final and fee cost, as the Python domain tests had them", () => {
       return r?.status === "complete" ? [cents(r.result.final), cents(r.feeCost)] : null;
     };
     // Without fees: 1000.00 / 1.03 = 970.87 USDT x 1596.21 = 1549712.40; 1549712.40 - 1518602.26
-    expect(summary("binance_bitso")).toEqual(["1518602.26", "31110.14"]);
+    expect(summary("binance_p2p_bitso")).toEqual(["1518602.26", "31110.14"]);
     // Without fees: 1000.00 x 1593.385 = 1593385.00
     expect(summary("arq")).toEqual(["1524869.44", "68515.56"]);
     // Without fees: 1000.00 x 1536.16 = 1536160.00
@@ -66,28 +66,28 @@ describe("final and fee cost, as the Python domain tests had them", () => {
   // here on purpose: the Python calculation has since been removed.
   const PYTHON: readonly (readonly [string, string, string, string])[] = [
     ["0.01", "arq", "0.00", "15.93"],
-    ["0.01", "binance_bitso", "0.00", "0.00"],
+    ["0.01", "binance_p2p_bitso", "0.00", "0.00"],
     ["0.01", "mep", "0.00", "15.36"],
     ["1.00", "mep", "1443.99", "92.17"],
     ["1.00", "arq", "0.00", "1593.38"],
-    ["1.00", "binance_bitso", "0.00", "1548.32"],
+    ["1.00", "binance_p2p_bitso", "0.00", "1548.32"],
     ["23.00", "mep", "34532.87", "798.81"],
-    ["23.00", "binance_bitso", "28667.93", "6975.43"],
+    ["23.00", "binance_p2p_bitso", "28667.93", "6975.43"],
     ["23.00", "arq", "0.00", "36647.85"],
     ["100.00", "mep", "150359.34", "3256.66"],
-    ["100.00", "binance_bitso", "146085.13", "8874.93"],
+    ["100.00", "binance_p2p_bitso", "146085.13", "8874.93"],
     ["100.00", "arq", "122690.64", "36647.86"],
     ["500.00", "arq", "760044.64", "36647.86"],
-    ["500.00", "binance_bitso", "756092.75", "18755.47"],
+    ["500.00", "binance_p2p_bitso", "756092.75", "18755.47"],
     ["500.00", "mep", "751796.70", "16283.30"],
     ["777.77", "arq", "1184920.75", "54366.30"],
-    ["777.77", "binance_bitso", "1179679.00", "25635.13"],
+    ["777.77", "binance_p2p_bitso", "1179679.00", "25635.13"],
     ["777.77", "mep", "1169432.52", "25346.64"],
     ["12345.67", "arq", "18879763.92", "791641.47"],
-    ["12345.67", "binance_bitso", "18820912.11", "311388.64"],
+    ["12345.67", "binance_p2p_bitso", "18820912.11", "311388.64"],
     ["12345.67", "mep", "18563310.75", "401613.67"],
     ["99999.99", "arq", "152960163.91", "6378320.15"],
-    ["99999.99", "binance_bitso", "152495167.39", "2476647.51"],
+    ["99999.99", "binance_p2p_bitso", "152495167.39", "2476647.51"],
     ["99999.99", "mep", "150363012.22", "3252972.41"],
   ];
 
@@ -130,20 +130,20 @@ describe("empty inputs are never read as zero", () => {
     // Same finals and fee costs as with the MEP.
     expect(routes).toEqual([
       ["arq", "1524869.44", "68515.56"],
-      ["binance_bitso", "1518602.26", "31110.14"],
+      ["binance_p2p_bitso", "1518602.26", "31110.14"],
       ["mep", "incomplete"],
     ]);
   });
 
   it("only affects the route that needs a missing rate", () => {
     const comparison = compareRoutes(input({ prices: withPrice("bitso_usdt_ars", null) }));
-    expect(missingOf(comparison, "binance_bitso")).toEqual([
+    expect(missingOf(comparison, "binance_p2p_bitso")).toEqual([
       { kind: "rate", key: "bitso_usdt_ars" },
     ]);
     expect(routesInOrder(comparison).map((r) => [r.route.id, r.status])).toEqual([
       ["arq", "complete"],
       ["mep", "complete"],
-      ["binance_bitso", "incomplete"],
+      ["binance_p2p_bitso", "incomplete"],
     ]);
   });
 
@@ -153,7 +153,7 @@ describe("empty inputs are never read as zero", () => {
     const comparison = compareRoutes(
       input({ prices: withPrice("bitso_usdt_ars", typed.ok ? typed.value : null) }),
     );
-    expect(missingOf(comparison, "binance_bitso")).toEqual([
+    expect(missingOf(comparison, "binance_p2p_bitso")).toEqual([
       { kind: "rate", key: "bitso_usdt_ars" },
     ]);
     expect(
@@ -195,6 +195,7 @@ describe("ordering", () => {
         { label: "s", feeIds: ["f"], conversion: { rateKey: "mep", target: "ARS" as const } },
       ],
       warnings: [],
+      risk: null,
     });
     const comparison = compareRoutes(
       input({
@@ -216,19 +217,21 @@ describe("how each route stands against the others", () => {
       switch (standing.kind) {
         case "ahead":
         case "behind":
+        case "over":
           return [r.route.id, standing.kind, cents(standing.by), standing.other.id];
         case "tied":
           return [r.route.id, "tied", standing.other.id];
         case "alone":
-          return [r.route.id, "alone"];
+        case "unrivaled":
+          return [r.route.id, standing.kind];
       }
     });
 
   it("compares the best route with the runner-up, and every other route with the best", () => {
     // 1524869.44 - 1518602.26 = 6267.18; 1524869.44 - 1503624.13 = 21245.31
     expect(standings(compareRoutes(input()))).toEqual([
-      ["arq", "ahead", "6267.18", "binance_bitso"],
-      ["binance_bitso", "behind", "6267.18", "arq"],
+      ["arq", "ahead", "6267.18", "binance_p2p_bitso"],
+      ["binance_p2p_bitso", "behind", "6267.18", "arq"],
       ["mep", "behind", "21245.31", "arq"],
     ]);
   });
@@ -239,8 +242,8 @@ describe("how each route stands against the others", () => {
     );
     // 1518602.26 - 1503624.13 = 14978.13
     expect(standings(comparison)).toEqual([
-      ["binance_bitso", "ahead", "14978.13", "mep"],
-      ["mep", "behind", "14978.13", "binance_bitso"],
+      ["binance_p2p_bitso", "ahead", "14978.13", "mep"],
+      ["mep", "behind", "14978.13", "binance_p2p_bitso"],
       ["arq", "incomplete"],
     ]);
   });
@@ -253,7 +256,7 @@ describe("how each route stands against the others", () => {
     );
     expect(standings(comparison)).toEqual([
       ["mep", "alone"],
-      ["binance_bitso", "incomplete"],
+      ["binance_p2p_bitso", "incomplete"],
       ["arq", "incomplete"],
     ]);
   });
@@ -268,6 +271,7 @@ describe("how each route stands against the others", () => {
         { label: "s", feeIds: [fee], conversion: { rateKey: "mep", target: "ARS" as const } },
       ],
       warnings: [],
+      risk: null,
     });
     const comparison = compareRoutes(
       input({
@@ -298,6 +302,7 @@ describe("how each route stands against the others", () => {
         { label: "s", feeIds: [fee], conversion: { rateKey: "mep", target: "ARS" as const } },
       ],
       warnings: [],
+      risk: null,
     });
     const comparison = compareRoutes(
       input({
@@ -316,6 +321,188 @@ describe("how each route stands against the others", () => {
   });
 });
 
+describe("routes with a risk", () => {
+  // Sample amounts: ARQ 1524869.44, Binance 1518602.26, MEP 1503624.13.
+  const RISK = { label: "Riesgo", detail: "con riesgo" };
+  const risky = (...ids: string[]) =>
+    SAMPLE_ROUTES.map((route) => (ids.includes(route.id) ? { ...route, risk: RISK } : route));
+  const standings = (comparison: ReturnType<typeof compareRoutes>) =>
+    routesInOrder(comparison).map((r) => {
+      if (r.status !== "complete") {
+        return [r.route.id, r.status];
+      }
+      const { standing } = r;
+      switch (standing.kind) {
+        case "ahead":
+        case "behind":
+        case "over":
+          return [r.route.id, standing.kind, cents(standing.by), standing.other.id];
+        case "tied":
+          return [r.route.id, "tied", standing.other.id];
+        case "alone":
+        case "unrivaled":
+          return [r.route.id, standing.kind];
+      }
+    });
+
+  it("never makes a risky route the best, even when it delivers most", () => {
+    const comparison = compareRoutes(input({ routes: risky("arq") }));
+    expect(comparison.ranking.kind === "ranked" && comparison.ranking.best.route.id).toBe(
+      "binance_p2p_bitso",
+    );
+    // Still listed by what they deliver. 1524869.44 - 1518602.26 = 6267.18;
+    // 1518602.26 - 1503624.13 = 14978.13
+    expect(standings(comparison)).toEqual([
+      ["arq", "over", "6267.18", "binance_p2p_bitso"],
+      ["binance_p2p_bitso", "ahead", "14978.13", "mep"],
+      ["mep", "behind", "14978.13", "binance_p2p_bitso"],
+    ]);
+  });
+
+  it("compares the best route with the runner-up without risk, skipping a risky one", () => {
+    // 1524869.44 - 1503624.13 = 21245.31
+    expect(standings(compareRoutes(input({ routes: risky("binance_p2p_bitso") })))).toEqual([
+      ["arq", "ahead", "21245.31", "mep"],
+      ["binance_p2p_bitso", "behind", "6267.18", "arq"],
+      ["mep", "behind", "21245.31", "arq"],
+    ]);
+  });
+
+  it("leaves the best route unrivaled when every other route computed is risky", () => {
+    // 1524869.44 - 1503624.13 = 21245.31; 1518602.26 - 1503624.13 = 14978.13
+    expect(standings(compareRoutes(input({ routes: risky("arq", "binance_p2p_bitso") })))).toEqual([
+      ["arq", "over", "21245.31", "mep"],
+      ["binance_p2p_bitso", "over", "14978.13", "mep"],
+      ["mep", "unrivaled"],
+    ]);
+  });
+
+  it("recommends none when every route computed is risky, and still compares them", () => {
+    const comparison = compareRoutes(input({ routes: risky("arq", "binance_p2p_bitso", "mep") }));
+    expect(comparison.ranking.kind).toBe("risky");
+    expect(standings(comparison)).toEqual([
+      ["arq", "ahead", "6267.18", "binance_p2p_bitso"],
+      ["binance_p2p_bitso", "behind", "6267.18", "arq"],
+      ["mep", "behind", "21245.31", "arq"],
+    ]);
+  });
+
+  it("computes a lone risky route alone", () => {
+    const comparison = compareRoutes(
+      input({
+        routes: risky("binance_p2p_bitso"),
+        prices: new Map([...SAMPLE_PRICES, ["arq_usd_ars", null], ["mep", null]]),
+      }),
+    );
+    expect(standings(comparison)).toEqual([
+      ["binance_p2p_bitso", "alone"],
+      ["arq", "incomplete"],
+      ["mep", "incomplete"],
+    ]);
+  });
+
+  it("ties the best route with its runner-up without risk, a risky route above both", () => {
+    // b and c deliver 1000 x 1536.16 and tie; d pays 1 USD and trails. Then a, risky and free of
+    // fees too, ties with them: it comes first by id, but b stays the best.
+    const route = (id: string, fee: string, risk: boolean) => ({
+      id,
+      name: id,
+      source: "USD" as const,
+      target: "ARS" as const,
+      steps: [
+        { label: "s", feeIds: [fee], conversion: { rateKey: "mep", target: "ARS" as const } },
+      ],
+      warnings: [],
+      risk: risk ? RISK : null,
+    });
+    const comparison = compareRoutes(
+      input({
+        routes: [route("d", "one", false), route("c", "zero", false), route("b", "zero", false)],
+        fees: new Map([
+          ["zero", fixedFee("zero", "0", "USD")],
+          ["one", fixedFee("one", "1", "USD")],
+        ]),
+      }),
+    );
+    expect(standings(comparison)).toEqual([
+      ["b", "tied", "c"],
+      ["c", "tied", "b"],
+      ["d", "behind", "1536.16", "b"],
+    ]);
+    const withRisky = compareRoutes(
+      input({
+        routes: [
+          route("d", "one", false),
+          route("c", "zero", false),
+          route("b", "zero", false),
+          route("a", "zero", true),
+        ],
+        fees: new Map([
+          ["zero", fixedFee("zero", "0", "USD")],
+          ["one", fixedFee("one", "1", "USD")],
+        ]),
+      }),
+    );
+    expect(standings(withRisky)).toEqual([
+      ["a", "tied", "b"],
+      ["b", "tied", "c"],
+      ["c", "tied", "b"],
+      ["d", "behind", "1536.16", "b"],
+    ]);
+  });
+
+  it("ties the leader when every route computed is risky and two deliver the same", () => {
+    const route = (id: string) => ({
+      id,
+      name: id,
+      source: "USD" as const,
+      target: "ARS" as const,
+      steps: [
+        { label: "s", feeIds: ["zero"], conversion: { rateKey: "mep", target: "ARS" as const } },
+      ],
+      warnings: [],
+      risk: RISK,
+    });
+    const comparison = compareRoutes(
+      input({
+        routes: [route("b"), route("a")],
+        fees: new Map([["zero", fixedFee("zero", "0", "USD")]]),
+      }),
+    );
+    expect(comparison.ranking.kind).toBe("risky");
+    expect(standings(comparison)).toEqual([
+      ["a", "tied", "b"],
+      ["b", "tied", "a"],
+    ]);
+  });
+
+  it("ties a risky route that delivers as much as the best, above or below it by id", () => {
+    // a, b and c deliver 1000 x 1536.16; a and c are risky, so b is the best.
+    const route = (id: string, risk: boolean) => ({
+      id,
+      name: id,
+      source: "USD" as const,
+      target: "ARS" as const,
+      steps: [
+        { label: "s", feeIds: ["zero"], conversion: { rateKey: "mep", target: "ARS" as const } },
+      ],
+      warnings: [],
+      risk: risk ? RISK : null,
+    });
+    const comparison = compareRoutes(
+      input({
+        routes: [route("c", true), route("b", false), route("a", true)],
+        fees: new Map([["zero", fixedFee("zero", "0", "USD")]]),
+      }),
+    );
+    expect(standings(comparison)).toEqual([
+      ["a", "tied", "b"],
+      ["b", "unrivaled"],
+      ["c", "tied", "b"],
+    ]);
+  });
+});
+
 describe("routes whose own data is wrong", () => {
   const failures = (comparison: ReturnType<typeof compareRoutes>) =>
     comparison.failed.map((r) => [r.route.id, r.error.name, r.error.message]);
@@ -330,7 +517,7 @@ describe("routes whose own data is wrong", () => {
       ["arq", "CurrencyMismatchError", "Route arq ends in USD, it declares ARS"],
     ]);
     expect(ids(comparison)).toEqual([
-      ["binance_bitso", "complete"],
+      ["binance_p2p_bitso", "complete"],
       ["mep", "complete"],
       ["arq", "failed"],
     ]);
@@ -343,6 +530,7 @@ describe("routes whose own data is wrong", () => {
     target: "USD" as const,
     steps: [{ label: "s", feeIds: ["arq_ach_deposit"], conversion: null }],
     warnings: [],
+    risk: null,
   };
 
   it("fails a route that ends in another currency than the comparison, wherever it is", () => {
@@ -355,7 +543,7 @@ describe("routes whose own data is wrong", () => {
         ["usd", "CurrencyMismatchError", "Route usd ends in USD, the comparison is in ARS"],
       ]);
       expect(ids(comparison)).toEqual([
-        ["binance_bitso", "complete"],
+        ["binance_p2p_bitso", "complete"],
         ["mep", "complete"],
         ["usd", "failed"],
       ]);
@@ -389,7 +577,7 @@ describe("routes whose own data is wrong", () => {
     ]);
     const comparison = compareRoutes(input({ rateDefinitions, prices }));
     expect(comparison.failed).toEqual([]);
-    expect(ids(comparison)).toContainEqual(["binance_bitso", "incomplete"]);
+    expect(ids(comparison)).toContainEqual(["binance_p2p_bitso", "incomplete"]);
   });
 
   it("fails the routes that convert with a rate whose definition is wrong", () => {
@@ -398,12 +586,12 @@ describe("routes whose own data is wrong", () => {
     );
     const comparison = compareRoutes(input({ rateDefinitions }));
     expect(failures(comparison)).toEqual([
-      ["binance_bitso", "InvalidRateError", "Rate bitso_usdt_ars: base and quote must differ"],
+      ["binance_p2p_bitso", "InvalidRateError", "Rate bitso_usdt_ars: base and quote must differ"],
     ]);
     expect(ids(comparison)).toEqual([
       ["arq", "complete"],
       ["mep", "complete"],
-      ["binance_bitso", "failed"],
+      ["binance_p2p_bitso", "failed"],
     ]);
   });
 });

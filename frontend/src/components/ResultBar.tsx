@@ -1,17 +1,19 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
 
+import type { RouteRisk } from "../calculator/index.ts";
 import type { BarLead, BarText } from "../form/summary.ts";
 
 interface ResultBarProps {
   readonly text: BarText;
-  /** Where the bar takes the person: the whole result, or what to review in the best route. */
+  /** Where the bar takes the person: the whole result, or what to review in the route it shows. */
   readonly targetId: string;
   readonly onOpen: (targetId: string) => void;
 }
 
 /**
- * On a phone, the best route stays in view at the bottom while the person types; tapping it goes
- * to the full result, or straight to what the best route has to review when it has something.
+ * On a phone, the best route stays in view at the bottom while the person types (or, when only
+ * risky routes can be computed, the one that delivers most, marked as risky); tapping it goes to
+ * the full result, or straight to what that route has to review when it has something.
  * While the keyboard is open the bar shrinks to one line. Hidden on wide screens, where the
  * result sits in its own column.
  */
@@ -49,7 +51,36 @@ const LEADS: Readonly<Record<BarLead, { full: string; short: string }>> = {
   best: { full: "Mejor ruta", short: "Mejor" },
   tied: { full: "Empatan", short: "Empate" },
   alone: { full: "Única ruta calculada", short: "Única" },
+  risky: { full: "Solo con riesgo", short: "Solo con riesgo" },
 };
+
+/**
+ * After the route's name when it is risky: seen as "· riesgo", heard as the route's own label
+ * ("Riesgo de bloqueo"), which holds the word seen. In the one-line bar it sits outside the name,
+ * which a narrow phone cuts, so it is never cut with it.
+ */
+function RiskMark({
+  risk,
+  compact,
+}: {
+  readonly risk: RouteRisk | null;
+  readonly compact: boolean;
+}) {
+  if (risk === null) {
+    return null;
+  }
+  // The space before it is a text node, which the one-line bar's layout ignores and the name
+  // keeps; there the gap on screen is the no-break space.
+  return (
+    <>
+      {" "}
+      <span className="result-bar-risk">
+        <span aria-hidden="true">{compact ? "\u00a0" : ""}· riesgo</span>
+        <span className="visually-hidden">· {risk.label}</span>
+      </span>
+    </>
+  );
+}
 
 function FullText({ text }: { readonly text: BarText }) {
   if (text.kind === "pending") {
@@ -59,6 +90,7 @@ function FullText({ text }: { readonly text: BarText }) {
     <>
       <span className="result-bar-label">
         {LEADS[text.lead].full}: {text.route}
+        <RiskMark risk={text.risk} compact={false} />
         <span className="visually-hidden">.</span>
       </span>{" "}
       <span className="result-bar-amount">
@@ -92,7 +124,8 @@ function CompactLine({ text }: { readonly text: BarText }) {
     <span className="result-bar-line">
       <span className="result-bar-route">
         {LEADS[text.lead].short}: {text.route}
-      </span>{" "}
+      </span>
+      <RiskMark risk={text.risk} compact />{" "}
       <span className="result-bar-figure">
         &nbsp;· {text.amountWhole}
         {text.review ? (

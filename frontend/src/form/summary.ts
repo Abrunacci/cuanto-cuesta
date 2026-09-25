@@ -1,6 +1,6 @@
 /** The one-line summary of the results, and the shorter text of the bar that keeps it in view. */
 
-import type { CompleteRoute, Comparison, Ranking } from "../calculator/index.ts";
+import type { CompleteRoute, Comparison, Ranking, RouteRisk } from "../calculator/index.ts";
 import { joinSpanish } from "../text/lists.ts";
 import { formatMoney, formatMoneyWhole } from "../text/numbers.ts";
 import { fieldId, type FormReading } from "./form.ts";
@@ -22,20 +22,46 @@ export function summaryText(comparison: Comparison, amountHasProblem: boolean): 
       return pendingText(comparison, amountHasProblem);
     case "alone": {
       const { only } = ranking;
-      return `Por ahora solo se puede calcular ${only.route.name}: ${arrives(only)}.`;
+      return `Por ahora solo se puede calcular ${only.route.name}${riskDetail(only)}: ${arrives(only)}.`;
     }
-    case "ranked": {
-      const { best } = ranking;
-      switch (best.standing.kind) {
-        case "ahead": {
-          const { by, other } = best.standing;
-          return `Mejor ruta: ${best.route.name}, ${arrives(best)}: ${formatMoney(by.amount, by.currency)} más que ${other.name}.`;
-        }
-        case "tied":
-          return `Empatan ${joinSpanish(tiedNames(ranking))}: ${arrives(best)}.`;
-      }
+    case "ranked":
+      return [bestText(ranking), ...ranking.above.flatMap(riskyOverText)].join(" ");
+    case "risky": {
+      const { leader } = ranking;
+      return `Por ahora solo se pueden calcular rutas con riesgo: ${leader.route.name}, ${arrives(leader)}${riskDetail(leader)}.`;
     }
   }
+}
+
+/** The recommended route: the best without risk, or those tied with it. */
+function bestText(ranking: RankedRanking): string {
+  const { best } = ranking;
+  switch (best.standing.kind) {
+    case "ahead": {
+      const { by, other } = best.standing;
+      return `Mejor ruta: ${best.route.name}, ${arrives(best)}: ${formatMoney(by.amount, by.currency)} más que ${other.name}.`;
+    }
+    case "tied":
+      return `Empatan ${joinSpanish(tiedNames(ranking))}: ${arrives(best)}.`;
+    case "unrivaled":
+      return `Mejor ruta: ${best.route.name}, ${arrives(best)}.`;
+  }
+}
+
+/** A risky route that delivers more than the recommended one, and what it risks. */
+function riskyOverText(entry: RankedRanking["above"][number]): string[] {
+  if (entry.standing.kind !== "over" || entry.route.risk === null) {
+    return [];
+  }
+  const { by } = entry.standing;
+  return [
+    `${entry.route.name} deja ${formatMoney(by.amount, by.currency)} más, ${entry.route.risk.detail}.`,
+  ];
+}
+
+/** ", con riesgo de …" for a risky route; nothing for the others. */
+function riskDetail({ route }: CompleteRoute): string {
+  return route.risk === null ? "" : `, ${route.risk.detail}`;
 }
 
 const ALL_FAILED =
@@ -68,14 +94,22 @@ function arrives({ result }: CompleteRoute): string {
   return `llegan ${formatMoney(result.final.amount, result.final.currency)}`;
 }
 
-/** The names of the routes that deliver as much as the best one, best first. */
-function tiedNames(ranking: Extract<Ranking, { kind: "ranked" }>): string[] {
-  const tied = ranking.rest.filter((r) => r.standing.kind === "tied");
+type RankedRanking = Extract<Ranking, { kind: "ranked" }>;
+
+/**
+ * The names of the routes without risk that deliver as much as the best one, best first. A risky
+ * route tied with it is not among them: it is never recommended.
+ */
+function tiedNames(ranking: RankedRanking): string[] {
+  const tied = ranking.rest.filter((r) => r.standing.kind === "tied" && r.route.risk === null);
   return [ranking.best, ...tied].map((r) => r.route.name);
 }
 
-/** The best route; tied routes share the lead; alone, it is the only one computed. */
-export type BarLead = "best" | "tied" | "alone";
+/**
+ * The best route; tied routes share the lead; alone, it is the only one computed; risky, every
+ * route computed is risky and this one delivers most.
+ */
+export type BarLead = "best" | "tied" | "alone" | "risky";
 
 export type BarText =
   | {
@@ -89,6 +123,8 @@ export type BarText =
       readonly amountWhole: string;
       /** The result rests on an estimate, a value to set or an unusual price. */
       readonly review: boolean;
+      /** What the route risks; only a risky route when no route without risk can be computed. */
+      readonly risk: RouteRisk | null;
     }
   | {
       readonly kind: "pending";
@@ -112,6 +148,7 @@ export function barText(reading: FormReading, amountHasProblem: boolean): BarTex
       amount: formatMoney(final.amount, final.currency),
       amountWhole: formatMoneyWhole(final.amount, final.currency),
       review: routeNeedsReview(entry.route, reading.ownFees, reading.warnings),
+      risk: entry.route.risk,
     };
   }
   if (allFailed(comparison)) {
@@ -138,22 +175,32 @@ export function barText(reading: FormReading, amountHasProblem: boolean): BarTex
 }
 
 /** The route the bar shows, how it leads, and the name to show: the tied routes' together. */
-function leadOf(
-  ranking: Ranking,
-): { readonly entry: CompleteRoute; readonly kind: BarLead; readonly name: string } | null {
+interface Lead {
+  readonly entry: CompleteRoute;
+  readonly kind: BarLead;
+  readonly name: string;
+}
+
+function leadOf(ranking: Ranking): Lead | null {
   switch (ranking.kind) {
     case "none":
       return null;
     case "alone":
       return { entry: ranking.only, kind: "alone", name: ranking.only.route.name };
-    case "ranked": {
-      const { best } = ranking;
-      switch (best.standing.kind) {
-        case "ahead":
-          return { entry: best, kind: "best", name: best.route.name };
-        case "tied":
-          return { entry: best, kind: "tied", name: joinSpanish(tiedNames(ranking)) };
-      }
-    }
+    case "ranked":
+      return rankedLead(ranking);
+    case "risky":
+      return { entry: ranking.leader, kind: "risky", name: ranking.leader.route.name };
+  }
+}
+
+function rankedLead(ranking: RankedRanking): Lead {
+  const { best } = ranking;
+  switch (best.standing.kind) {
+    case "ahead":
+    case "unrivaled":
+      return { entry: best, kind: "best", name: best.route.name };
+    case "tied":
+      return { entry: best, kind: "tied", name: joinSpanish(tiedNames(ranking)) };
   }
 }

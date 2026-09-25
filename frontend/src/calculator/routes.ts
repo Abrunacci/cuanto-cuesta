@@ -40,6 +40,16 @@ export interface Route {
   readonly target: Currency;
   readonly steps: readonly Step[];
   readonly warnings: readonly string[];
+  /** A route that can cost the person more than money is never recommended; null for most. */
+  readonly risk: RouteRisk | null;
+}
+
+/** What a risky route can cost the person, shown on screen in Spanish. */
+export interface RouteRisk {
+  /** A few words next to the route's name: "Riesgo de bloqueo". */
+  readonly label: string;
+  /** Said after what the route delivers: "con riesgo de bloqueo de tu cuenta de Binance". */
+  readonly detail: string;
 }
 
 export interface ChargedFee {
