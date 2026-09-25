@@ -12,6 +12,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { App } from "./App.tsx";
+import { scrollIntoView } from "./test-scroll.ts";
 
 /** Text with no-break spaces as plain spaces, to compare with what the person reads. */
 const plain = (text: string | null) => (text ?? "").replace(/\u00a0/g, " ");
@@ -65,6 +66,14 @@ async function fillEverything(type: (name: RegExp, text: string) => Promise<void
   await type(/^Precio P2P en Binance/, "1,03");
   await type(/^Precio de venta en Bitso/, "1.596,21");
   await type(/^Cotización de ARQ/, "1.593,385");
+}
+
+/** The elements scrolled to the top of the screen, with the options used. */
+function scrolledToTop() {
+  return scrollIntoView.mock.contexts.map((element, i) => ({
+    element,
+    options: scrollIntoView.mock.calls[i]?.[0],
+  }));
 }
 
 const description = (text: string) => expect.stringContaining(text) as string;
@@ -679,6 +688,8 @@ describe("the calculator page", () => {
     );
     expect(field(/^Recargo P2P por pagar con Payoneer/)).toBeVisible();
     expect(field(/^Recargo P2P por pagar con Payoneer/)).toHaveFocus();
+    // A field is left to the browser, which keeps it above the bar.
+    expect(scrolledToTop()).toEqual([]);
   });
 
   it("links an estimated fee to its field in another route's card", async () => {
@@ -781,7 +792,9 @@ describe("the calculator page", () => {
   it("takes the person to the full result from the bar", async () => {
     const { user } = setup();
     await user.click(screen.getByRole("link", { name: /Ver resultado$/ }));
-    expect(screen.getByRole("heading", { name: "Resultado" })).toHaveFocus();
+    const title = screen.getByRole("heading", { name: "Resultado" });
+    expect(title).toHaveFocus();
+    expect(scrolledToTop()).toEqual([{ element: title, options: { block: "start" } }]);
   });
 
   it("takes the person to the best route's review list when it has values to review", async () => {
@@ -796,6 +809,10 @@ describe("the calculator page", () => {
     expect(bar).toHaveAttribute("href", "#review-binance_bitso");
     await user.click(bar);
     expect(reviewLine("Binance P2P + Bitso")).toHaveFocus();
+    // At the top of the screen, so the list just opened is not left under the bar.
+    expect(scrolledToTop()).toEqual([
+      { element: reviewLine("Binance P2P + Bitso"), options: { block: "start" } },
+    ]);
     expect(screen.getByRole("link", { name: "Recargo P2P por pagar con Payoneer" })).toBeVisible();
   });
 
@@ -827,7 +844,10 @@ describe("the calculator page", () => {
     expect(bar).toHaveTextContent("· revisá");
     // No fee left to review, so no list to open: the unusual price is noted under the heading.
     await user.click(bar);
-    expect(screen.getByRole("heading", { name: "Binance P2P + Bitso" })).toHaveFocus();
+    const heading = screen.getByRole("heading", { name: "Binance P2P + Bitso" });
+    expect(heading).toHaveFocus();
+    // At the top of the screen, so the route's result is not left under the bar.
+    expect(scrolledToTop()).toEqual([{ element: heading, options: { block: "start" } }]);
   });
 
   describe("with an on-screen keyboard that only shrinks the visual viewport (Safari on iOS)", () => {

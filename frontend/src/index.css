@@ -74,6 +74,13 @@ html {
   scroll-padding-bottom: calc(var(--bar-height) + 1rem);
 }
 
+/* Places in the result the page takes the person to, scrolled to the top of the screen. */
+.results h2,
+.ranking h3,
+.review > summary {
+  scroll-margin-top: 1rem;
+}
+
 .page {
   max-width: 48rem;
   margin: 0 auto;

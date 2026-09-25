@@ -53,8 +53,7 @@ export function App() {
         setReviewOpen(routeId, true);
       });
     }
-    // Focusing also scrolls the field into view.
-    document.getElementById(id)?.focus();
+    focusInView(id);
   };
 
   return (
@@ -121,7 +120,7 @@ export function App() {
         targetId={barTarget}
         onOpen={(id) => {
           if (barRoute === undefined) {
-            document.getElementById(id)?.focus();
+            focusInView(id);
           } else {
             goToField(barRoute.id, id);
           }
@@ -129,6 +128,26 @@ export function App() {
       />
     </>
   );
+}
+
+/**
+ * Focus the element with this id where the person can see it and what follows it. A field is
+ * scrolled into view by the browser, above the phone's bar thanks to `scroll-padding-bottom`.
+ * Anything else (the result's title, a route's heading, a review line) goes to the top of the
+ * screen: browsers only scroll it as far as needed, or not at all when it shows just above the
+ * bar, which leaves the route or the list just opened under the bar.
+ */
+function focusInView(id: string): void {
+  const target = document.getElementById(id);
+  if (target === null) {
+    return;
+  }
+  if (target instanceof HTMLInputElement) {
+    target.focus();
+    return;
+  }
+  target.focus({ preventScroll: true });
+  target.scrollIntoView({ block: "start" });
 }
 
 /** `set` with `member` in it or not, as `present` says; the same set when nothing changes. */
