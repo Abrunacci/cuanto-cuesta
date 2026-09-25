@@ -672,8 +672,9 @@ h3 {
     margin-bottom: 0.25rem;
   }
 
+  /* 24px, the smallest target WCAG 2.5.8 accepts. */
   .review > summary {
-    min-height: 1.25rem;
+    min-height: 1.5rem;
   }
 
   .figure-main {

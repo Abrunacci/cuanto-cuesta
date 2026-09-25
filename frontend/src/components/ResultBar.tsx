@@ -6,7 +6,7 @@ interface ResultBarProps {
   readonly text: BarText;
   /** Where the bar takes the person: the whole result, or what to review in the best route. */
   readonly targetId: string;
-  readonly onOpen: () => void;
+  readonly onOpen: (targetId: string) => void;
 }
 
 /**
@@ -32,7 +32,7 @@ export function ResultBar({ text, targetId, onOpen }: ResultBarProps) {
         style={{ bottom: `${String(keyboard.inset)}px` }}
         onClick={(event) => {
           event.preventDefault();
-          onOpen();
+          onOpen(targetId);
         }}
       >
         {compact ? <CompactLine text={text} /> : <FullText text={text} />}{" "}

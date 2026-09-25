@@ -8,6 +8,7 @@ import { ResultBar } from "./components/ResultBar.tsx";
 import { Results } from "./components/Results.tsx";
 import { RouteCard } from "./components/RouteCard.tsx";
 import { RESULTS_TITLE_ID, reviewTargetId, routeReviewId } from "./components/ids.ts";
+import { reviewOpensList } from "./form/review.ts";
 import { fieldId } from "./form/form.ts";
 import { barText, hasAmountProblem } from "./form/summary.ts";
 import { useForm } from "./form/useForm.ts";
@@ -21,6 +22,10 @@ export function App() {
   const bar = barText(reading, amountHasProblem);
   const barRoute =
     bar.kind === "best" && bar.review ? ROUTES.find((r) => r.id === bar.routeId) : undefined;
+  const barTarget =
+    barRoute !== undefined
+      ? reviewTargetId(barRoute.id, reviewOpensList(barRoute, reading.ownFees))
+      : RESULTS_TITLE_ID;
 
   const setRouteOpen = (routeId: string, open: boolean) => {
     setOpenRoutes((current) => withMember(current, routeId, open));
@@ -113,15 +118,10 @@ export function App() {
 
       <ResultBar
         text={bar}
-        targetId={
-          barRoute !== undefined ? reviewTargetId(barRoute, reading.ownFees) : RESULTS_TITLE_ID
-        }
-        onOpen={() => {
-          if (barRoute === undefined) {
-            document.getElementById(RESULTS_TITLE_ID)?.focus();
-          } else {
-            goToField(barRoute.id, reviewTargetId(barRoute, reading.ownFees));
-          }
+        targetId={barTarget}
+        onOpen={(id) => {
+          // The whole result is in no card and no route's list: goToField only focuses it.
+          goToField(barRoute?.id ?? "", id);
         }}
       />
     </>

@@ -1,4 +1,4 @@
-import type { IncompleteRoute, Money, RouteResult } from "../calculator/index.ts";
+import type { IncompleteRoute, Money, Route, RouteResult } from "../calculator/index.ts";
 import type { FeeGap } from "../form/form.ts";
 import { missingFieldId, missingKey } from "../form/missing.ts";
 import { missingInputLabel } from "../form/messages.ts";
@@ -6,6 +6,7 @@ import type { Difference } from "../form/review.ts";
 import { joinSpanish } from "../text/lists.ts";
 import { formatMoney } from "../text/numbers.ts";
 import { InPageAnchor } from "./LinkList.tsx";
+import { reviewOpensList } from "../form/review.ts";
 import { reviewTargetId } from "./ids.ts";
 
 /**
@@ -86,25 +87,8 @@ function DifferenceText({
     return <span className="figure-detail">Todavía no hay otra ruta para comparar</span>;
   }
   const { standing, review } = difference;
-  const target = review !== null ? reviewTargetId(review, ownFees) : null;
-  const reviewLink = review !== null && target !== null && (
-    <>
-      {" "}
-      <span className="figure-review">
-        <span aria-hidden="true">· </span>
-        <InPageAnchor
-          link={{
-            key: review.id,
-            href: `#${target}`,
-            text: "revisá",
-            label: `Revisá los valores de ${review.name}`,
-            onClick: () => {
-              onGoToField(review.id, target);
-            },
-          }}
-        />
-      </span>
-    </>
+  const reviewLink = review !== null && (
+    <ReviewLink review={review} ownFees={ownFees} onGoToField={onGoToField} />
   );
   switch (standing.kind) {
     case "ahead":
@@ -126,6 +110,38 @@ function DifferenceText({
         </span>
       );
   }
+}
+
+/** " · revisá": a link to what to check in `review`, the route the difference rests on. */
+function ReviewLink({
+  review,
+  ownFees,
+  onGoToField,
+}: {
+  readonly review: Route;
+  readonly ownFees: ReadonlySet<string>;
+  readonly onGoToField: GoTo;
+}) {
+  const target = reviewTargetId(review.id, reviewOpensList(review, ownFees));
+  return (
+    <>
+      {" "}
+      <span className="figure-review">
+        <span aria-hidden="true">· </span>
+        <InPageAnchor
+          link={{
+            key: review.id,
+            href: `#${target}`,
+            text: "revisá",
+            label: `Revisá los valores de ${review.name}`,
+            onClick: () => {
+              onGoToField(review.id, target);
+            },
+          }}
+        />
+      </span>
+    </>
+  );
 }
 
 interface RouteMissingProps {
