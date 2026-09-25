@@ -14,7 +14,7 @@ interface ResultsProps {
   readonly comparison: Comparison;
   readonly feeGaps: ReadonlyMap<string, FeeGap>;
   /** The amount holds a value that cannot be used. */
-  readonly amountProblem: boolean;
+  readonly amountHasProblem: boolean;
   /** Field ids whose value is used but looks wrong. */
   readonly warnings: ReadonlyMap<string, string>;
   /** Ids of the fees the person set. */
@@ -30,7 +30,7 @@ interface ResultsProps {
 export function Results({
   comparison,
   feeGaps,
-  amountProblem,
+  amountHasProblem,
   warnings,
   ownFees,
   onGoToField,
@@ -46,7 +46,7 @@ export function Results({
         Resultado
       </h2>
       <p className="summary" aria-live="polite" aria-atomic="true">
-        {summaryText(comparison, amountProblem)}
+        {summaryText(comparison, amountHasProblem)}
       </p>
       {common.length > 0 && firstRoute !== undefined && (
         <p className="missing">

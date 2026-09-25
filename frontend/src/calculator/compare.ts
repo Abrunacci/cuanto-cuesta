@@ -90,6 +90,7 @@ export function compareRoutes(input: ComparisonInput): Comparison {
       ? convert(reference, input.amount, reference.quote)
       : null;
 
+  requireOneTarget(input.routes);
   const complete: Unranked[] = [];
   const incomplete: IncompleteRoute[] = [];
   for (const route of input.routes) {
@@ -117,6 +118,18 @@ export function compareRoutes(input: ComparisonInput): Comparison {
 }
 
 type Unranked = Omit<CompleteRoute, "standing">;
+
+/** Routes are ranked by what they deliver, which only compares within one currency. */
+function requireOneTarget(routes: readonly Route[]): void {
+  const [first] = routes;
+  for (const route of routes) {
+    if (first !== undefined && route.target !== first.target) {
+      throw new CurrencyMismatchError(
+        `Route ${route.id} ends in ${route.target}, route ${first.id} in ${first.target}`,
+      );
+    }
+  }
+}
 
 function standing(
   entry: Unranked,

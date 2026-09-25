@@ -4,7 +4,7 @@ import { compareRoutes, fixedFee } from "../calculator/index.ts";
 import { validAmount, validPrice } from "../calculator/sample.fixture.ts";
 import { initialTexts, readForm, type FormTexts } from "./form.ts";
 import { commonMissing } from "./missing.ts";
-import { amountProblem, barText, summaryText } from "./summary.ts";
+import { barText, hasAmountProblem, summaryText } from "./summary.ts";
 
 const PRICES = {
   mep: "1.536,16",
@@ -139,8 +139,8 @@ describe("barText", () => {
 
   it("asks to review a wrong amount before listing what is missing", () => {
     const reading = read({ amount: "0" });
-    expect(amountProblem(reading)).toBe(true);
-    expect(barText(reading, amountProblem(reading))).toEqual({
+    expect(hasAmountProblem(reading)).toBe(true);
+    expect(barText(reading, hasAmountProblem(reading))).toEqual({
       kind: "pending",
       text: "Revisá el monto: tiene un valor que no se puede usar.",
       short: "Revisá: monto",
@@ -149,7 +149,7 @@ describe("barText", () => {
 
   it("points to each route when the amount is fine and no route has its prices", () => {
     const reading = read({ amount: "1000" });
-    expect(barText(reading, amountProblem(reading))).toMatchObject({
+    expect(barText(reading, hasAmountProblem(reading))).toMatchObject({
       kind: "pending",
       short: "Mirá qué le falta a cada ruta",
     });
@@ -157,7 +157,7 @@ describe("barText", () => {
 
   it("computes the other routes when only the MEP is wrong", () => {
     const reading = read({ amount: "1000", prices: { ...PRICES, mep: "-1" } });
-    expect(amountProblem(reading)).toBe(false);
+    expect(hasAmountProblem(reading)).toBe(false);
     expect(barText(reading, false)).toMatchObject({
       kind: "best",
       lead: "best",
@@ -236,6 +236,7 @@ describe("summaryText", () => {
       "Todavía ninguna ruta se puede calcular: mirá qué le falta a cada una.",
     ],
     [{ amount: "0" }, true, "Revisá el monto: tiene un valor que no se puede usar."],
+    [{ prices: PRICES }, false, "Completá el monto para comparar las rutas."],
   ])("says what to do while no route can be computed (%o)", (texts, problem, expected) => {
     expect(summaryText(read(texts).comparison, problem)).toBe(expected);
   });

@@ -96,9 +96,7 @@ function DifferenceText({ standing }: { readonly standing: Standing }) {
     case "behind":
       return (
         <>
-          <span className="figure-amount">
-            {formatMoney(standing.by.amount, standing.by.currency)}
-          </span>{" "}
+          {formatMoney(standing.by.amount, standing.by.currency)}{" "}
           <span className="figure-detail">
             {standing.kind === "ahead" ? "más" : "menos"} que {standing.other.name}
           </span>

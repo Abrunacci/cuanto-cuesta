@@ -9,7 +9,7 @@ import { commonMissing } from "./missing.ts";
 import { routeNeedsReview } from "./review.ts";
 
 /** Whether the amount holds a value that cannot be used; every route needs it. */
-export function amountProblem({ problems }: FormReading): boolean {
+export function hasAmountProblem({ problems }: FormReading): boolean {
   return problems.has(fieldId.amount);
 }
 
@@ -21,9 +21,15 @@ export function summaryText(comparison: Comparison, amountHasProblem: boolean): 
     if (amountHasProblem) {
       return AMOUNT_PROBLEM;
     }
-    return commonMissing(comparison).some((missing) => missing.kind === "amount")
-      ? "Completá el monto y las cotizaciones para comparar las rutas."
-      : "Todavía ninguna ruta se puede calcular: mirá qué le falta a cada una.";
+    if (!commonMissing(comparison).some((missing) => missing.kind === "amount")) {
+      return "Todavía ninguna ruta se puede calcular: mirá qué le falta a cada una.";
+    }
+    const onlyAmount = comparison.routes.some(
+      (r) => r.status === "incomplete" && r.missing.every((missing) => missing.kind === "amount"),
+    );
+    return onlyAmount
+      ? "Completá el monto para comparar las rutas."
+      : "Completá el monto y las cotizaciones para comparar las rutas.";
   }
   const { final } = best.result;
   const arrives = `llegan ${formatMoney(final.amount, final.currency)}`;
@@ -37,8 +43,7 @@ export function summaryText(comparison: Comparison, amountHasProblem: boolean): 
     case "alone":
       return `Por ahora solo se puede calcular ${best.route.name}: ${arrives}.`;
     case "behind":
-      // The best route is never behind another one.
-      return `Mejor ruta: ${best.route.name}, ${arrives}.`;
+      throw new Error(`The best route, ${best.route.id}, cannot be behind another one`);
   }
 }
 
@@ -112,8 +117,9 @@ export function barText(reading: FormReading, amountHasProblem: boolean): BarTex
 function barLead(best: CompleteRoute): BarLead {
   switch (best.standing.kind) {
     case "ahead":
-    case "behind":
       return "best";
+    case "behind":
+      throw new Error(`The best route, ${best.route.id}, cannot be behind another one`);
     case "tied":
       return "tied";
     case "alone":

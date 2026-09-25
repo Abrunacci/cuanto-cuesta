@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { compareRoutes, type ComparisonInput, type RouteComparison } from "./compare.ts";
 import { fixedFee, type Fee } from "./fees.ts";
 import { positivePrice, type PositivePrice } from "./inputs.ts";
-import { Decimal, type Money } from "./money.ts";
+import { CurrencyMismatchError, Decimal, type Money } from "./money.ts";
 import {
   SAMPLE_FEES,
   SAMPLE_PRICES,
@@ -101,7 +101,7 @@ describe("losses against the reference, as in the Python domain tests", () => {
     (amount) => {
       const comparison = compareRoutes(input({ amount: validAmount(amount) }));
       for (const r of comparison.routes) {
-        expect(r.status).toBe("complete");
+        expect(r.status === "complete" && r.fxLoss !== null).toBe(true);
         if (r.status === "complete" && r.fxLoss !== null) {
           const total = r.result.final.amount.plus(r.feeCost.amount).plus(r.fxLoss.amount);
           expect(total.toFixed(2)).toBe(cents(comparison.atReference));
@@ -302,6 +302,31 @@ describe("how each route stands against the others", () => {
   });
 });
 
-function withMep(price: string) {
-  return new Map<string, PositivePrice | null>([...SAMPLE_PRICES, ["mep", validPrice(price)]]);
+function withMep(price: string | null) {
+  return new Map<string, PositivePrice | null>([
+    ...SAMPLE_PRICES,
+    ["mep", price === null ? null : validPrice(price)],
+  ]);
 }
+
+describe("currencies", () => {
+  it("refuses to rank routes that end in different currencies, even without the MEP", () => {
+    const route = (id: string, target: "USD" | "ARS") => ({
+      id,
+      name: id,
+      source: "USD" as const,
+      target,
+      steps: [{ label: "s", feeIds: ["f"], conversion: null }],
+      warnings: [],
+    });
+    expect(() =>
+      compareRoutes(
+        input({
+          routes: [route("ars", "ARS"), route("usd", "USD")],
+          prices: withMep(null),
+          fees: new Map([["f", fixedFee("f", "0", "USD")]]),
+        }),
+      ),
+    ).toThrow(CurrencyMismatchError);
+  });
+});
