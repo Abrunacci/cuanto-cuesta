@@ -95,7 +95,7 @@ describe("reviewSummary", () => {
 describe("differenceToReview", () => {
   const PRICES = {
     mep: "1.536,16",
-    p2p_usdt_usd: "1,03",
+    binance_p2p_usdt_usd: "1,03",
     bitso_usdt_ars: "1.596,21",
     arq_usd_ars: "1.593,385",
   };
@@ -165,7 +165,7 @@ describe("differenceToReview", () => {
   });
 
   it("has nothing to compare a lone route with", () => {
-    const only = { ...PRICES, p2p_usdt_usd: "", arq_usd_ars: "" };
+    const only = { ...PRICES, binance_p2p_usdt_usd: "", arq_usd_ars: "" };
     expect(toReview({ prices: only })).toEqual([["mep", "alone"]]);
   });
 });

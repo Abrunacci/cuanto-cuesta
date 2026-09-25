@@ -8,7 +8,7 @@ import { barText, hasAmountProblem, summaryText } from "./summary.ts";
 
 const PRICES = {
   mep: "1.536,16",
-  p2p_usdt_usd: "1,03",
+  binance_p2p_usdt_usd: "1,03",
   bitso_usdt_ars: "1.596,21",
   arq_usd_ars: "1.593,385",
 };
@@ -24,14 +24,14 @@ const ARQ_SET = { payoneer_us_withdrawal: "4", arq_usd_usdc_conversion: "0" };
 /** The example from the issue: ARQ's price left empty. */
 const EXAMPLE = {
   amount: "1500",
-  prices: { mep: "1500", p2p_usdt_usd: "1", bitso_usdt_ars: "1600", arq_usd_ars: "" },
+  prices: { mep: "1500", binance_p2p_usdt_usd: "1", bitso_usdt_ars: "1600", arq_usd_ars: "" },
 };
 /** Only Binance P2P + Bitso, which is risky, can be computed. */
 const ONLY_P2P = { ...EXAMPLE, prices: { ...EXAMPLE.prices, mep: "" } };
 /** Only the MEP route can be computed. */
 const ONLY_MEP = {
   amount: "1000",
-  prices: { mep: "1.536,16", p2p_usdt_usd: "", bitso_usdt_ars: "", arq_usd_ars: "" },
+  prices: { mep: "1.536,16", binance_p2p_usdt_usd: "", bitso_usdt_ars: "", arq_usd_ars: "" },
 };
 
 /** A route converting at the MEP after one fee; risky ones say "con riesgo de <ID>". */
@@ -274,7 +274,7 @@ describe("barText", () => {
     // Binance and ARQ lack their prices; the MEP route lacks a fee: nothing is common.
     const reading = read({
       amount: "1000",
-      prices: { ...PRICES, p2p_usdt_usd: "", arq_usd_ars: "" },
+      prices: { ...PRICES, binance_p2p_usdt_usd: "", arq_usd_ars: "" },
       fees: { ...initialTexts().fees, broker_buy: "" },
     });
     expect(routesInOrder(reading.comparison).every((r) => r.status === "incomplete")).toBe(true);

@@ -147,7 +147,7 @@ describe("the bundled data, calculated end to end", () => {
   // seen on its final payment screen on 25/09/2026, and its results are checked by hand.
   const prices = new Map([
     ["mep", validPrice("1536.16")],
-    ["p2p_usdt_usd", validPrice("1.03")],
+    ["binance_p2p_usdt_usd", validPrice("1.03")],
     ["bitso_usdt_ars", validPrice("1596.21")],
     ["arq_usd_ars", validPrice("1593.385")],
     ["binance_card_usd_usdt", validPrice("0.95448")],
@@ -212,7 +212,7 @@ describe("the bundled data, calculated end to end", () => {
       amount: validAmount("1500.00"),
       prices: new Map([
         ["mep", validPrice("1500")],
-        ["p2p_usdt_usd", validPrice("1")],
+        ["binance_p2p_usdt_usd", validPrice("1")],
         ["bitso_usdt_ars", validPrice("1600")],
         ["arq_usd_ars", null],
       ]),

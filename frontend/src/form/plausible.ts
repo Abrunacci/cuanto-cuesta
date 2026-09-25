@@ -16,7 +16,7 @@ export interface PriceCheck {
 
 export const PRICE_CHECKS: Readonly<Record<string, PriceCheck>> = {
   mep: { min: new Decimal(500), max: new Decimal(50_000), unit: "ARS por USD" },
-  p2p_usdt_usd: { min: new Decimal("0.5"), max: new Decimal(2), unit: "USD por USDT" },
+  binance_p2p_usdt_usd: { min: new Decimal("0.5"), max: new Decimal(2), unit: "USD por USDT" },
   bitso_usdt_ars: { min: new Decimal(500), max: new Decimal(50_000), unit: "ARS por USDT" },
   arq_usd_ars: { min: new Decimal(500), max: new Decimal(50_000), unit: "ARS por USDc" },
   binance_card_usd_usdt: { min: new Decimal("0.5"), max: new Decimal(2), unit: "USDT por USD" },

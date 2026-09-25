@@ -45,7 +45,7 @@ export const ROUTES: readonly Route[] = [
       {
         label: "Vender USD por USDT en Binance P2P",
         feeIds: ["payoneer_p2p_transfer", "p2p_premium", "binance_p2p_taker"],
-        conversion: { rateKey: "p2p_usdt_usd", target: "USDT" },
+        conversion: { rateKey: "binance_p2p_usdt_usd", target: "USDT" },
       },
       {
         label: "Retirar USDT a Bitso por Polygon",
@@ -141,7 +141,7 @@ export const RATE_FIELDS: readonly RateField[] = [
     help: "Lo que te pagan por cada dólar vendido por MEP. Lo ves en tu banco o broker.",
   },
   {
-    key: "p2p_usdt_usd",
+    key: "binance_p2p_usdt_usd",
     base: "USDT",
     quote: "USD",
     label: "Precio P2P en Binance (USD por USDT)",

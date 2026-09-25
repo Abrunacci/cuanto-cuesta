@@ -97,7 +97,7 @@ describe("the calculator page", () => {
     expect(labels).toEqual([
       "amount",
       "price-mep",
-      "price-p2p_usdt_usd",
+      "price-binance_p2p_usdt_usd",
       "price-bitso_usdt_ars",
       "price-arq_usd_ars",
       "price-binance_card_usd_usdt",
@@ -555,7 +555,9 @@ describe("the calculator page", () => {
     expect(field(/^Precio P2P en Binance/)).toHaveAccessibleDescription(
       description("Valor inusual: leímos 1.030,00 USD por USDT"),
     );
-    expect(document.getElementById("price-p2p_usdt_usd-help")).toHaveClass("visually-hidden");
+    expect(document.getElementById("price-binance_p2p_usdt_usd-help")).toHaveClass(
+      "visually-hidden",
+    );
   });
 
   it("shows a problem found on leaving when the press elsewhere is cancelled", async () => {
