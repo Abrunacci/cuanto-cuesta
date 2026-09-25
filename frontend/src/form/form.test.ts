@@ -8,6 +8,7 @@ const PRICES = {
   p2p_usdt_usd: "1,03",
   bitso_usdt_ars: "1.596,21",
   arq_usd_ars: "1.593,385",
+  binance_card_usd_usdt: "0,95448",
 };
 
 function filled(overrides: Partial<FormTexts> = {}): FormTexts {
@@ -24,7 +25,7 @@ describe("initialTexts", () => {
   it("starts the amount and every price empty", () => {
     const texts = initialTexts();
     expect(texts.amount).toBe("");
-    expect(Object.values(texts.prices)).toEqual(["", "", "", ""]);
+    expect(Object.values(texts.prices)).toEqual(["", "", "", "", ""]);
   });
 
   it("starts every fee at its researched value, in Argentine notation", () => {
@@ -44,12 +45,13 @@ describe("readForm", () => {
     expect(echoes.size).toBe(0);
   });
 
-  it("computes the three routes with the researched fees", () => {
+  it("computes the four routes with the researched fees", () => {
     // Same values as the calculator's end-to-end test for 1000 USD.
     expect(finals(readForm(filled()).comparison)).toEqual([
       ["binance_p2p_bitso", "1534005.69"],
       ["arq", "1524869.44"],
       ["mep", "1503624.13"],
+      ["binance_card_bitso", "1483996.43"],
     ]);
   });
 

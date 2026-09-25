@@ -8,6 +8,7 @@ import { ResultBar } from "./components/ResultBar.tsx";
 import { Results } from "./components/Results.tsx";
 import { RouteCard } from "./components/RouteCard.tsx";
 import { RESULTS_TITLE_ID, reviewTargetId, routeReviewId } from "./components/ids.ts";
+import { cardOf } from "./form/cards.ts";
 import { fieldId } from "./form/form.ts";
 import { reviewOpensList } from "./form/review.ts";
 import { barText, hasAmountProblem } from "./form/summary.ts";
@@ -35,17 +36,19 @@ export function App() {
   };
 
   /**
-   * Open the route's card if the field is inside it, or its review list in the result if that is
-   * the target, then focus the field; or focus any other element with that id, such as a
-   * route's result heading.
+   * Open the card that holds the field when it is a fee's (the first route that uses the fee,
+   * which may not be `routeId`), or the route's review list in the result if that is the target,
+   * then focus the field; or focus any other element with that id, such as a route's result
+   * heading.
    */
   const goToField = (routeId: string, id: string) => {
-    const inCard = ROUTES.find((r) => r.id === routeId)?.steps.some((step) =>
-      step.feeIds.some((fee) => id === fieldId.fee(fee) || id === fieldId.minimum(fee)),
+    const fee = ROUTES.flatMap((r) => r.steps.flatMap((step) => step.feeIds)).find(
+      (fee) => id === fieldId.fee(fee) || id === fieldId.minimum(fee),
     );
-    if (inCard === true) {
+    const card = fee === undefined ? undefined : cardOf(fee);
+    if (card !== undefined) {
       flushSync(() => {
-        setRouteOpen(routeId, true);
+        setRouteOpen(card.id, true);
       });
     }
     if (id === routeReviewId(routeId)) {
@@ -110,6 +113,7 @@ export function App() {
               onFee={form.setFee}
               onMinimum={form.setMinimum}
               onResetFee={form.resetFee}
+              onGoToField={goToField}
             />
           ))}
         </section>

@@ -26,6 +26,17 @@ export interface FeeDefault {
 
 export const FEE_DEFAULTS: readonly FeeDefault[] = [
   {
+    fee: percentFee("binance_card_purchase", "2", null),
+    label: "Comisión de Binance por comprar con tarjeta",
+    note: 'Binance dice "hasta alrededor de 2 %". Observado el 25/09/2026 en la pantalla final de pago, sin confirmar: 0,20 USD con 10 USD y 2,00 USD con 100 USD. Si tu pantalla final muestra otra comisión, poné la tuya.',
+    provenance: {
+      kind: "verified",
+      sourceUrl:
+        "https://www.binance.com/en/blog/fiat/can-you-buy-cryptocurrency-with-a-credit-card-421499824684903691",
+      verifiedAt: "2026-09-25",
+    },
+  },
+  {
     fee: fixedFee("payoneer_p2p_transfer", "4.00", "USD"),
     label: "Transferencia de Payoneer al comprador P2P",
     note: "Hasta 4,00 USD si las dos cuentas son del mismo país; hasta 1 % más hasta 4,00 USD si son de países distintos.",
