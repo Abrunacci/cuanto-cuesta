@@ -2,8 +2,10 @@ import react from "@vitejs/plugin-react";
 import { defineConfig } from "vitest/config";
 
 export default defineConfig({
-  // Relative asset paths, so dist/ works from any path until deploy is decided.
-  base: "./",
+  // Served from the root of its own subdomain (README → Deploying). Absolute
+  // asset paths keep working on nested URLs, which the server answers with
+  // index.html.
+  base: "/",
   plugins: [react()],
   test: {
     environment: "jsdom",
