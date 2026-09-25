@@ -23,7 +23,12 @@ def max_fixed(currency: Currency) -> Decimal:
 
 
 def value_problem(value: Decimal, cap: Decimal) -> str | None:
-    """Why ``value`` is not an acceptable fee value, or None if it is."""
+    """Why ``value`` is not an acceptable fee value, or None if it is.
+
+    It takes a bare ``Decimal`` so a value can be checked before it becomes a fee, such as one
+    fetched from a source. For a value already inside a ``Money`` or ``Percentage`` only the cap
+    can fail: those types refuse non-finite and negative values when they are built.
+    """
     if not value.is_finite():
         return f"must be a finite number, got {value}"
     if value < 0:
