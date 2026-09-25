@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { ROUTES, type CompleteRoute } from "../calculator/index.ts";
+import { ROUTES, routesInOrder, type CompleteRoute } from "../calculator/index.ts";
 import { initialTexts, readForm, type FormTexts } from "./form.ts";
 import { differenceToReview, feesToReview } from "./review.ts";
 
@@ -56,11 +56,13 @@ describe("differenceToReview", () => {
   /** Per route, in ranking order, the id of the route to review for its difference. */
   const toReview = (overrides: Partial<FormTexts>) => {
     const reading = readForm({ ...initialTexts(), amount: "1000", prices: PRICES, ...overrides });
-    return reading.comparison.routes
+    return routesInOrder(reading.comparison)
       .filter((r): r is CompleteRoute => r.status === "complete")
-      .map((r) => [
-        r.route.id,
-        differenceToReview(r, reading.ownFees, reading.warnings)?.id ?? null,
+      .map(({ route, standing }) => [
+        route.id,
+        standing.kind === "alone"
+          ? "alone"
+          : (differenceToReview(route, standing, reading.ownFees, reading.warnings)?.id ?? null),
       ]);
   };
 
@@ -110,10 +112,5 @@ describe("differenceToReview", () => {
       ["arq", "binance_bitso"],
       ["mep", "binance_bitso"],
     ]);
-  });
-
-  it("is nothing for a route with no other to compare with", () => {
-    const only = { ...PRICES, p2p_usdt_usd: "", arq_usd_ars: "" };
-    expect(toReview({ prices: only })).toEqual([["mep", null]]);
   });
 });

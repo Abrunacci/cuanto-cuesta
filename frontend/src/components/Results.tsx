@@ -1,4 +1,4 @@
-import type { Comparison } from "../calculator/index.ts";
+import { routesInOrder, type Comparison, type CompleteRoute } from "../calculator/index.ts";
 import type { FeeGap } from "../form/form.ts";
 import { missingInputLabel } from "../form/messages.ts";
 import { commonMissing, missingFieldId, missingKey } from "../form/missing.ts";
@@ -7,7 +7,7 @@ import { summaryText } from "../form/summary.ts";
 import { RESULTS_TITLE_ID, routeResultId } from "./ids.ts";
 import { LinkList } from "./LinkList.tsx";
 import { RichText } from "./RichText.tsx";
-import { RouteFigures } from "./RouteFigures.tsx";
+import { RouteFigures, RouteMissing, type Difference } from "./RouteFigures.tsx";
 import { RouteReview } from "./RouteReview.tsx";
 
 interface ResultsProps {
@@ -39,7 +39,8 @@ export function Results({
   const listedOnce = new Set(common.map(missingKey));
   // Common inputs are the amount and the prices at the top: every fee belongs to one route (a
   // data test enforces it), so no route card needs opening from here.
-  const [firstRoute] = comparison.routes;
+  const routes = routesInOrder(comparison);
+  const [firstRoute] = routes;
   return (
     <section className="results" aria-labelledby={RESULTS_TITLE_ID}>
       <h2 id={RESULTS_TITLE_ID} tabIndex={-1}>
@@ -68,21 +69,26 @@ export function Results({
         </p>
       )}
       <ol className="ranking">
-        {comparison.routes.map((entry) => (
+        {routes.map((entry) => (
           <li key={entry.route.id}>
             <h3 id={routeResultId(entry.route.id)} tabIndex={-1}>
               {entry.route.name}
             </h3>
-            <RouteFigures
-              entry={entry}
-              feeGaps={feeGaps}
-              unusualPrices={unusualPrices(entry.route, warnings)}
-              differenceReview={
-                entry.status === "complete" ? differenceToReview(entry, ownFees, warnings) : null
-              }
-              skip={listedOnce}
-              onGoToField={onGoToField}
-            />
+            {entry.status === "complete" ? (
+              <RouteFigures
+                entry={entry}
+                difference={difference(entry, ownFees, warnings)}
+                unusualPrices={unusualPrices(entry.route, warnings)}
+                onGoToField={onGoToField}
+              />
+            ) : (
+              <RouteMissing
+                entry={entry}
+                feeGaps={feeGaps}
+                skip={listedOnce}
+                onGoToField={onGoToField}
+              />
+            )}
             {entry.status === "complete" && (
               <RouteReview route={entry.route} ownFees={ownFees} onGoToField={onGoToField} />
             )}
@@ -96,4 +102,19 @@ export function Results({
       </ol>
     </section>
   );
+}
+
+function difference(
+  entry: CompleteRoute,
+  ownFees: ReadonlySet<string>,
+  warnings: ReadonlyMap<string, string>,
+): Difference {
+  const { standing } = entry;
+  return standing.kind === "alone"
+    ? { kind: "alone" }
+    : {
+        kind: "compared",
+        standing,
+        review: differenceToReview(entry.route, standing, ownFees, warnings),
+      };
 }

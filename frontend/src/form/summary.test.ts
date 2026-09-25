@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { compareRoutes, fixedFee } from "../calculator/index.ts";
+import { compareRoutes, fixedFee, routesInOrder } from "../calculator/index.ts";
 import { validAmount, validPrice } from "../calculator/sample.fixture.ts";
 import { initialTexts, readForm, type FormTexts } from "./form.ts";
 import { commonMissing } from "./missing.ts";
@@ -47,7 +47,6 @@ function tiedComparison() {
       route("b", "Ruta B", "zero"),
     ],
     rateDefinitions: [{ key: "mep", base: "USD", quote: "ARS" }],
-    referenceKey: "mep",
     amount: validAmount("1000"),
     prices: new Map([["mep", validPrice("1500")]]),
     fees: new Map([
@@ -65,7 +64,7 @@ describe("commonMissing", () => {
 
   it("is empty as soon as one route can be computed", () => {
     const partial = read({ amount: "1000", prices: { ...PRICES, bitso_usdt_ars: "" } });
-    expect(partial.comparison.routes.some((r) => r.status === "complete")).toBe(true);
+    expect(routesInOrder(partial.comparison).some((r) => r.status === "complete")).toBe(true);
     expect(commonMissing(partial.comparison)).toEqual([]);
   });
 });
@@ -190,7 +189,7 @@ describe("barText", () => {
       prices: { ...PRICES, p2p_usdt_usd: "", arq_usd_ars: "" },
       fees: { ...initialTexts().fees, broker_buy: "" },
     });
-    expect(reading.comparison.routes.every((r) => r.status === "incomplete")).toBe(true);
+    expect(routesInOrder(reading.comparison).every((r) => r.status === "incomplete")).toBe(true);
     expect(barText(reading, false)).toEqual({
       kind: "pending",
       text: "Todavía ninguna ruta se puede calcular: mirá qué le falta a cada una.",

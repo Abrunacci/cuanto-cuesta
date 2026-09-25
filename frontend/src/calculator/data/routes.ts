@@ -92,9 +92,6 @@ export interface RateField extends RateDefinition {
   readonly help: string;
 }
 
-/** The MEP dollar is both the reference and the rate of the MEP route. */
-export const REFERENCE_KEY = "mep";
-
 /**
  * Every price the person types. ARQ credits incoming dollars as USDc and the app treats USDc at
  * par with USD (the fee `arq_usd_usdc_conversion` holds the assumption), so ARQ's rate is USD/ARS.

@@ -1,4 +1,11 @@
-import type { Route, RouteComparison, Standing } from "../calculator/index.ts";
+import type {
+  Ahead,
+  Behind,
+  CompleteRoute,
+  IncompleteRoute,
+  Route,
+  Tied,
+} from "../calculator/index.ts";
 import type { FeeGap } from "../form/form.ts";
 import { missingFieldId, missingKey } from "../form/missing.ts";
 import { missingInputLabel } from "../form/messages.ts";
@@ -7,67 +14,41 @@ import { formatMoney } from "../text/numbers.ts";
 import { routeResultId } from "./ids.ts";
 import { InPageAnchor } from "./LinkList.tsx";
 
+/**
+ * The difference figure: nothing to compare with, or how the route stands and the route whose
+ * values to check before trusting it (null when none).
+ */
+export type Difference =
+  | { readonly kind: "alone" }
+  | {
+      readonly kind: "compared";
+      readonly standing: Ahead | Behind | Tied;
+      readonly review: Route | null;
+    };
+
+/**
+ * Take the person to a field, opening the route's card when the field is inside it; or to any
+ * other element of the page, such as a route's result heading.
+ */
+type GoTo = (routeId: string, id: string) => void;
+
 interface RouteFiguresProps {
-  readonly entry: RouteComparison;
-  readonly feeGaps: ReadonlyMap<string, FeeGap>;
+  readonly entry: CompleteRoute;
+  readonly difference: Difference;
   /** Labels of the unusual prices this route was computed with, e.g. ["precio P2P…"]. */
   readonly unusualPrices: readonly string[];
-  /** The route whose values to check before trusting the difference; null when none. */
-  readonly differenceReview: Route | null;
-  /** Missing inputs already listed once for every route, left out here. */
-  readonly skip: ReadonlySet<string>;
-  /**
-   * Take the person to a field, opening the route's card when the field is inside it; or to any
-   * other element of the page, such as a route's result heading.
-   */
-  readonly onGoToField: (routeId: string, id: string) => void;
+  readonly onGoToField: GoTo;
 }
 
 /**
- * A route's three figures (what reaches the bank, the fees, and the difference with the best route
- * or, for the best, with the runner-up), or what it still needs, each item a link to its field.
+ * A route's three figures: what reaches the bank, the fees, and the difference with the best
+ * route or, for the best, with the runner-up.
  */
-export function RouteFigures({
-  entry,
-  feeGaps,
-  unusualPrices,
-  differenceReview,
-  skip,
-  onGoToField,
-}: RouteFiguresProps) {
-  if (entry.status === "incomplete") {
-    const missing = entry.missing.filter((m) => !skip.has(missingKey(m)));
-    if (missing.length === 0) {
-      return <p className="missing">Se calcula cuando completes lo de arriba.</p>;
-    }
-    return (
-      <div className="missing">
-        <p>Falta completar o corregir:</p>
-        <ul>
-          {missing.map((missing) => {
-            const id = missingFieldId(missing, feeGaps);
-            return (
-              <li key={id}>
-                <InPageAnchor
-                  link={{
-                    key: id,
-                    href: `#${id}`,
-                    text: missingInputLabel(missing, feeGaps),
-                    onClick: () => {
-                      onGoToField(entry.route.id, id);
-                    },
-                  }}
-                />
-              </li>
-            );
-          })}
-        </ul>
-      </div>
-    );
-  }
+export function RouteFigures({ entry, difference, unusualPrices, onGoToField }: RouteFiguresProps) {
   const { final } = entry.result;
-  const { standing } = entry;
-  const top = standing.kind === "ahead" || standing.kind === "tied";
+  const top =
+    difference.kind === "compared" &&
+    (difference.standing.kind === "ahead" || difference.standing.kind === "tied");
   return (
     <>
       <dl className="figures">
@@ -82,11 +63,7 @@ export function RouteFigures({
         <div className={top ? "figure figure-gain" : "figure"}>
           <dt>Diferencia</dt>
           <dd>
-            <DifferenceText
-              standing={standing}
-              review={differenceReview}
-              onGoToField={onGoToField}
-            />
+            <DifferenceText difference={difference} onGoToField={onGoToField} />
           </dd>
         </div>
       </dl>
@@ -105,14 +82,16 @@ export function RouteFigures({
  * link to the route whose values to check, when the difference rests on any.
  */
 function DifferenceText({
-  standing,
-  review,
+  difference,
   onGoToField,
 }: {
-  readonly standing: Standing;
-  readonly review: Route | null;
-  readonly onGoToField: RouteFiguresProps["onGoToField"];
+  readonly difference: Difference;
+  readonly onGoToField: GoTo;
 }) {
+  if (difference.kind === "alone") {
+    return <span className="figure-detail">Todavía no hay otra ruta para comparar</span>;
+  }
+  const { standing, review } = difference;
   const reviewLink = review !== null && (
     <>
       {" "}
@@ -151,7 +130,45 @@ function DifferenceText({
           {reviewLink}
         </span>
       );
-    case "alone":
-      return <span className="figure-detail">Todavía no hay otra ruta para comparar</span>;
   }
+}
+
+interface RouteMissingProps {
+  readonly entry: IncompleteRoute;
+  readonly feeGaps: ReadonlyMap<string, FeeGap>;
+  /** Missing inputs already listed once for every route, left out here. */
+  readonly skip: ReadonlySet<string>;
+  readonly onGoToField: GoTo;
+}
+
+/** What a route still needs, each item a link to its field. */
+export function RouteMissing({ entry, feeGaps, skip, onGoToField }: RouteMissingProps) {
+  const missing = entry.missing.filter((m) => !skip.has(missingKey(m)));
+  if (missing.length === 0) {
+    return <p className="missing">Se calcula cuando completes lo de arriba.</p>;
+  }
+  return (
+    <div className="missing">
+      <p>Falta completar o corregir:</p>
+      <ul>
+        {missing.map((missing) => {
+          const id = missingFieldId(missing, feeGaps);
+          return (
+            <li key={id}>
+              <InPageAnchor
+                link={{
+                  key: id,
+                  href: `#${id}`,
+                  text: missingInputLabel(missing, feeGaps),
+                  onClick: () => {
+                    onGoToField(entry.route.id, id);
+                  },
+                }}
+              />
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
 }

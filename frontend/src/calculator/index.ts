@@ -1,16 +1,21 @@
-export { compareRoutes } from "./compare.ts";
+export { compareRoutes, routesInOrder } from "./compare.ts";
 export type {
+  Ahead,
+  Alone,
+  Behind,
   CompleteRoute,
   Comparison,
   ComparisonInput,
   IncompleteRoute,
   MissingInput,
+  Ranking,
   RouteComparison,
   Standing,
+  Tied,
 } from "./compare.ts";
 export { FEE_DEFAULTS } from "./data/fees.ts";
 export type { FeeDefault, Provenance } from "./data/fees.ts";
-export { RATE_FIELDS, REFERENCE_KEY, ROUTES } from "./data/routes.ts";
+export { RATE_FIELDS, ROUTES } from "./data/routes.ts";
 export type { RateField } from "./data/routes.ts";
 export { charge, fixedFee, percentFee, withoutCharge } from "./fees.ts";
 export type { Fee, FixedFee, PercentFee } from "./fees.ts";

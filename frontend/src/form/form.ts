@@ -15,7 +15,6 @@ import {
   positiveAmount,
   positivePrice,
   RATE_FIELDS,
-  REFERENCE_KEY,
   ROUTES,
   valueProblem,
   type Big,
@@ -146,7 +145,6 @@ export function readForm(texts: FormTexts): FormReading {
   const comparison = compareRoutes({
     routes: ROUTES,
     rateDefinitions: RATE_FIELDS,
-    referenceKey: REFERENCE_KEY,
     amount,
     prices,
     fees,
