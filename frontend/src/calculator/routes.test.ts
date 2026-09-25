@@ -39,7 +39,7 @@ const SAMPLE_RATES: ReadonlyMap<string, Rate> = new Map(
   }),
 );
 
-describe("the sample routes step by step, as in the Python domain tests", () => {
+describe("the sample routes step by step, as the Python domain tests had them", () => {
   it("Binance + Bitso", () => {
     const result = runRoute(BINANCE, money("1000.00", "USD"), SAMPLE_FEES, SAMPLE_RATES);
     const p2p = at(result.steps, 0);

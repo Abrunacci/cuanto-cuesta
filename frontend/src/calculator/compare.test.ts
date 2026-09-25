@@ -38,7 +38,7 @@ function byId(routes: readonly RouteComparison[]) {
   return new Map(routes.map((r) => [r.route.id, r]));
 }
 
-describe("final and fee cost, as in the Python domain tests", () => {
+describe("final and fee cost, as the Python domain tests had them", () => {
   it("sorts the routes best first", () => {
     const comparison = compareRoutes(input());
     expect(routesInOrder(comparison).map((r) => r.route.id)).toEqual([
@@ -62,8 +62,8 @@ describe("final and fee cost, as in the Python domain tests", () => {
     expect(summary("mep")).toEqual(["1503624.13", "32535.87"]);
   });
 
-  // Final and fee cost computed once with the Python domain on the same sample inputs. Frozen
-  // here on purpose: the table stays valid after the Python calculation is removed.
+  // Final and fee cost computed once with the Python domain on the same sample inputs, frozen
+  // here on purpose: the Python calculation has since been removed.
   const PYTHON: readonly (readonly [string, string, string, string])[] = [
     ["0.01", "arq", "0.00", "15.93"],
     ["0.01", "binance_bitso", "0.00", "0.00"],

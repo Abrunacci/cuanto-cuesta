@@ -2,9 +2,9 @@
  * What the person types, validated once. `compareRoutes` only takes these types, so a zero or
  * negative price, or an amount with fractions of a cent, can never reach the calculation.
  *
- * The limits also keep the calculation on the same cent as the Python domain. Python rounds each
- * product and quotient to 34 significant digits; TypeScript multiplies exactly and divides with
- * 30 decimal places. With prices between 1e-8 and `MAX_PRICE` and amounts up to `MAX_AMOUNT`, a
+ * The limits also keep the calculation on the same cent as the Python domain it was checked
+ * against (since removed). Python rounded each product and quotient to 34 significant digits;
+ * TypeScript multiplies exactly and divides with 30 decimal places. With prices between 1e-8 and `MAX_PRICE` and amounts up to `MAX_AMOUNT`, a
  * route with two conversions stays near 1e21 at most, far from where the two can differ by a
  * cent (around 1e23). A route that chains more conversions needs these limits reviewed.
  */

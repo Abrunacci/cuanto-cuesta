@@ -1,6 +1,6 @@
 /**
- * The calculator bundles its own copy of the fee defaults and routes. This test keeps that copy
- * identical to `backend/config/fees.yaml` and `backend/config/routes.yaml`, the researched source.
+ * The calculator bundles its own copy of the fee defaults. This test keeps that copy identical to
+ * `backend/config/fees.yaml`, the researched source. The routes live only in the calculator.
  *
  * The YAML is read with the failsafe schema, so every scalar stays a string: numbers are compared
  * as decimals and never pass through a float.
@@ -13,7 +13,6 @@ import { describe, expect, it } from "vitest";
 import { parse } from "yaml";
 
 import { FEE_DEFAULTS } from "../src/calculator/data/fees.ts";
-import { ROUTES } from "../src/calculator/data/routes.ts";
 import { Decimal } from "../src/calculator/money.ts";
 
 type Yaml = string | Yaml[] | { [key: string]: Yaml };
@@ -112,9 +111,6 @@ const FEE_KEYS = [
   "source_url",
   "note",
 ];
-const ROUTE_KEYS = ["id", "name", "source", "target", "warnings", "steps"];
-const STEP_KEYS = ["label", "fees", "conversion"];
-const CONVERSION_KEYS = ["rate", "to"];
 
 function unknownKeys(entries: Record<string, Yaml>[], known: readonly string[]): string[] {
   return entries.flatMap((entry) => Object.keys(entry).filter((key) => !known.includes(key)));
@@ -125,43 +121,11 @@ describe("the bundled data mirrors the backend config", () => {
   // the calculator's copy gets the new field too.
   it("uses only keys the comparison knows", () => {
     const feesFile = load("fees.yaml");
-    const routesFile = load("routes.yaml");
-    const routes = list(routesFile.routes);
-    const steps = routes.flatMap((r) => list(r.steps));
-    const conversions = steps.flatMap((step) =>
-      step.conversion === undefined ? [] : [step.conversion as Record<string, Yaml>],
-    );
     expect(unknownKeys([feesFile], ["fees"])).toEqual([]);
-    expect(unknownKeys([routesFile], ["routes"])).toEqual([]);
     expect(unknownKeys(list(feesFile.fees), FEE_KEYS)).toEqual([]);
-    expect(unknownKeys(routes, ROUTE_KEYS)).toEqual([]);
-    expect(unknownKeys(steps, STEP_KEYS)).toEqual([]);
-    expect(unknownKeys(conversions, CONVERSION_KEYS)).toEqual([]);
   });
 
   it("has the same fees as fees.yaml, in the same order", () => {
     expect(FEE_DEFAULTS.map(bundledFee)).toEqual(list(load("fees.yaml").fees).map(yamlFee));
-  });
-
-  it("has the same routes as routes.yaml", () => {
-    const fromYaml = list(load("routes.yaml").routes).map((route) => ({
-      id: text(route.id),
-      name: text(route.name),
-      source: text(route.source),
-      target: text(route.target),
-      warnings: route.warnings === undefined ? [] : (route.warnings as string[]),
-      steps: list(route.steps).map((step) => {
-        const conversion = step.conversion as Record<string, Yaml> | undefined;
-        return {
-          label: text(step.label),
-          feeIds: step.fees === undefined ? [] : (step.fees as string[]),
-          conversion:
-            conversion === undefined
-              ? null
-              : { rateKey: text(conversion.rate), target: text(conversion.to) },
-        };
-      }),
-    }));
-    expect(ROUTES).toEqual(fromYaml);
   });
 });

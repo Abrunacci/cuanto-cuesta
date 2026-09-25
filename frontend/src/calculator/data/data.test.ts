@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 
 import { compareRoutes, routesInOrder } from "../compare.ts";
-import type { Fee } from "../fees.ts";
+import { percentFee, type Fee } from "../fees.ts";
 import { feeProblems } from "../limits.ts";
 import { validAmount, validPrice } from "../sample.fixture.ts";
-import { feeIds, rateKeys, routeProblems } from "../routes.ts";
+import { money } from "../money.ts";
+import { rate } from "../rates.ts";
+import { feeIds, rateKeys, routeProblems, runRoute } from "../routes.ts";
 import { FEE_DEFAULTS } from "./fees.ts";
 import { RATE_FIELDS, ROUTES, TARGET_CURRENCY } from "./routes.ts";
 
@@ -58,6 +60,40 @@ describe("the bundled routes and fees", () => {
     expect(conversion?.fee.kind === "percent" && conversion.fee.rate.eq(0)).toBe(true);
   });
 
+  it("charge the broker and BYMA on each side of the MEP", () => {
+    const mep = ROUTES.find((r) => r.id === "mep");
+    expect(mep === undefined ? [] : [...feeIds(mep)]).toEqual(
+      expect.arrayContaining(["broker_buy", "broker_sell", "byma_buy", "byma_sell"]),
+    );
+  });
+
+  it("charge ARQ's USD to USDc conversion on what reaches ARQ", () => {
+    const arq = ROUTES.find((r) => r.id === "arq");
+    if (arq === undefined) {
+      throw new Error("No ARQ route");
+    }
+    const defaults = new Map(FEE_DEFAULTS.map((d) => [d.fee.id, d.fee]));
+    const rates = new Map([["arq_usd_ars", rate("arq_usd_ars", "USD", "ARS", validPrice("1500"))]]);
+    const amount = money("1000.00", "USD");
+    const atPar = runRoute(arq, amount, defaults, rates);
+    const withSpread = runRoute(
+      arq,
+      amount,
+      new Map([
+        ...defaults,
+        ["arq_usd_usdc_conversion", percentFee("arq_usd_usdc_conversion", "0.5")],
+      ]),
+      rates,
+    );
+    const receive = withSpread.steps[1];
+    // 1000.00 - 4 % Payoneer = 960.00 reaches ARQ; 0.5 % of 960.00 = 4.80, plus 3.00 ACH
+    expect(receive?.amountIn.amount.toFixed(2)).toBe("960.00");
+    expect(receive?.fees.map((c) => c.amount.amount.toFixed(2))).toEqual(["3.00", "4.80"]);
+    // 957.00 x 1500 = 1435500.00 at par; 952.20 x 1500 = 1428300.00 with the spread
+    expect(atPar.final.amount.toFixed(2)).toBe("1435500.00");
+    expect(withSpread.final.amount.toFixed(2)).toBe("1428300.00");
+  });
+
   it("warn on the MEP route with a link to the BCRA rules", () => {
     const [warning] = ROUTES.find((r) => r.id === "mep")?.warnings ?? [];
     expect(warning).toBe(
@@ -67,8 +103,8 @@ describe("the bundled routes and fees", () => {
 });
 
 describe("the bundled data, calculated end to end", () => {
-  // Same prices as the Python domain's sample; expected values computed with the Python domain
-  // on backend/config/fees.yaml and routes.yaml.
+  // Same prices as the Python domain's sample; expected values computed with the Python domain,
+  // since removed, on the same fees and routes.
   const prices = new Map([
     ["mep", validPrice("1536.16")],
     ["p2p_usdt_usd", validPrice("1.03")],

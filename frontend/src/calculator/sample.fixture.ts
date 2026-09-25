@@ -1,7 +1,7 @@
 /**
- * Fees, rates and routes shaped like the real ones, copied from
- * `backend/tests/unit/domain/sample.py` so the parity tests run the same inputs as the Python
- * domain. The values are test inputs, not the app's defaults.
+ * Fees, rates and routes shaped like the real ones. They were copied from the Python domain's
+ * sample, since removed, so the frozen results computed with it still apply. The values are test
+ * inputs, not the app's defaults.
  */
 
 import type { RateDefinition } from "./rates.ts";
