@@ -13,8 +13,10 @@ Compare how many Argentine pesos reach your bank when you move USD out of Payone
 For each route the calculator shows the pesos that reach the bank, what the fees cost in pesos,
 and how much more or less it leaves than the other routes. A risky route is never recommended:
 the best route is the best one without risk, compared with the runner-up without risk, and every
-other route is compared with it. A risky route that leaves more says how much more. Each route needs only the prices it converts with, so the MEP
-price is needed only for the MEP route. The screen is in Spanish.
+other route is compared with it; a risky route that leaves more says how much more. When every
+route computed is risky, none is recommended and they are compared with the one that leaves most.
+Each route needs only the prices it converts with, so the MEP price is needed only for the MEP
+route. The screen is in Spanish.
 
 ## Status
 
