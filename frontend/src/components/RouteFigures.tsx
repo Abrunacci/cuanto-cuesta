@@ -5,8 +5,8 @@ import { missingInputLabel } from "../form/messages.ts";
 import type { Difference } from "../form/review.ts";
 import { joinSpanish } from "../text/lists.ts";
 import { formatMoney } from "../text/numbers.ts";
-import { routeResultId } from "./ids.ts";
 import { InPageAnchor } from "./LinkList.tsx";
+import { reviewTargetId } from "./ids.ts";
 
 /**
  * Take the person to a field, opening the route's card when the field is inside it; or to any
@@ -20,6 +20,8 @@ interface RouteFiguresProps {
   readonly difference: Difference;
   /** Labels of the unusual prices this route was computed with, e.g. ["precio P2P…"]. */
   readonly unusualPrices: readonly string[];
+  /** Ids of the fees the person set. */
+  readonly ownFees: ReadonlySet<string>;
   readonly onGoToField: GoTo;
 }
 
@@ -32,6 +34,7 @@ export function RouteFigures({
   feeCost,
   difference,
   unusualPrices,
+  ownFees,
   onGoToField,
 }: RouteFiguresProps) {
   const { final } = result;
@@ -52,7 +55,7 @@ export function RouteFigures({
         <div className={top ? "figure figure-gain" : "figure"}>
           <dt>Diferencia</dt>
           <dd>
-            <DifferenceText difference={difference} onGoToField={onGoToField} />
+            <DifferenceText difference={difference} ownFees={ownFees} onGoToField={onGoToField} />
           </dd>
         </div>
       </dl>
@@ -72,16 +75,19 @@ export function RouteFigures({
  */
 function DifferenceText({
   difference,
+  ownFees,
   onGoToField,
 }: {
   readonly difference: Difference;
+  readonly ownFees: ReadonlySet<string>;
   readonly onGoToField: GoTo;
 }) {
   if (difference.kind === "alone") {
     return <span className="figure-detail">Todavía no hay otra ruta para comparar</span>;
   }
   const { standing, review } = difference;
-  const reviewLink = review !== null && (
+  const target = review !== null ? reviewTargetId(review, ownFees) : null;
+  const reviewLink = review !== null && target !== null && (
     <>
       {" "}
       <span className="figure-review">
@@ -89,11 +95,11 @@ function DifferenceText({
         <InPageAnchor
           link={{
             key: review.id,
-            href: `#${routeResultId(review.id)}`,
+            href: `#${target}`,
             text: "revisá",
             label: `Revisá los valores de ${review.name}`,
             onClick: () => {
-              onGoToField(review.id, routeResultId(review.id));
+              onGoToField(review.id, target);
             },
           }}
         />

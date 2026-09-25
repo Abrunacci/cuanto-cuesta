@@ -15,6 +15,7 @@ import {
   type Tied,
 } from "../calculator/index.ts";
 import { lowerFirst } from "../text/case.ts";
+import { joinSpanish } from "../text/lists.ts";
 import { fieldId } from "./form.ts";
 
 export interface FeesToReview {
@@ -35,6 +36,31 @@ export function feesToReview(route: Route, ownFees: ReadonlySet<string>): FeesTo
     estimated: reference.filter((d) => d.provenance.kind === "estimate"),
     own: fees.filter((d) => ownFees.has(d.fee.id)),
   };
+}
+
+/**
+ * The line that stands for a route's review list while it is folded: what there is to check,
+ * counted, so a 0 left to set is seen without opening it; or, with nothing to check, how many
+ * fees hold the person's value. Null when the route has none of either.
+ */
+export function reviewSummary({ toSet, estimated, own }: FeesToReview): string | null {
+  const parts = [
+    ...(toSet.length > 0 ? [count(toSet.length, "valor para poner", "valores para poner")] : []),
+    ...(estimated.length > 0
+      ? [count(estimated.length, "comisión estimada", "comisiones estimadas")]
+      : []),
+  ];
+  if (parts.length > 0) {
+    return `Qué revisar: ${joinSpanish(parts)}`;
+  }
+  if (own.length > 0) {
+    return `Con tu valor: ${count(own.length, "comisión", "comisiones")}`;
+  }
+  return null;
+}
+
+function count(n: number, one: string, many: string): string {
+  return `${String(n)} ${n === 1 ? one : many}`;
 }
 
 /** Labels of the unusual prices a route's result depends on: the rates it converts with. */

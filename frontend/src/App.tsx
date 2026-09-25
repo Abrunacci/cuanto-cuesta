@@ -7,6 +7,7 @@ import { ResetFees } from "./components/ResetFees.tsx";
 import { ResultBar } from "./components/ResultBar.tsx";
 import { Results } from "./components/Results.tsx";
 import { RouteCard } from "./components/RouteCard.tsx";
+import { RESULTS_TITLE_ID, reviewTargetId, routeReviewId } from "./components/ids.ts";
 import { fieldId } from "./form/form.ts";
 import { barText, hasAmountProblem } from "./form/summary.ts";
 import { useForm } from "./form/useForm.ts";
@@ -15,26 +16,23 @@ export function App() {
   const form = useForm();
   const { texts, reading } = form;
   const [openRoutes, setOpenRoutes] = useState<ReadonlySet<string>>(new Set());
+  const [openReviews, setOpenReviews] = useState<ReadonlySet<string>>(new Set());
   const amountHasProblem = hasAmountProblem(reading);
+  const bar = barText(reading, amountHasProblem);
+  const barRoute =
+    bar.kind === "best" && bar.review ? ROUTES.find((r) => r.id === bar.routeId) : undefined;
 
   const setRouteOpen = (routeId: string, open: boolean) => {
-    setOpenRoutes((current) => {
-      if (current.has(routeId) === open) {
-        return current;
-      }
-      const next = new Set(current);
-      if (open) {
-        next.add(routeId);
-      } else {
-        next.delete(routeId);
-      }
-      return next;
-    });
+    setOpenRoutes((current) => withMember(current, routeId, open));
+  };
+  const setReviewOpen = (routeId: string, open: boolean) => {
+    setOpenReviews((current) => withMember(current, routeId, open));
   };
 
   /**
-   * Open the route's card if the field is inside it, then focus the field; or focus any other
-   * element with that id, such as a route's result heading.
+   * Open the route's card if the field is inside it, or its review list in the result if that is
+   * the target, then focus the field; or focus any other element with that id, such as a
+   * route's result heading.
    */
   const goToField = (routeId: string, id: string) => {
     const inCard = ROUTES.find((r) => r.id === routeId)?.steps.some((step) =>
@@ -43,6 +41,11 @@ export function App() {
     if (inCard === true) {
       flushSync(() => {
         setRouteOpen(routeId, true);
+      });
+    }
+    if (id === routeReviewId(routeId)) {
+      flushSync(() => {
+        setReviewOpen(routeId, true);
       });
     }
     // Focusing also scrolls the field into view.
@@ -75,6 +78,8 @@ export function App() {
             amountHasProblem={amountHasProblem}
             warnings={reading.warnings}
             ownFees={reading.ownFees}
+            openReviews={openReviews}
+            onReviewToggle={setReviewOpen}
             onGoToField={goToField}
           />
         </div>
@@ -107,11 +112,36 @@ export function App() {
       </main>
 
       <ResultBar
-        text={barText(reading, amountHasProblem)}
-        onOpen={(headingId) => {
-          document.getElementById(headingId)?.focus();
+        text={bar}
+        targetId={
+          barRoute !== undefined ? reviewTargetId(barRoute, reading.ownFees) : RESULTS_TITLE_ID
+        }
+        onOpen={() => {
+          if (barRoute === undefined) {
+            document.getElementById(RESULTS_TITLE_ID)?.focus();
+          } else {
+            goToField(barRoute.id, reviewTargetId(barRoute, reading.ownFees));
+          }
         }}
       />
     </>
   );
+}
+
+/** `set` with `member` in it or not, as `present` says; the same set when nothing changes. */
+function withMember(
+  set: ReadonlySet<string>,
+  member: string,
+  present: boolean,
+): ReadonlySet<string> {
+  if (set.has(member) === present) {
+    return set;
+  }
+  const next = new Set(set);
+  if (present) {
+    next.add(member);
+  } else {
+    next.delete(member);
+  }
+  return next;
 }
