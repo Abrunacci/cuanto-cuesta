@@ -90,8 +90,10 @@ with `Depends`.
   places; prices and percentages are parsed with `money.ts`'s `Decimal`, never from floats. `add`
   and `subtract` check the currency. A product or quotient (`rates.ts`, `fees.ts`) is rounded
   right away with `roundedDown` or `roundedUp`.
-- `Money` is signed in both languages. Where only `>= 0` makes sense, the type that owns the value
-  checks it: in Python it calls `Money.require_non_negative` in its `__post_init__`.
+- In Python `Money` is non-negative by construction: every amount the backend holds is a fee, so
+  a negative one cannot be built. In the calculator `Money` does not check the sign, but no amount
+  it reports is negative: a step whose fees exceed its amount is set to zero and marked as
+  exhausted, and a difference is always the larger amount minus the smaller.
 
 ## Language
 
