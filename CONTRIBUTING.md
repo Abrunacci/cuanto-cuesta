@@ -130,6 +130,10 @@ with `Depends`.
   reference was checked.
 - For an "up to X" fee, X is the default, the fee is `pending` and it sets `upper_bound: true`;
   only pending fees can.
+- A value observed on the operation's own screen, before confirming it (for example Binance's
+  final payment screen), is `verified`: `source_url` is the provider's page on that fee,
+  `verified_at` is the date of the observation, and the note says what was seen and with which
+  amounts. An observation has a date: when a newer one contradicts it, the value is reviewed.
 - Users can edit every fee. Edited values are validated before they are used: the value must be
   finite, non-negative and at most the caps (`src/calculator/limits.ts`; the defaults are checked
   against the same caps in `application/limits.py`).
