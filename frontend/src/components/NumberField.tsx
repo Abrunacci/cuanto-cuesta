@@ -46,14 +46,18 @@ export function NumberField({
   // reflects the current text at every keystroke.
   const [touched, setTouched] = useState(false);
   const [focused, setFocused] = useState(false);
-  const helpHidden = helpWhileNeeded && !focused && value !== "";
+  const shownProblem = touched ? problem : null;
+  const shownWarning = touched && problem === null ? (warning ?? null) : null;
+  // The help says what goes in the field, which is what a problem needs.
+  const helpHidden = helpWhileNeeded && !focused && value !== "" && shownProblem === null;
   const input = useRef<HTMLInputElement>(null);
   const pointerDown = usePointerDown();
   const leave = () => {
-    setTouched(true);
-    // Hiding the help moves what is below the field. A press elsewhere takes the focus on
-    // pointerdown, so wait until it is released: the click must land where it was pressed.
+    // Leaving can show a problem or a warning and hide the help, which moves what is below the
+    // field. A press elsewhere takes the focus on pointerdown, so wait until it is released:
+    // the click must land where it was pressed.
     if (!pointerDown.current) {
+      setTouched(true);
       setFocused(false);
       return;
     }
@@ -62,6 +66,7 @@ export function NumberField({
     const settle = () => {
       done.abort();
       setTimeout(() => {
+        setTouched(true);
         if (document.activeElement !== input.current) {
           setFocused(false);
         }
@@ -70,8 +75,6 @@ export function NumberField({
     window.addEventListener("pointerup", settle, { signal: done.signal });
     window.addEventListener("pointercancel", settle, { signal: done.signal });
   };
-  const shownProblem = touched ? problem : null;
-  const shownWarning = touched && problem === null ? (warning ?? null) : null;
   const ids = {
     problem: `${id}-problem`,
     warning: `${id}-warning`,

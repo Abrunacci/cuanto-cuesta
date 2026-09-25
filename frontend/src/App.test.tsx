@@ -352,14 +352,57 @@ describe("the calculator page", () => {
     });
   });
 
-  it("shows a filled price's help again when a result link takes the person there", async () => {
+  it("keeps the help in view while the person fixes a price a result link took them to", async () => {
     const { type, user, results } = setup();
+    const help = () => document.getElementById("price-mep-help");
     await type(/^Dólar MEP \(compra\)/, "-1");
     await user.tab();
-    expect(document.getElementById("price-mep-help")).toHaveClass("visually-hidden");
     await user.click(within(results()).getByRole("link", { name: "dólar MEP (compra)" }));
     expect(screen.getByLabelText(/^Dólar MEP \(compra\)/)).toHaveFocus();
-    expect(document.getElementById("price-mep-help")).not.toHaveClass("visually-hidden");
+    // Focused by the link, the field keeps its help while the problem goes away.
+    await user.clear(screen.getByLabelText(/^Dólar MEP \(compra\)/));
+    await user.type(screen.getByLabelText(/^Dólar MEP \(compra\)/), "1.536,16");
+    expect(help()).not.toHaveClass("visually-hidden");
+    await user.tab();
+    expect(help()).toHaveClass("visually-hidden");
+  });
+
+  it("keeps a filled field's help in view while it shows a problem", async () => {
+    const { type, user, field } = setup();
+    const help = () => document.getElementById("amount-help");
+    await type(/^Monto en Payoneer/, "0");
+    await user.tab();
+    expect(field(/^Monto en Payoneer/)).toHaveAccessibleDescription(
+      description("Tiene que ser mayor que 0."),
+    );
+    expect(help()).not.toHaveClass("visually-hidden");
+    // Fixed, the help goes once the person leaves the field again.
+    await type(/^Monto en Payoneer/, "1000");
+    await user.tab();
+    expect(help()).toHaveClass("visually-hidden");
+  });
+
+  it("shows a problem found on leaving only once a press elsewhere is released", async () => {
+    const { type, user } = setup();
+    const problem = () => document.getElementById("price-mep-problem");
+    await type(/^Dólar MEP \(compra\)/, "0");
+    const heading = screen.getByRole("heading", { name: "Tus datos" });
+    await user.pointer({ keys: "[MouseLeft>]", target: heading });
+    // Pressed but not released: nothing below the field may move yet.
+    expect(problem()).toBeEmptyDOMElement();
+    await user.pointer({ keys: "[/MouseLeft]", target: heading });
+    await waitFor(() => {
+      expect(problem()).toHaveTextContent("Tiene que ser mayor que 0.");
+    });
+  });
+
+  it("shows a problem right away when the person leaves the field with the keyboard", async () => {
+    const { type, user } = setup();
+    await type(/^Dólar MEP \(compra\)/, "0");
+    await user.tab();
+    expect(document.getElementById("price-mep-problem")).toHaveTextContent(
+      "Tiene que ser mayor que 0.",
+    );
   });
 
   it("keeps a fee minimum's help in view although the minimum starts filled", async () => {
