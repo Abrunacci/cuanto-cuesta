@@ -35,7 +35,7 @@ export const SAMPLE_FEES: ReadonlyMap<string, Fee> = new Map(
   ].map((fee) => [fee.id, fee]),
 );
 
-/** Python's sample has bid and ask; each route uses one side, so the price here is that side. */
+/** Python's sample had bid and ask; each route used one side, so the price here is that side. */
 export const SAMPLE_RATE_DEFINITIONS: readonly RateDefinition[] = [
   { key: "p2p_usdt_usd", base: "USDT", quote: "USD" }, // ask 1.03: buying USDT with USD
   { key: "bitso_usdt_ars", base: "USDT", quote: "ARS" }, // bid 1596.21: selling USDT

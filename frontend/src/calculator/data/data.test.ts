@@ -18,6 +18,11 @@ describe("the bundled routes and fees", () => {
     expect(ROUTES.flatMap(routeProblems)).toEqual([]);
   });
 
+  it("have unique ids, which the page uses as keys and element ids", () => {
+    const ids = ROUTES.map((r) => r.id);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
   it("have unique fee ids, all used by some route", () => {
     expect(new Set(feeIdsInDefaults).size).toBe(feeIdsInDefaults.length);
     expect(feeIdsInDefaults.filter((id) => !usedFeeIds.has(id))).toEqual([]);
