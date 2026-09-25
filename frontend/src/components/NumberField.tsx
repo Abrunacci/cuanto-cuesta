@@ -18,8 +18,8 @@ interface NumberFieldProps {
   /** Short help, part of the field's description. */
   readonly help?: string | undefined;
   /**
-   * Show the help only while the field is empty or focused. It stays in the description, so
-   * screen readers still read it, and it never hides while the person types.
+   * Show the help only while the field is empty, focused or showing a problem. It stays in the
+   * description, so screen readers still read it, and it never hides while the person types.
    */
   readonly helpWhileNeeded?: boolean;
   /** More about the field, outside its description (e.g. a collapsible "Detalles"). */
@@ -61,9 +61,13 @@ export function NumberField({
       setFocused(false);
       return;
     }
-    // A cancelled press (a drag, a touch that turns into a scroll) ends without a pointerup.
+    // A cancelled press (a drag, a touch that turns into a scroll) ends without a pointerup, and
+    // a context menu or leaving the window can swallow it.
     const done = new AbortController();
-    const settle = () => {
+    const settle = (event: Event) => {
+      if (event.type === "blur" && event.target !== window) {
+        return;
+      }
       done.abort();
       setTimeout(() => {
         setTouched(true);
@@ -72,8 +76,9 @@ export function NumberField({
         }
       });
     };
-    window.addEventListener("pointerup", settle, { signal: done.signal });
-    window.addEventListener("pointercancel", settle, { signal: done.signal });
+    for (const end of RELEASES) {
+      window.addEventListener(end, settle, { signal: done.signal });
+    }
   };
   const ids = {
     problem: `${id}-problem`,
@@ -145,6 +150,9 @@ export function NumberField({
   );
 }
 
+/** What ends a press: its release, or what can take the release away from the page. */
+const RELEASES = ["pointerup", "pointercancel", "contextmenu", "blur"] as const;
+
 /** Whether a mouse button, pen or finger is pressed anywhere on the page right now. */
 function usePointerDown() {
   const down = useRef(false);
@@ -152,16 +160,21 @@ function usePointerDown() {
     const press = () => {
       down.current = true;
     };
-    const release = () => {
-      down.current = false;
+    const release = (event: Event) => {
+      // Captured here, a field's own blur passes by too: only the window's counts.
+      if (event.type !== "blur" || event.target === window) {
+        down.current = false;
+      }
     };
     window.addEventListener("pointerdown", press, true);
-    window.addEventListener("pointerup", release, true);
-    window.addEventListener("pointercancel", release, true);
+    for (const end of RELEASES) {
+      window.addEventListener(end, release, true);
+    }
     return () => {
       window.removeEventListener("pointerdown", press, true);
-      window.removeEventListener("pointerup", release, true);
-      window.removeEventListener("pointercancel", release, true);
+      for (const end of RELEASES) {
+        window.removeEventListener(end, release, true);
+      }
     };
   }, []);
   return down;
