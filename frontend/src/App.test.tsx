@@ -247,7 +247,7 @@ describe("the calculator page", () => {
   });
 
   it("points at the route's own values once the other route has nothing to review", async () => {
-    const { type, openCard, ranking, results } = setup();
+    const { type, user, openCard, ranking, results } = setup();
     await fillEverything(type);
     await openCard("Binance P2P + Bitso");
     await type(/^Recargo P2P por pagar con Payoneer/, "0,1");
@@ -255,9 +255,10 @@ describe("the calculator page", () => {
     await type(/^Comisión taker de Binance P2P/, "0,07");
     const mep = ranking().find((item) => item.startsWith("Dólar MEP"));
     expect(mep).toContain("menos que Binance P2P + Bitso · revisá");
-    expect(
+    await user.click(
       within(results()).getByRole("link", { name: "Revisá los valores de Dólar MEP" }),
-    ).toBeVisible();
+    );
+    expect(screen.getByRole("heading", { name: "Dólar MEP" })).toHaveFocus();
     expect(
       within(results()).queryByRole("link", { name: "Revisá los valores de Binance P2P + Bitso" }),
     ).toBeNull();
@@ -294,9 +295,16 @@ describe("the calculator page", () => {
       screen.getByText("Empatan ARQ (ex DolarApp) y Binance P2P + Bitso: llegan $ 1.534.005,69."),
     ).toBeVisible();
     const [first, second, third] = ranking();
-    expect(first).toContain("DiferenciaIgual que Binance P2P + Bitso");
-    expect(second).toContain("DiferenciaIgual que ARQ (ex DolarApp)");
-    expect(third).toContain("Diferencia$ 30.381,56 menos que ARQ (ex DolarApp)");
+    // Both tied routes have estimates, so each difference points at the other one.
+    expect(first).toContain("DiferenciaIgual que Binance P2P + Bitso · revisá");
+    expect(second).toContain("DiferenciaIgual que ARQ (ex DolarApp) · revisá");
+    expect(third).toContain("Diferencia$ 30.381,56 menos que ARQ (ex DolarApp) · revisá");
+    expect(
+      screen.getAllByRole("link", { name: "Revisá los valores de Binance P2P + Bitso" }),
+    ).toHaveLength(1);
+    expect(
+      screen.getAllByRole("link", { name: "Revisá los valores de ARQ (ex DolarApp)" }),
+    ).toHaveLength(2);
     expect(screen.getByRole("link", { name: /Ver resultado$/ })).toHaveTextContent(
       "Empatan: ARQ (ex DolarApp) y Binance P2P + Bitso",
     );

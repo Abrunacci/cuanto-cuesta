@@ -16,7 +16,10 @@ interface RouteFiguresProps {
   readonly differenceReview: Route | null;
   /** Missing inputs already listed once for every route, left out here. */
   readonly skip: ReadonlySet<string>;
-  /** Take the person to a field, opening the route's card when the field is inside it. */
+  /**
+   * Take the person to a field, opening the route's card when the field is inside it; or to any
+   * other element of the page, such as a route's result heading.
+   */
   readonly onGoToField: (routeId: string, id: string) => void;
 }
 
@@ -97,7 +100,10 @@ export function RouteFigures({
   );
 }
 
-/** How much more or less this route leaves than the one it is compared with. */
+/**
+ * How much more or less this route leaves than the one it is compared with, and "· revisá", a
+ * link to the route whose values to check, when the difference rests on any.
+ */
 function DifferenceText({
   standing,
   review,
