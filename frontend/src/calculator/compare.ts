@@ -33,7 +33,10 @@ export interface ComparisonInput {
   readonly amount: PositiveAmount | null;
   /** Price per rate key; missing or null when the person left it empty. */
   readonly prices: ReadonlyMap<string, PositivePrice | null>;
-  /** Fee per id; missing or null when the person left it empty. */
+  /**
+   * Fee per id, every known fee present; null when the person left it empty. A route that uses
+   * an id not in the map fails.
+   */
   readonly fees: ReadonlyMap<string, Fee | null>;
 }
 
