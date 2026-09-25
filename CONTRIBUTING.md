@@ -75,9 +75,9 @@ with `Depends`.
 
 - Use `Decimal` everywhere in Python and a decimal type (big.js) in TypeScript, never floats.
   JSON is parsed with `parse_float=Decimal`, and the API sends amounts as decimal strings.
-- In Python all rounding lives in `domain/money.py`; in TypeScript it lives in one module that
-  mirrors it. Amounts credited to the user (each conversion and each step output) round **down**
-  to the minor unit, and fees round **up**. Nothing else rounds.
+- All rounding lives in the calculator's `src/calculator/money.ts`. Amounts credited to the user
+  (each conversion and each step output) round **down** to the minor unit, and fees round **up**.
+  Nothing else rounds. The backend only holds and validates amounts; it does no arithmetic.
 - The TypeScript calculation was checked to land on the same cent as the Python domain it
   replaced, for the inputs it accepts: positive prices up to 1,000,000 with up to 8 decimals, and
   amounts in whole cents up to 10 million, checked once in `src/calculator/inputs.ts`. `money.ts`
@@ -85,10 +85,10 @@ with `Depends`.
   exact, and division keeps 30 decimal places rounding half-even (Python kept 34 significant
   digits). The calculator's tests keep the domain's hand-checked cases, a frozen table of results
   computed with the domain, and a division case.
-- Intermediate arithmetic goes through the `Money` operators or `money.mul`/`money.div`, which use
-  a fixed decimal context (34 significant digits). Never multiply bare `Decimal`s in the domain.
-- `Money` is signed on purpose, so a difference can be negative. Where only `>= 0` makes sense,
-  the type that owns the value calls `Money.require_non_negative` in its `__post_init__`.
+- In the calculator, arithmetic on amounts goes through `money.ts` (`add`, `subtract` and the
+  rounding helpers), never through plain numbers.
+- `Money` is signed in both languages. Where only `>= 0` makes sense, the type that owns the value
+  checks it: in Python it calls `Money.require_non_negative` in its `__post_init__`.
 
 ## Language
 

@@ -1,11 +1,10 @@
 /**
- * Money, currencies and the single place where rounding happens. Mirrors
- * `backend/src/cuanto_cuesta/domain/money.py`.
+ * Money, currencies and the single place where rounding happens.
  *
  * - Intermediate arithmetic is exact for `+`, `-` and `*`. Division keeps 30 decimal places,
  *   rounding half-even. For the inputs `inputs.ts` accepts (prices with up to 8 decimals, amounts
- *   in whole cents up to 10 million) it lands on the same cent as the domain's 34 significant
- *   digits.
+ *   in whole cents up to 10 million) it lands on the same cent as the Python domain's 34
+ *   significant digits did, before that domain was removed.
  * - An amount credited to the user (each conversion and each step output) is rounded down to
  *   the currency's minor unit: the calculator never promises more than a platform would credit.
  * - A fee charged to the user is rounded up to the minor unit, for the same reason.
