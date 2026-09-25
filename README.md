@@ -18,8 +18,10 @@ Stage 1: a calculator that runs entirely in the browser, with no backend.
 
 - The person types the amount and the day's prices. Prices start empty on every visit, because an
   old price misleads.
-- Every fee comes prefilled with a researched value, its source and the date it was checked, and
-  can be edited. A fee the person edits is marked as their own.
+- Every fee comes prefilled and can be edited. Most start at a researched value, with its source
+  and the date it was checked. The P2P premium starts at 0, because only the person knows what
+  they pay over the P2P price. A fee the person edits is marked as their own and can go back to
+  its reference value.
 - The amount and the fees the person set are remembered in the browser (`localStorage`).
   "Restablecer valores de referencia" puts every fee back to its researched value.
 - Money never goes through floating point: amounts are decimals (`big.js`) with the same rounding
