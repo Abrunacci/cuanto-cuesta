@@ -6,7 +6,7 @@ import { feeProblems } from "../limits.ts";
 import { validAmount, validPrice } from "../sample.fixture.ts";
 import { feeIds, rateKeys, routeProblems } from "../routes.ts";
 import { FEE_DEFAULTS } from "./fees.ts";
-import { RATE_FIELDS, ROUTES } from "./routes.ts";
+import { RATE_FIELDS, ROUTES, TARGET_CURRENCY } from "./routes.ts";
 
 const feeIdsInDefaults = FEE_DEFAULTS.map((d) => d.fee.id);
 const usedFeeIds = new Set(ROUTES.flatMap((r) => [...feeIds(r)]));
@@ -29,6 +29,10 @@ describe("the bundled routes and fees", () => {
 
   it("only use fees that have a default", () => {
     expect([...usedFeeIds].filter((id) => !feeIdsInDefaults.includes(id))).toEqual([]);
+  });
+
+  it("all end in the comparison's currency", () => {
+    expect(ROUTES.filter((r) => r.target !== TARGET_CURRENCY).map((r) => r.id)).toEqual([]);
   });
 
   it("only use rates the person can type", () => {
@@ -76,6 +80,7 @@ describe("the bundled data, calculated end to end", () => {
   const summarize = (amount: string) => {
     const comparison = compareRoutes({
       routes: ROUTES,
+      target: TARGET_CURRENCY,
       rateDefinitions: RATE_FIELDS,
       amount: validAmount(amount),
       prices,
@@ -110,6 +115,7 @@ describe("the bundled data, calculated end to end", () => {
     // The example that showed the MEP route "losing" its own fees against the MEP.
     const comparison = compareRoutes({
       routes: ROUTES,
+      target: TARGET_CURRENCY,
       rateDefinitions: RATE_FIELDS,
       amount: validAmount("1500.00"),
       prices: new Map([

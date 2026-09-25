@@ -25,6 +25,7 @@ const cents = (value: Money | null) => (value === null ? null : value.amount.toF
 function input(overrides: Partial<ComparisonInput> = {}): ComparisonInput {
   return {
     routes: SAMPLE_ROUTES,
+    target: "ARS",
     rateDefinitions: SAMPLE_RATE_DEFINITIONS,
     amount: validAmount("1000.00"),
     prices: SAMPLE_PRICES,
@@ -335,24 +336,60 @@ describe("routes whose own data is wrong", () => {
     ]);
   });
 
-  it("fails a route that ends in a different currency than the others", () => {
-    const usd = {
-      id: "usd",
-      name: "usd",
-      source: "USD" as const,
-      target: "USD" as const,
-      steps: [{ label: "s", feeIds: ["arq_ach_deposit"], conversion: null }],
-      warnings: [],
-    };
-    const comparison = compareRoutes(input({ routes: [BINANCE, usd, MEP_ROUTE] }));
+  const usd = {
+    id: "usd",
+    name: "usd",
+    source: "USD" as const,
+    target: "USD" as const,
+    steps: [{ label: "s", feeIds: ["arq_ach_deposit"], conversion: null }],
+    warnings: [],
+  };
+
+  it("fails a route that ends in another currency than the comparison, wherever it is", () => {
+    for (const routes of [
+      [usd, BINANCE, MEP_ROUTE],
+      [BINANCE, usd, MEP_ROUTE],
+    ]) {
+      const comparison = compareRoutes(input({ routes }));
+      expect(failures(comparison)).toEqual([
+        ["usd", "CurrencyMismatchError", "Route usd ends in USD, the comparison is in ARS"],
+      ]);
+      expect(ids(comparison)).toEqual([
+        ["binance_bitso", "complete"],
+        ["mep", "complete"],
+        ["usd", "failed"],
+      ]);
+    }
+  });
+
+  it("fails a route that uses a fee that does not exist, instead of asking for it", () => {
+    const fees = new Map([...SAMPLE_FEES].filter(([id]) => id !== "arq_ach_deposit"));
+    const comparison = compareRoutes(input({ fees }));
     expect(failures(comparison)).toEqual([
-      ["usd", "CurrencyMismatchError", "Route usd ends in USD, the others in ARS"],
+      ["arq", "UnknownFeeError", "Route arq uses fee arq_ach_deposit, which does not exist"],
     ]);
-    expect(ids(comparison)).toEqual([
-      ["binance_bitso", "complete"],
-      ["mep", "complete"],
-      ["usd", "failed"],
+  });
+
+  it("fails a route that converts with a rate that has no definition, instead of asking for it", () => {
+    const rateDefinitions = SAMPLE_RATE_DEFINITIONS.filter((d) => d.key !== "arq_usd_ars");
+    const comparison = compareRoutes(input({ rateDefinitions }));
+    expect(failures(comparison)).toEqual([
+      ["arq", "UnknownRateError", "Route arq uses rate arq_usd_ars, which does not exist"],
     ]);
+  });
+
+  it("asks for the price of a rate whose definition is wrong until it is typed", () => {
+    // The definition only turns into a rate with a price: before that, nothing is known wrong.
+    const rateDefinitions = SAMPLE_RATE_DEFINITIONS.map((d) =>
+      d.key === "bitso_usdt_ars" ? { ...d, base: "ARS" as const } : d,
+    );
+    const prices = new Map<string, PositivePrice | null>([
+      ...SAMPLE_PRICES,
+      ["bitso_usdt_ars", null],
+    ]);
+    const comparison = compareRoutes(input({ rateDefinitions, prices }));
+    expect(comparison.failed).toEqual([]);
+    expect(ids(comparison)).toContainEqual(["binance_bitso", "incomplete"]);
   });
 
   it("fails the routes that convert with a rate whose definition is wrong", () => {

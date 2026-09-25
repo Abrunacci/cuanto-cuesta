@@ -6,6 +6,9 @@
 import type { RateDefinition } from "../rates.ts";
 import type { Route } from "../routes.ts";
 
+/** Every route ends in pesos: that is what reaches the bank. */
+export const TARGET_CURRENCY = "ARS";
+
 export const ROUTES: readonly Route[] = [
   {
     id: "binance_bitso",

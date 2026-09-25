@@ -49,7 +49,9 @@ describe("a route whose data is wrong", () => {
       "No se puede calcular esta ruta: hay un problema con las cotizaciones o comisiones que usa. No es un error en lo que cargaste.",
     );
     expect(binance).not.toHaveTextContent("Llegan al banco");
-    // Whoever fixes the data finds the reason in the console.
+    // Whoever fixes the data finds the reason in the console, once: typing on does not repeat it.
+    await type(/^Monto en Payoneer/, "0");
+    expect(errors).toHaveBeenCalledTimes(1);
     expect(errors).toHaveBeenCalledWith(
       expect.stringContaining("binance_bitso: Route binance_bitso ends in USDT, it declares ARS"),
     );

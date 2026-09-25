@@ -13,7 +13,7 @@
 
 import { InvalidFeeError, withoutCharge, type Fee } from "./fees.ts";
 import type { PositiveAmount, PositivePrice } from "./inputs.ts";
-import { CurrencyMismatchError, subtract, type Money } from "./money.ts";
+import { CurrencyMismatchError, subtract, type Currency, type Money } from "./money.ts";
 import { InvalidRateError, rate, type Rate, type RateDefinition } from "./rates.ts";
 import {
   feeIds,
@@ -27,6 +27,8 @@ import {
 
 export interface ComparisonInput {
   readonly routes: readonly Route[];
+  /** The currency routes are compared in; a route that ends in another one fails. */
+  readonly target: Currency;
   readonly rateDefinitions: readonly RateDefinition[];
   readonly amount: PositiveAmount | null;
   /** Price per rate key; missing or null when the person left it empty. */
@@ -121,26 +123,17 @@ export interface Comparison {
 
 export function compareRoutes(input: ComparisonInput): Comparison {
   const { rates, brokenRates } = buildRates(input.rateDefinitions, input.prices);
-  // Routes are ranked by what they deliver, which only compares within one currency.
-  const target = input.routes[0]?.target;
+  const defined = new Set(input.rateDefinitions.map((d) => d.key));
   const complete: Unranked[] = [];
   const incomplete: IncompleteRoute[] = [];
   const failed: FailedRoute[] = [];
   for (const route of input.routes) {
-    const broken = [...rateKeys(route)].find((key) => brokenRates.has(key));
-    if (route.target !== target) {
-      const error = new CurrencyMismatchError(
-        `Route ${route.id} ends in ${route.target}, the others in ${String(target)}`,
-      );
+    // What is wrong with the route's own data wins over what is still empty: filling a field
+    // would not fix it.
+    const error = dataError(route, input, defined, brokenRates);
+    if (error !== null) {
       failed.push({ status: "failed", route, error });
       continue;
-    }
-    if (broken !== undefined) {
-      const error = brokenRates.get(broken);
-      if (error !== undefined) {
-        failed.push({ status: "failed", route, error });
-        continue;
-      }
     }
     const missing = missingInputs(route, input, rates);
     if (missing.length > 0 || input.amount === null) {
@@ -177,6 +170,35 @@ export function routesInOrder({ ranking, incomplete, failed }: Comparison): Rout
     case "ranked":
       return [ranking.best, ...ranking.rest, ...incomplete, ...failed];
   }
+}
+
+/**
+ * A problem with the route's data found without running it. What only running it finds (a fee
+ * in a currency the step never holds, a result in another currency than declared) shows once
+ * every field it needs is filled.
+ */
+function dataError(
+  route: Route,
+  input: ComparisonInput,
+  defined: ReadonlySet<string>,
+  brokenRates: ReadonlyMap<string, InvalidRateError>,
+): DataError | null {
+  if (route.target !== input.target) {
+    return new CurrencyMismatchError(
+      `Route ${route.id} ends in ${route.target}, the comparison is in ${input.target}`,
+    );
+  }
+  const unknownFee = [...feeIds(route)].find((id) => !input.fees.has(id));
+  if (unknownFee !== undefined) {
+    return new UnknownFeeError(`Route ${route.id} uses fee ${unknownFee}, which does not exist`);
+  }
+  const unknownRate = [...rateKeys(route)].find((key) => !defined.has(key));
+  if (unknownRate !== undefined) {
+    return new UnknownRateError(`Route ${route.id} uses rate ${unknownRate}, which does not exist`);
+  }
+  return (
+    [...rateKeys(route)].map((key) => brokenRates.get(key)).find((e) => e !== undefined) ?? null
+  );
 }
 
 function isDataError(error: unknown): error is DataError {

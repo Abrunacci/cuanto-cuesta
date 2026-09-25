@@ -17,7 +17,7 @@ export type {
 } from "./compare.ts";
 export { FEE_DEFAULTS } from "./data/fees.ts";
 export type { FeeDefault, Provenance } from "./data/fees.ts";
-export { RATE_FIELDS, ROUTES } from "./data/routes.ts";
+export { RATE_FIELDS, ROUTES, TARGET_CURRENCY } from "./data/routes.ts";
 export type { RateField } from "./data/routes.ts";
 export { charge, fixedFee, percentFee, withoutCharge } from "./fees.ts";
 export type { Fee, FixedFee, PercentFee } from "./fees.ts";

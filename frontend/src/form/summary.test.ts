@@ -48,6 +48,7 @@ function tiedComparison(withD = false) {
       route("b", "Ruta B", "zero"),
       ...(withD ? [route("d", "Ruta D", "zero")] : []),
     ],
+    target: "ARS",
     rateDefinitions: [{ key: "mep", base: "USD", quote: "ARS" }],
     amount: validAmount("1000"),
     prices: new Map([["mep", validPrice("1500")]]),
