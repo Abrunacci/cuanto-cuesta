@@ -10,11 +10,10 @@ The app is built in three stages:
 2. Scheduled jobs that fetch fee defaults and the MEP rate.
 3. Storing those values so the frontend can preload them.
 
-Stage 1 is in progress. In `backend/` so far `domain/`, `application/`, the YAML config and its
-loader in `infrastructure/` exist. They stay for stages 2 and 3; the rules below for the API and
-Postgres apply when those parts are added. Until the calculator in `frontend/src/calculator/`
-matches it, the Python calculation (`domain/`) is its parity reference; after that, whatever
-stages 2 and 3 do not need is removed in a separate PR.
+Stage 1 is in progress. The calculation lives only in `frontend/src/calculator/`. `backend/`
+holds what stages 2 and 3 build on: the researched fee defaults (`config/fees.yaml`), their
+loader and checks, and the value types they use. The rules below for the API and Postgres apply
+when those parts are added.
 
 ## Before a PR
 
@@ -39,12 +38,12 @@ All of them must pass; CI runs the same commands.
 
 Layers under `backend/src/cuanto_cuesta/`:
 
-- `domain/`: money, fees, rates, routes and the calculation. It uses the standard library only
-  (an import test enforces this) and does no I/O.
-- `application/`: use cases, the fee catalog and override validation. It defines `Protocol`s only
-  for things that vary at runtime (`QuoteProvider`, `QuoteRepository`).
-- `infrastructure/`: implements those protocols (HTTP quote providers, Postgres). It also loads the
-  YAML config into the fee catalog and domain routes, and reads settings.
+- `domain/`: money, percentages and fees. It uses the standard library only (an import test
+  enforces this) and does no I/O.
+- `application/`: use cases, the fee catalog and its caps. It defines `Protocol`s only for things
+  that vary at runtime (`QuoteProvider`, `QuoteRepository`).
+- `infrastructure/`: implements those protocols (HTTP quote providers, Postgres). It also loads
+  `fees.yaml` into the fee catalog, and reads settings.
 - `api/`: FastAPI. It translates HTTP and is the composition root: its `lifespan` and dependency
   wiring are the only code outside `infrastructure/` that imports it.
 
@@ -64,9 +63,9 @@ with `Depends`.
 - The calculation (`src/calculator/`) is plain TypeScript with no React, so it can be tested on
   its own. Components render and collect input; they do not compute. In the calculation every
   condition is an explicit boolean (`strict-boolean-expressions`).
-- The calculator bundles its own copy of the fee defaults and routes (`src/calculator/data/`).
-  `tests/config-parity.test.ts` keeps it identical to `backend/config/fees.yaml` and
-  `routes.yaml`: change both together.
+- The calculator bundles its own copy of the fee defaults (`src/calculator/data/fees.ts`).
+  `tests/config-parity.test.ts` keeps it identical to `backend/config/fees.yaml`: change both
+  together. The routes are defined only in `src/calculator/data/routes.ts`.
 - Test the calculation with unit tests and the screen with Testing Library, through what the
   person sees and does (labels, roles, text), not component internals.
 - The page must work on a phone: mobile-first layout, real `<label>`s, keyboard and screen-reader
@@ -79,27 +78,24 @@ with `Depends`.
 - In Python all rounding lives in `domain/money.py`; in TypeScript it lives in one module that
   mirrors it. Amounts credited to the user (each conversion and each step output) round **down**
   to the minor unit, and fees round **up**. Nothing else rounds.
-- The TypeScript calculation lands on the same cent as the Python domain for the inputs it
-  accepts: positive prices up to 1,000,000 with up to 8 decimals, and amounts in whole cents up
-  to 10 million, checked once in `src/calculator/inputs.ts`. `money.ts` uses its own big.js
-  constructor and only `money()` builds a `Money`: `+`, `-` and `*` are exact, and division keeps
-  30 decimal places rounding half-even (Python keeps 34 significant digits). The calculator's
-  tests reproduce the domain's hand-checked cases, a table of results computed with the domain,
-  and a division case.
+- The TypeScript calculation was checked to land on the same cent as the Python domain it
+  replaced, for the inputs it accepts: positive prices up to 1,000,000 with up to 8 decimals, and
+  amounts in whole cents up to 10 million, checked once in `src/calculator/inputs.ts`. `money.ts`
+  uses its own big.js constructor and only `money()` builds a `Money`: `+`, `-` and `*` are
+  exact, and division keeps 30 decimal places rounding half-even (Python kept 34 significant
+  digits). The calculator's tests keep the domain's hand-checked cases, a frozen table of results
+  computed with the domain, and a division case.
 - Intermediate arithmetic goes through the `Money` operators or `money.mul`/`money.div`, which use
   a fixed decimal context (34 significant digits). Never multiply bare `Decimal`s in the domain.
-- `Money` is signed on purpose, because `fx_loss` is negative when a route beats the reference.
-  Where only `>= 0` makes sense, the type that owns the value calls `Money.require_non_negative`
-  in its `__post_init__`.
+- `Money` is signed on purpose, so a difference can be negative. Where only `>= 0` makes sense,
+  the type that owns the value calls `Money.require_non_negative` in its `__post_init__`.
 
 ## Language
 
 - Code, comments, commits, PR descriptions and the README are in English.
-- Text shown on screen is in Spanish: fee labels and notes, route names, step labels and warnings
-  in the YAML config, and the frontend copy. The API returns error codes, not sentences, and the
-  frontend writes the message. Override problems in `application/overrides.py` are still English
-  text; they become codes (`unknown_fee`, `no_minimum`, `negative`, `above_cap` with the cap as
-  data) with the API.
+- Text shown on screen is in Spanish: fee labels and notes in `fees.yaml`, route names, step
+  labels and warnings in the calculator's route data, and the frontend copy. The API returns error
+  codes, not sentences, and the frontend writes the message.
 
 ## Types
 
@@ -127,14 +123,14 @@ with `Depends`.
   reference was checked.
 - For an "up to X" fee, X is the default, the fee is `pending` and it sets `upper_bound: true`;
   only pending fees can.
-- Users can edit every fee. Edited values are validated before they are used: the id must exist,
-  and the value must be finite, non-negative and at most the caps (`application/limits.py` in
-  Python, the same caps in the calculator).
+- Users can edit every fee. Edited values are validated before they are used: the value must be
+  finite, non-negative and at most the caps (`src/calculator/limits.ts`; the defaults are checked
+  against the same caps in `application/limits.py`).
 - Every route is always shown, whatever the fees; none is hidden or filtered out. A route with an
   empty field is not computed and says what is missing: an empty field is never read as 0.
-- Routes are data (ordered steps with their fees and rates), not special-case code. The backend
-  declares them in `backend/config/routes.yaml`; in stage 1 the calculator declares them in one
-  TypeScript data module.
+- Routes are data (ordered steps with their fees and rates), not special-case code, declared in
+  one TypeScript data module (`src/calculator/data/routes.ts`). A route whose data is wrong is
+  shown as not computable, and the others are still compared.
 
 ## Deploy
 

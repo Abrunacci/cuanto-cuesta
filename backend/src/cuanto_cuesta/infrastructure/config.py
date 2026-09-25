@@ -1,6 +1,6 @@
-"""Load ``fees.yaml`` and ``routes.yaml`` into a ``Catalog``.
+"""Load ``fees.yaml`` into a ``Catalog``.
 
-Each file is checked against a pydantic schema; ``Catalog`` then checks that they fit together.
+The file is checked against a pydantic schema; ``Catalog`` then checks the fees as a whole.
 Every failure surfaces as a ``ConfigError`` that names the file and the offending field.
 
 YAML floats are read as ``Decimal`` from their source text, so ``0.6`` is exactly 0.6.
@@ -35,34 +35,25 @@ from cuanto_cuesta.application import (
     Verified,
 )
 from cuanto_cuesta.domain import (
-    Conversion,
     Currency,
-    DomainError,
     Fee,
     FixedFee,
     Money,
     Percentage,
     PercentFee,
-    Route,
-    Step,
 )
 
 
 class ConfigError(Exception):
-    """A config file is missing, malformed, or does not fit the other one."""
+    """The config file is missing, malformed, or its fees are inconsistent."""
 
 
-def load_catalog(fees_path: Path, routes_path: Path) -> Catalog:
+def load_catalog(fees_path: Path) -> Catalog:
     fees = _parse(fees_path, _FeesFile)
-    routes = _parse(routes_path, _RoutesFile)
     try:
-        catalog_routes = tuple(r.to_domain() for r in routes.routes)
-    except DomainError as exc:
-        raise ConfigError(f"{routes_path}: {exc}") from exc
-    try:
-        return Catalog(tuple(_fee_default(f) for f in fees.fees), catalog_routes)
+        return Catalog(tuple(_fee_default(f) for f in fees.fees))
     except InvalidCatalogError as exc:
-        raise ConfigError(f"{fees_path} and {routes_path}: {exc}") from exc
+        raise ConfigError(f"{fees_path}: {exc}") from exc
 
 
 # --- YAML --------------------------------------------------------------------------------------
@@ -206,45 +197,3 @@ def _provenance(spec: _FeeSpec) -> Provenance:
             return Estimate(url, spec.verified_at, upper_bound=spec.upper_bound)
         case "user_defined":
             return UserDefined(url, spec.verified_at)
-
-
-class _ConversionSpec(_Schema):
-    rate: _Id
-    to: Currency
-
-
-class _StepSpec(_Schema):
-    label: _Text
-    fees: list[_Id] = []
-    conversion: _ConversionSpec | None = None
-
-    def to_domain(self) -> Step:
-        conversion = (
-            Conversion(self.conversion.rate, self.conversion.to)
-            if self.conversion is not None
-            else None
-        )
-        return Step(self.label, tuple(self.fees), conversion)
-
-
-class _RouteSpec(_Schema):
-    id: _Id
-    name: _Text
-    source: Currency
-    target: Currency
-    steps: list[_StepSpec]
-    warnings: list[_Text] = []
-
-    def to_domain(self) -> Route:
-        return Route(
-            self.id,
-            self.name,
-            self.source,
-            self.target,
-            tuple(s.to_domain() for s in self.steps),
-            tuple(self.warnings),
-        )
-
-
-class _RoutesFile(_Schema):
-    routes: list[_RouteSpec]

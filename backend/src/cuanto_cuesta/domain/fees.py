@@ -3,17 +3,14 @@
 * ``FixedFee``: a fixed amount of money.
 * ``PercentFee``: a percentage of the amount, with an optional minimum.
 
-Value rules live in ``Money`` and ``Percentage``; ``charge`` rounds every fee
-up to the minor unit, as the rounding policy in ``money`` requires.
+Value rules live in ``Money`` and ``Percentage``.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from decimal import Decimal
 
-from cuanto_cuesta.domain.errors import CurrencyMismatchError
-from cuanto_cuesta.domain.money import Currency, Money
+from cuanto_cuesta.domain.money import Money
 from cuanto_cuesta.domain.percentage import Percentage
 
 
@@ -39,34 +36,3 @@ class PercentFee:
 
 
 type Fee = FixedFee | PercentFee
-
-
-def charge(fee: Fee, amount: Money) -> Money:
-    """The fee charged on ``amount``, rounded up to the minor unit."""
-    match fee:
-        case FixedFee(amount=fixed):
-            _require_currency(fee.id, fixed.currency, amount.currency)
-            return fixed.rounded_up()
-        case PercentFee(rate=rate, minimum=minimum):
-            share = rate.of(amount).rounded_up()
-            if minimum is None:
-                return share
-            _require_currency(fee.id, minimum.currency, amount.currency)
-            floor = minimum.rounded_up()
-            return floor if share < floor else share
-
-
-def without_charge(fee: Fee) -> Fee:
-    """The same fee set to zero, minimum included."""
-    match fee:
-        case FixedFee(amount=fixed):
-            return FixedFee(fee.id, Money.zero(fixed.currency))
-        case PercentFee():
-            return PercentFee(fee.id, Percentage(Decimal(0)))
-
-
-def _require_currency(fee_id: str, fee_currency: Currency, amount_currency: Currency) -> None:
-    if fee_currency is not amount_currency:
-        raise CurrencyMismatchError(
-            f"Fee {fee_id!r} is in {fee_currency}, cannot charge it on {amount_currency}"
-        )

@@ -1,6 +1,6 @@
 /**
- * The three routes, as data. They mirror `backend/config/routes.yaml`;
- * `tests/config-parity.test.ts` fails if the two drift apart.
+ * The three routes, as data. This is their only definition: `data.test.ts` checks that they chain
+ * their currencies and use only fees and rates that exist.
  */
 
 import type { RateDefinition } from "../rates.ts";

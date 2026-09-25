@@ -6,7 +6,8 @@
  * 2. the conversion (if any) is applied;
  * 3. fixed fees in the conversion's target currency are deducted.
  *
- * Mirrors `backend/src/cuanto_cuesta/domain/calculation.py`.
+ * Ported from the Python domain's `calculation.py`, since removed; the tests keep the results it
+ * gave.
  */
 
 import { charge, type Fee } from "./fees.ts";

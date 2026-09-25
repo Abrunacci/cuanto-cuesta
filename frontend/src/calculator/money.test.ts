@@ -27,8 +27,8 @@ describe("rounding", () => {
     expect(roundedUp(money("10.10", "ARS")).amount.toFixed(2)).toBe("10.10");
   });
 
-  it("divides with 30 decimal places, which lands on the same cent as the Python domain", () => {
-    // Python keeps 34 significant digits: 957.2815533980582524271844660194175
+  it("divides with 30 decimal places, which landed on the same cent as the Python domain", () => {
+    // Python kept 34 significant digits: 957.2815533980582524271844660194175
     const quotient = new Decimal("986").div("1.03");
     expect(quotient.toString()).toBe("957.281553398058252427184466019417");
     expect(roundedDown(money(quotient, "USDT")).amount.toFixed(2)).toBe("957.28");
