@@ -38,7 +38,18 @@ export function summaryText(comparison: Comparison, amountHasProblem: boolean): 
   }
 }
 
+const ALL_FAILED =
+  "No se puede calcular ninguna ruta: hay un problema con las cotizaciones o comisiones que usan. No es un error en lo que cargaste.";
+
+/** Every route's own data is wrong: nothing the person types can make one computable. */
+function allFailed({ ranking, incomplete, failed }: Comparison): boolean {
+  return ranking.kind === "none" && incomplete.length === 0 && failed.length > 0;
+}
+
 function pendingText(comparison: Comparison, amountHasProblem: boolean): string {
+  if (allFailed(comparison)) {
+    return ALL_FAILED;
+  }
   if (amountHasProblem) {
     return AMOUNT_PROBLEM;
   }
@@ -102,6 +113,9 @@ export function barText(reading: FormReading, amountHasProblem: boolean): BarTex
       amountWhole: formatMoneyWhole(final.amount, final.currency),
       review: routeNeedsReview(entry.route, reading.ownFees, reading.warnings),
     };
+  }
+  if (allFailed(comparison)) {
+    return { kind: "pending", text: ALL_FAILED, short: "Ninguna ruta se puede calcular" };
   }
   if (amountHasProblem) {
     return { kind: "pending", text: AMOUNT_PROBLEM, short: "Revisá: monto" };

@@ -59,6 +59,32 @@ function tiedComparison(withD = false) {
   });
 }
 
+/**
+ * Route a ends in ARS and route b in USD; compared in USD, a fails. Compared in USDT, both fail.
+ * Without the amount, a route that does not fail is incomplete.
+ */
+function withFailures(target: "USD" | "USDT", amount: string | null = "1000") {
+  const route = (id: string, end: "ARS" | "USD") => ({
+    id,
+    name: id,
+    source: "USD" as const,
+    target: end,
+    steps:
+      end === "ARS"
+        ? [{ label: "s", feeIds: ["zero"], conversion: { rateKey: "mep", target: "ARS" as const } }]
+        : [{ label: "s", feeIds: ["zero"], conversion: null }],
+    warnings: [],
+  });
+  return compareRoutes({
+    routes: [route("a", "ARS"), route("b", "USD")],
+    target,
+    rateDefinitions: [{ key: "mep", base: "USD", quote: "ARS" }],
+    amount: amount === null ? null : validAmount(amount),
+    prices: new Map([["mep", validPrice("1500")]]),
+    fees: new Map([["zero", fixedFee("zero", "0", "USD")]]),
+  });
+}
+
 describe("commonMissing", () => {
   it("is what every route lacks while none can be computed", () => {
     // Each route needs its own prices; only the amount is common to all.
@@ -234,6 +260,27 @@ describe("summaryText", () => {
     expect(summaryText(tiedComparison(true), false)).toBe(
       "Empatan Ruta A, Ruta B y Ruta D: llegan $\u00a01.500.000,00.",
     );
+  });
+
+  it("says no route can be computed when every route's data is wrong", () => {
+    const comparison = withFailures("USDT");
+    expect(comparison.failed).toHaveLength(2);
+    const text =
+      "No se puede calcular ninguna ruta: hay un problema con las cotizaciones o comisiones que usan. No es un error en lo que cargaste.";
+    expect(summaryText(comparison, false)).toBe(text);
+    // A wrong amount would not make any route computable either.
+    expect(summaryText(comparison, true)).toBe(text);
+    expect(barText({ ...read({}), comparison }, false)).toEqual({
+      kind: "pending",
+      text,
+      short: "Ninguna ruta se puede calcular",
+    });
+  });
+
+  it("asks for what is missing when some routes failed and the rest are incomplete", () => {
+    const comparison = withFailures("USD", null);
+    expect([comparison.failed.length, comparison.incomplete.length]).toEqual([1, 1]);
+    expect(summaryText(comparison, false)).toBe("Completá el monto para comparar las rutas.");
   });
 
   it.each([
