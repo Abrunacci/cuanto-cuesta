@@ -11,6 +11,12 @@ const PRICES = {
   arq_usd_ars: "1.593,385",
 };
 const read = (overrides: Partial<FormTexts>) => readForm({ ...initialTexts(), ...overrides });
+/** Fees the person typed: their values, marked as their own. */
+const typed = (fees: Readonly<Record<string, string>>) => ({
+  fees: { ...initialTexts().fees, ...fees },
+  ownFees: new Set(Object.keys(fees)),
+});
+const ALL_SET = { p2p_premium: "0,1", payoneer_p2p_transfer: "3", binance_p2p_taker: "0,07" };
 
 describe("commonMissing", () => {
   it("is what every route lacks while none can be computed", () => {
@@ -45,12 +51,7 @@ describe("barText", () => {
     const reading = read({
       amount: "1000",
       prices: PRICES,
-      fees: {
-        ...initialTexts().fees,
-        p2p_premium: "0,1",
-        payoneer_p2p_transfer: "3",
-        binance_p2p_taker: "0,07",
-      },
+      ...typed(ALL_SET),
     });
     const text = barText(reading, []);
     expect(text.kind === "best" && [text.routeId, text.review]).toEqual(["binance_bitso", false]);
@@ -63,22 +64,27 @@ describe("barText", () => {
     const reading = read({
       amount: "1000",
       prices: PRICES,
-      fees: { ...initialTexts().fees, ...fees },
+      ...typed(fees),
     });
     const text = barText(reading, []);
     expect(text.kind === "best" && [text.routeId, text.review]).toEqual(["binance_bitso", true]);
+  });
+
+  it("has nothing to review once the premium is set by hand to 0, its default", () => {
+    const reading = read({
+      amount: "1000",
+      prices: PRICES,
+      ...typed({ ...ALL_SET, p2p_premium: "0" }),
+    });
+    const text = barText(reading, []);
+    expect(text.kind === "best" && [text.routeId, text.review]).toEqual(["binance_bitso", false]);
   });
 
   it("asks to review a best route computed with an unusual price", () => {
     const reading = read({
       amount: "1000",
       prices: { ...PRICES, bitso_usdt_ars: "60.000" },
-      fees: {
-        ...initialTexts().fees,
-        p2p_premium: "0,1",
-        payoneer_p2p_transfer: "3",
-        binance_p2p_taker: "0,07",
-      },
+      ...typed(ALL_SET),
     });
     const text = barText(reading, []);
     expect(text.kind === "best" && [text.routeId, text.review]).toEqual(["binance_bitso", true]);

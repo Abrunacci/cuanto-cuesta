@@ -1,5 +1,5 @@
 import type { Provenance as FeeProvenance } from "../calculator/index.ts";
-import { statusText } from "../form/messages.ts";
+import { feeStatusText } from "../form/messages.ts";
 import { ExternalLink } from "./ExternalLink.tsx";
 
 const BADGE_CLASS: Record<FeeProvenance["kind"], string> = {
@@ -8,9 +8,19 @@ const BADGE_CLASS: Record<FeeProvenance["kind"], string> = {
   user_defined: "badge badge-user",
 };
 
-/** How far to trust a fee's reference value, as a short badge. */
-export function StatusBadge({ provenance }: { readonly provenance: FeeProvenance }) {
-  return <span className={BADGE_CLASS[provenance.kind]}>{statusText(provenance)}</span>;
+interface StatusBadgeProps {
+  readonly provenance: FeeProvenance;
+  /** The person set this fee: that replaces the reference's status. */
+  readonly own: boolean;
+}
+
+/** Whose value a fee holds, and for a reference value how far to trust it, as a short badge. */
+export function StatusBadge({ provenance, own }: StatusBadgeProps) {
+  return (
+    <span className={own ? "badge badge-own" : BADGE_CLASS[provenance.kind]}>
+      {feeStatusText(provenance, own)}
+    </span>
+  );
 }
 
 interface ProvenanceProps {

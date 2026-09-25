@@ -1,6 +1,7 @@
 /**
- * What to check before trusting a route's result: fees still at a value the person must set
- * (user-defined, at their neutral default) and estimated fees still at the researched value.
+ * What to check before trusting a route's result: fees the person has not set yet that hold a
+ * value they must set (user-defined, at their neutral default) or an estimate. Fees the person
+ * set are theirs to trust.
  */
 
 import {
@@ -16,17 +17,20 @@ import { fieldId } from "./form.ts";
 export interface FeesToReview {
   readonly toSet: readonly FeeDefault[];
   readonly estimated: readonly FeeDefault[];
+  /** The route's fees holding the person's own value. */
+  readonly own: readonly FeeDefault[];
 }
 
-export function feesToReview(route: Route, unchangedFees: ReadonlySet<string>): FeesToReview {
-  const unchanged = route.steps
+export function feesToReview(route: Route, ownFees: ReadonlySet<string>): FeesToReview {
+  const fees = route.steps
     .flatMap((step) => step.feeIds)
-    .filter((id) => unchangedFees.has(id))
     .map((id) => FEE_DEFAULTS.find((d) => d.fee.id === id))
     .filter((d) => d !== undefined);
+  const reference = fees.filter((d) => !ownFees.has(d.fee.id));
   return {
-    toSet: unchanged.filter((d) => d.provenance.kind === "user_defined"),
-    estimated: unchanged.filter((d) => d.provenance.kind === "estimate"),
+    toSet: reference.filter((d) => d.provenance.kind === "user_defined"),
+    estimated: reference.filter((d) => d.provenance.kind === "estimate"),
+    own: fees.filter((d) => ownFees.has(d.fee.id)),
   };
 }
 
@@ -44,9 +48,9 @@ export function unusualPrices(route: Route, warnings: ReadonlyMap<string, string
 /** Whether a route's result rests on something to check: an estimate, a 0 to set, an odd price. */
 export function routeNeedsReview(
   route: Route,
-  unchangedFees: ReadonlySet<string>,
+  ownFees: ReadonlySet<string>,
   warnings: ReadonlyMap<string, string>,
 ): boolean {
-  const { toSet, estimated } = feesToReview(route, unchangedFees);
+  const { toSet, estimated } = feesToReview(route, ownFees);
   return toSet.length > 0 || estimated.length > 0 || unusualPrices(route, warnings).length > 0;
 }
