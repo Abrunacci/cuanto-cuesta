@@ -474,6 +474,16 @@ h3 {
   color: var(--gain);
 }
 
+/* "· revisá": the difference rests on values to check. */
+.figure-review {
+  white-space: nowrap;
+}
+
+.figure-review a {
+  color: var(--unusual);
+  font-weight: 600;
+}
+
 /* Under an amount, what it is compared with; or a sentence where there is no amount. */
 .figure-detail {
   display: block;

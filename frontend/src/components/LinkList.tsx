@@ -2,6 +2,8 @@ export interface InPageLink {
   readonly key: string;
   readonly href: string;
   readonly text: string;
+  /** A fuller accessible name, when the visible text alone is too short to say where it goes. */
+  readonly label?: string;
   readonly onClick: () => void;
 }
 
@@ -10,6 +12,7 @@ export function InPageAnchor({ link }: { readonly link: InPageLink }) {
   return (
     <a
       href={link.href}
+      aria-label={link.label}
       onClick={(event) => {
         event.preventDefault();
         link.onClick();

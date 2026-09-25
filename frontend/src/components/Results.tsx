@@ -2,7 +2,7 @@ import type { Comparison } from "../calculator/index.ts";
 import type { FeeGap } from "../form/form.ts";
 import { missingInputLabel } from "../form/messages.ts";
 import { commonMissing, missingFieldId, missingKey } from "../form/missing.ts";
-import { unusualPrices } from "../form/review.ts";
+import { differenceToReview, unusualPrices } from "../form/review.ts";
 import { summaryText } from "../form/summary.ts";
 import { RESULTS_TITLE_ID, routeResultId } from "./ids.ts";
 import { LinkList } from "./LinkList.tsx";
@@ -77,6 +77,9 @@ export function Results({
               entry={entry}
               feeGaps={feeGaps}
               unusualPrices={unusualPrices(entry.route, warnings)}
+              differenceReview={
+                entry.status === "complete" ? differenceToReview(entry, ownFees, warnings) : null
+              }
               skip={listedOnce}
               onGoToField={onGoToField}
             />

@@ -4,7 +4,13 @@
  * set are theirs to trust.
  */
 
-import { FEE_DEFAULTS, RATE_FIELDS, type FeeDefault, type Route } from "../calculator/index.ts";
+import {
+  FEE_DEFAULTS,
+  RATE_FIELDS,
+  type CompleteRoute,
+  type FeeDefault,
+  type Route,
+} from "../calculator/index.ts";
 import { lowerFirst } from "../text/case.ts";
 import { fieldId } from "./form.ts";
 
@@ -46,4 +52,24 @@ export function routeNeedsReview(
 ): boolean {
   const { toSet, estimated } = feesToReview(route, ownFees);
   return toSet.length > 0 || estimated.length > 0 || unusualPrices(route, warnings).length > 0;
+}
+
+/**
+ * The route to check before trusting a route's difference, which rests on both routes compared:
+ * the other one when it needs review (what the route itself needs is listed under it), else the
+ * route itself; null when neither does or there is nothing to compare with.
+ */
+export function differenceToReview(
+  entry: CompleteRoute,
+  ownFees: ReadonlySet<string>,
+  warnings: ReadonlyMap<string, string>,
+): Route | null {
+  const { standing } = entry;
+  if (standing.kind === "alone") {
+    return null;
+  }
+  if (routeNeedsReview(standing.other, ownFees, warnings)) {
+    return standing.other;
+  }
+  return routeNeedsReview(entry.route, ownFees, warnings) ? entry.route : null;
 }

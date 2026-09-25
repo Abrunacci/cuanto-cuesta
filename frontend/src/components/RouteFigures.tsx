@@ -1,9 +1,10 @@
-import type { RouteComparison, Standing } from "../calculator/index.ts";
+import type { Route, RouteComparison, Standing } from "../calculator/index.ts";
 import type { FeeGap } from "../form/form.ts";
 import { missingFieldId, missingKey } from "../form/missing.ts";
 import { missingInputLabel } from "../form/messages.ts";
 import { joinSpanish } from "../text/lists.ts";
 import { formatMoney } from "../text/numbers.ts";
+import { routeResultId } from "./ids.ts";
 import { InPageAnchor } from "./LinkList.tsx";
 
 interface RouteFiguresProps {
@@ -11,6 +12,8 @@ interface RouteFiguresProps {
   readonly feeGaps: ReadonlyMap<string, FeeGap>;
   /** Labels of the unusual prices this route was computed with, e.g. ["precio P2P…"]. */
   readonly unusualPrices: readonly string[];
+  /** The route whose values to check before trusting the difference; null when none. */
+  readonly differenceReview: Route | null;
   /** Missing inputs already listed once for every route, left out here. */
   readonly skip: ReadonlySet<string>;
   /** Take the person to a field, opening the route's card when the field is inside it. */
@@ -25,6 +28,7 @@ export function RouteFigures({
   entry,
   feeGaps,
   unusualPrices,
+  differenceReview,
   skip,
   onGoToField,
 }: RouteFiguresProps) {
@@ -75,7 +79,11 @@ export function RouteFigures({
         <div className={top ? "figure figure-gain" : "figure"}>
           <dt>Diferencia</dt>
           <dd>
-            <DifferenceText standing={standing} />
+            <DifferenceText
+              standing={standing}
+              review={differenceReview}
+              onGoToField={onGoToField}
+            />
           </dd>
         </div>
       </dl>
@@ -90,7 +98,34 @@ export function RouteFigures({
 }
 
 /** How much more or less this route leaves than the one it is compared with. */
-function DifferenceText({ standing }: { readonly standing: Standing }) {
+function DifferenceText({
+  standing,
+  review,
+  onGoToField,
+}: {
+  readonly standing: Standing;
+  readonly review: Route | null;
+  readonly onGoToField: RouteFiguresProps["onGoToField"];
+}) {
+  const reviewLink = review !== null && (
+    <>
+      {" "}
+      <span className="figure-review">
+        <span aria-hidden="true">· </span>
+        <InPageAnchor
+          link={{
+            key: review.id,
+            href: `#${routeResultId(review.id)}`,
+            text: "revisá",
+            label: `Revisá los valores de ${review.name}`,
+            onClick: () => {
+              onGoToField(review.id, routeResultId(review.id));
+            },
+          }}
+        />
+      </span>
+    </>
+  );
   switch (standing.kind) {
     case "ahead":
     case "behind":
@@ -99,11 +134,17 @@ function DifferenceText({ standing }: { readonly standing: Standing }) {
           {formatMoney(standing.by.amount, standing.by.currency)}{" "}
           <span className="figure-detail">
             {standing.kind === "ahead" ? "más" : "menos"} que {standing.other.name}
+            {reviewLink}
           </span>
         </>
       );
     case "tied":
-      return <span className="figure-detail">Igual que {standing.other.name}</span>;
+      return (
+        <span className="figure-detail">
+          Igual que {standing.other.name}
+          {reviewLink}
+        </span>
+      );
     case "alone":
       return <span className="figure-detail">Todavía no hay otra ruta para comparar</span>;
   }
