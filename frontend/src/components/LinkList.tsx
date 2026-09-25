@@ -2,7 +2,11 @@ export interface InPageLink {
   readonly key: string;
   readonly href: string;
   readonly text: string;
-  /** A fuller accessible name, when the visible text alone is too short to say where it goes. */
+  /**
+   * A fuller accessible name, when the visible text alone is too short to say where it goes. It
+   * must start with the visible text, so voice control can use what the person sees. The result
+   * bar builds its name from hidden text instead, because its visible text is several pieces.
+   */
   readonly label?: string;
   readonly onClick: () => void;
 }
