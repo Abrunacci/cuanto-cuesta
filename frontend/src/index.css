@@ -390,9 +390,11 @@ h3 {
   border-color: var(--problem);
 }
 
-/* Looks like a link, next to text; it is a button because it changes the form. */
+/* Looks like a link, next to text; it is a button because it changes the form. The padding,
+   taken back by the margin, makes it 24px tall to tap without moving the text. */
 .link-button {
-  padding: 0;
+  padding: 0.25rem 0;
+  margin: -0.25rem 0;
   font: inherit;
   color: var(--accent);
   text-decoration: underline;

@@ -15,6 +15,16 @@ type Step = "idle" | "confirm" | "done";
  */
 export function ResetFees({ ownCount, onReset }: ResetFeesProps) {
   const [step, setStep] = useState<Step>("idle");
+  // The count also changes without this component: a fee edited, or put back on its own from its
+  // Detalles. A question or a "Listo" from before would then be stale, so it goes back to idle;
+  // only the count dropping to 0 right after this reset keeps "Listo".
+  const [seenCount, setSeenCount] = useState(ownCount);
+  if (ownCount !== seenCount) {
+    setSeenCount(ownCount);
+    if (step !== "done" || ownCount > 0) {
+      setStep("idle");
+    }
+  }
   // Only after the person acts: nothing takes the focus when the page loads.
   const moveFocus = useRef(false);
   const button = useRef<HTMLButtonElement>(null);

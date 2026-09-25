@@ -57,10 +57,11 @@ export function useForm(): Form {
       setTexts((current) => {
         const ownFees = new Set(current.ownFees);
         ownFees.delete(id);
+        const value = start.fees[id];
         const minimum = start.minimums[id];
         return {
           ...current,
-          fees: { ...current.fees, [id]: start.fees[id] ?? "" },
+          fees: value === undefined ? current.fees : { ...current.fees, [id]: value },
           minimums:
             minimum === undefined ? current.minimums : { ...current.minimums, [id]: minimum },
           ownFees,

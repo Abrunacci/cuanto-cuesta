@@ -883,6 +883,45 @@ describe("the calculator page", () => {
       );
       expect(field(/^Retiro de Payoneer a una cuenta de EE.UU. \(%\)/)).toHaveValue("4");
       expect(field(/^Retiro de Payoneer a una cuenta de EE.UU.: mínimo/)).toHaveValue("20");
+      expect(
+        screen.getByText("Detalles", {
+          selector:
+            '[aria-label="Estimado. Detalles de Retiro de Payoneer a una cuenta de EE.UU."]',
+          exact: false,
+        }),
+      ).toBeInTheDocument();
+      expect(localStorage.getItem("cuanto-cuesta:form")).toBeNull();
+    });
+
+    it("does not bring back an old question after a fee is put back on its own", async () => {
+      const { user, type, openCard } = setup();
+      await openCard("Binance P2P + Bitso");
+      await type(PREMIUM, "0,5");
+      await user.click(screen.getByRole("button", { name: "Restablecer valores de referencia" }));
+      await user.click(premiumDetails("Tu valor"));
+      await user.click(
+        screen.getByRole("button", { name: /^Volver al valor de referencia: Recargo P2P/ }),
+      );
+      await type(/^Comisión taker de Binance P2P/, "0,07");
+      expect(screen.queryByText(/^¿Volver/)).toBeNull();
+      expect(
+        screen.getByRole("button", { name: "Restablecer valores de referencia" }),
+      ).toBeVisible();
+    });
+
+    it("does not bring back an old Listo after a fee is put back on its own", async () => {
+      const { user, type, openCard } = setup();
+      await openCard("Binance P2P + Bitso");
+      await type(PREMIUM, "0,5");
+      await user.click(screen.getByRole("button", { name: "Restablecer valores de referencia" }));
+      await user.click(screen.getByRole("button", { name: "Sí, restablecer" }));
+      expect(screen.getByRole("status")).toHaveTextContent(/^Listo/);
+      await type(PREMIUM, "0,5");
+      await user.click(premiumDetails("Tu valor"));
+      await user.click(
+        screen.getByRole("button", { name: /^Volver al valor de referencia: Recargo P2P/ }),
+      );
+      expect(screen.queryByText(/^Listo/)).toBeNull();
     });
 
     it("stops a field at the length storage keeps, so nothing is lost on reload", async () => {
