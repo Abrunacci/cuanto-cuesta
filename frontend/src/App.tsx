@@ -8,14 +8,14 @@ import { ResultBar } from "./components/ResultBar.tsx";
 import { Results } from "./components/Results.tsx";
 import { RouteCard } from "./components/RouteCard.tsx";
 import { fieldId } from "./form/form.ts";
-import { barText, referenceProblems } from "./form/summary.ts";
+import { barText, hasAmountProblem } from "./form/summary.ts";
 import { useForm } from "./form/useForm.ts";
 
 export function App() {
   const form = useForm();
   const { texts, reading } = form;
   const [openRoutes, setOpenRoutes] = useState<ReadonlySet<string>>(new Set());
-  const problems = referenceProblems(reading);
+  const amountHasProblem = hasAmountProblem(reading);
 
   const setRouteOpen = (routeId: string, open: boolean) => {
     setOpenRoutes((current) => {
@@ -69,7 +69,7 @@ export function App() {
           <Results
             comparison={reading.comparison}
             feeGaps={reading.feeGaps}
-            referenceProblems={problems}
+            amountHasProblem={amountHasProblem}
             warnings={reading.warnings}
             ownFees={reading.ownFees}
             onGoToField={goToField}
@@ -104,7 +104,7 @@ export function App() {
       </main>
 
       <ResultBar
-        text={barText(reading, problems)}
+        text={barText(reading, amountHasProblem)}
         onOpen={(headingId) => {
           document.getElementById(headingId)?.focus();
         }}

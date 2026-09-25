@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 
+import { compareRoutes, fixedFee } from "../calculator/index.ts";
+import { validAmount, validPrice } from "../calculator/sample.fixture.ts";
 import { initialTexts, readForm, type FormTexts } from "./form.ts";
 import { commonMissing } from "./missing.ts";
-import { barText, referenceProblems, summaryText } from "./summary.ts";
+import { barText, hasAmountProblem, summaryText } from "./summary.ts";
 
 const PRICES = {
   mep: "1.536,16",
@@ -17,13 +19,48 @@ const typed = (fees: Readonly<Record<string, string>>) => ({
   ownFees: new Set(Object.keys(fees)),
 });
 const ALL_SET = { p2p_premium: "0,1", payoneer_p2p_transfer: "3", binance_p2p_taker: "0,07" };
+/** The example from the issue: ARQ's price left empty. */
+const EXAMPLE = {
+  amount: "1500",
+  prices: { mep: "1500", p2p_usdt_usd: "1", bitso_usdt_ars: "1600", arq_usd_ars: "" },
+};
+/** Only the MEP route can be computed. */
+const ONLY_MEP = {
+  amount: "1000",
+  prices: { mep: "1.536,16", p2p_usdt_usd: "", bitso_usdt_ars: "", arq_usd_ars: "" },
+};
+
+/** Two routes that deliver the same (1000 x 1500, no fees) and a third 1500 behind. */
+function tiedComparison() {
+  const route = (id: string, name: string, fee: string) => ({
+    id,
+    name,
+    source: "USD" as const,
+    target: "ARS" as const,
+    steps: [{ label: "s", feeIds: [fee], conversion: { rateKey: "mep", target: "ARS" as const } }],
+    warnings: [],
+  });
+  return compareRoutes({
+    routes: [
+      route("c", "Ruta C", "one"),
+      route("a", "Ruta A", "zero"),
+      route("b", "Ruta B", "zero"),
+    ],
+    rateDefinitions: [{ key: "mep", base: "USD", quote: "ARS" }],
+    referenceKey: "mep",
+    amount: validAmount("1000"),
+    prices: new Map([["mep", validPrice("1500")]]),
+    fees: new Map([
+      ["zero", fixedFee("zero", "0", "USD")],
+      ["one", fixedFee("one", "1", "USD")],
+    ]),
+  });
+}
 
 describe("commonMissing", () => {
   it("is what every route lacks while none can be computed", () => {
-    expect(commonMissing(read({}).comparison)).toEqual([
-      { kind: "amount" },
-      { kind: "rate", key: "mep" },
-    ]);
+    // Each route needs its own prices; only the amount is common to all.
+    expect(commonMissing(read({}).comparison)).toEqual([{ kind: "amount" }]);
   });
 
   it("is empty as soon as one route can be computed", () => {
@@ -36,8 +73,9 @@ describe("commonMissing", () => {
 describe("barText", () => {
   it("names the best route and what reaches the bank", () => {
     const reading = read({ amount: "1000", prices: PRICES });
-    expect(barText(reading, [])).toEqual({
+    expect(barText(reading, false)).toEqual({
       kind: "best",
+      lead: "best",
       route: "Binance P2P + Bitso",
       routeId: "binance_bitso",
       amount: "$\u00a01.534.005,69",
@@ -53,7 +91,7 @@ describe("barText", () => {
       prices: PRICES,
       ...typed(ALL_SET),
     });
-    const text = barText(reading, []);
+    const text = barText(reading, false);
     expect(text.kind === "best" && [text.routeId, text.review]).toEqual(["binance_bitso", false]);
   });
 
@@ -66,7 +104,7 @@ describe("barText", () => {
       prices: PRICES,
       ...typed(fees),
     });
-    const text = barText(reading, []);
+    const text = barText(reading, false);
     expect(text.kind === "best" && [text.routeId, text.review]).toEqual(["binance_bitso", true]);
   });
 
@@ -76,7 +114,7 @@ describe("barText", () => {
       prices: PRICES,
       ...typed({ ...ALL_SET, p2p_premium: "0" }),
     });
-    const text = barText(reading, []);
+    const text = barText(reading, false);
     expect(text.kind === "best" && [text.routeId, text.review]).toEqual(["binance_bitso", false]);
   });
 
@@ -86,52 +124,62 @@ describe("barText", () => {
       prices: { ...PRICES, bitso_usdt_ars: "60.000" },
       ...typed(ALL_SET),
     });
-    const text = barText(reading, []);
+    const text = barText(reading, false);
     expect(text.kind === "best" && [text.routeId, text.review]).toEqual(["binance_bitso", true]);
   });
 
   it("says what is missing while no route can be computed", () => {
     const reading = read({});
-    expect(barText(reading, [])).toEqual({
+    expect(barText(reading, false)).toEqual({
       kind: "pending",
-      text: "Falta completar: monto en USD y dólar MEP (compra).",
-      short: "Falta: monto, MEP",
+      text: "Falta completar: monto en USD.",
+      short: "Falta: monto",
     });
   });
 
-  it("asks to review a wrong amount or MEP before listing what is missing", () => {
+  it("asks to review a wrong amount before listing what is missing", () => {
     const reading = read({ amount: "0" });
-    expect(barText(reading, referenceProblems(reading))).toEqual({
+    expect(hasAmountProblem(reading)).toBe(true);
+    expect(barText(reading, hasAmountProblem(reading))).toEqual({
       kind: "pending",
       text: "Revisá el monto: tiene un valor que no se puede usar.",
       short: "Revisá: monto",
     });
   });
 
-  it("names only the price missing when the amount is fine", () => {
+  it("points to each route when the amount is fine and no route has its prices", () => {
     const reading = read({ amount: "1000" });
-    expect(barText(reading, referenceProblems(reading))).toMatchObject({
+    expect(barText(reading, hasAmountProblem(reading))).toMatchObject({
       kind: "pending",
-      short: "Falta: MEP",
+      short: "Mirá qué le falta a cada ruta",
     });
   });
 
-  it("asks to review the amount and the MEP in a few words", () => {
-    const reading = read({ amount: "0", prices: { ...PRICES, mep: "-1" } });
-    expect(referenceProblems(reading)).toEqual(["amount", "reference"]);
-    expect(barText(reading, referenceProblems(reading))).toEqual({
-      kind: "pending",
-      text: "Revisá el monto y el dólar MEP: tienen valores que no se pueden usar.",
-      short: "Revisá: monto, MEP",
-    });
-  });
-
-  it("asks to review only the MEP when only the MEP is wrong", () => {
+  it("computes the other routes when only the MEP is wrong", () => {
     const reading = read({ amount: "1000", prices: { ...PRICES, mep: "-1" } });
-    expect(barText(reading, referenceProblems(reading))).toEqual({
-      kind: "pending",
-      text: "Revisá el dólar MEP: tiene un valor que no se puede usar.",
-      short: "Revisá: MEP",
+    expect(hasAmountProblem(reading)).toBe(false);
+    expect(barText(reading, false)).toMatchObject({
+      kind: "best",
+      lead: "best",
+      route: "Binance P2P + Bitso",
+    });
+  });
+
+  it("names the tied routes together", () => {
+    const reading = { ...read({ amount: "1000" }), comparison: tiedComparison() };
+    expect(barText(reading, false)).toMatchObject({
+      kind: "best",
+      lead: "tied",
+      route: "Ruta A y Ruta B",
+      amount: "$\u00a01.500.000,00",
+    });
+  });
+
+  it("says when the route shown is the only one computed", () => {
+    expect(barText(read(ONLY_MEP), false)).toMatchObject({
+      kind: "best",
+      lead: "alone",
+      route: "Dólar MEP",
     });
   });
 
@@ -143,7 +191,7 @@ describe("barText", () => {
       fees: { ...initialTexts().fees, broker_buy: "" },
     });
     expect(reading.comparison.routes.every((r) => r.status === "incomplete")).toBe(true);
-    expect(barText(reading, [])).toEqual({
+    expect(barText(reading, false)).toEqual({
       kind: "pending",
       text: "Todavía ninguna ruta se puede calcular: mirá qué le falta a cada una.",
       short: "Mirá qué le falta a cada ruta",
@@ -152,10 +200,44 @@ describe("barText", () => {
 });
 
 describe("summaryText", () => {
-  it("gives the amount at the MEP and the best route", () => {
+  it("gives the best route and how much more it leaves than the runner-up", () => {
     const reading = read({ amount: "1000", prices: PRICES });
-    expect(summaryText(reading.comparison, [])).toBe(
-      "Al dólar MEP serían $\u00a01.536.160,00. Mejor ruta: Binance P2P + Bitso, llegan $\u00a01.534.005,69.",
+    // 1534005.69 - 1524869.44 = 9136.25
+    expect(summaryText(reading.comparison, false)).toBe(
+      "Mejor ruta: Binance P2P + Bitso, llegan $\u00a01.534.005,69: $\u00a09.136,25 más que ARQ (ex DolarApp).",
     );
+  });
+
+  it("compares the routes with each other, not with the MEP, in the example", () => {
+    // 2378992.00 - 2202330.00 = 176662.00; ARQ has no price and is left out.
+    expect(summaryText(read(EXAMPLE).comparison, false)).toBe(
+      "Mejor ruta: Binance P2P + Bitso, llegan $\u00a02.378.992,00: $\u00a0176.662,00 más que Dólar MEP.",
+    );
+  });
+
+  it("computes Binance P2P + Bitso without the MEP", () => {
+    const reading = read({ ...EXAMPLE, prices: { ...EXAMPLE.prices, mep: "" } });
+    expect(summaryText(reading.comparison, false)).toBe(
+      "Por ahora solo se puede calcular Binance P2P + Bitso: llegan $\u00a02.378.992,00.",
+    );
+  });
+
+  it("names the tied routes", () => {
+    expect(summaryText(tiedComparison(), false)).toBe(
+      "Empatan Ruta A y Ruta B: llegan $\u00a01.500.000,00.",
+    );
+  });
+
+  it.each([
+    [{}, false, "Completá el monto y las cotizaciones para comparar las rutas."],
+    [
+      { amount: "1000" },
+      false,
+      "Todavía ninguna ruta se puede calcular: mirá qué le falta a cada una.",
+    ],
+    [{ amount: "0" }, true, "Revisá el monto: tiene un valor que no se puede usar."],
+    [{ prices: PRICES }, false, "Completá el monto para comparar las rutas."],
+  ])("says what to do while no route can be computed (%o)", (texts, problem, expected) => {
+    expect(summaryText(read(texts).comparison, problem)).toBe(expected);
   });
 });

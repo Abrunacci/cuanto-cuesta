@@ -3,7 +3,7 @@ import type { FeeGap } from "../form/form.ts";
 import { missingInputLabel } from "../form/messages.ts";
 import { commonMissing, missingFieldId, missingKey } from "../form/missing.ts";
 import { unusualPrices } from "../form/review.ts";
-import { summaryText, type ReferenceProblems } from "../form/summary.ts";
+import { summaryText } from "../form/summary.ts";
 import { RESULTS_TITLE_ID, routeResultId } from "./ids.ts";
 import { LinkList } from "./LinkList.tsx";
 import { RichText } from "./RichText.tsx";
@@ -13,7 +13,8 @@ import { RouteReview } from "./RouteReview.tsx";
 interface ResultsProps {
   readonly comparison: Comparison;
   readonly feeGaps: ReadonlyMap<string, FeeGap>;
-  readonly referenceProblems: ReferenceProblems;
+  /** The amount holds a value that cannot be used. */
+  readonly amountHasProblem: boolean;
   /** Field ids whose value is used but looks wrong. */
   readonly warnings: ReadonlyMap<string, string>;
   /** Ids of the fees the person set. */
@@ -29,7 +30,7 @@ interface ResultsProps {
 export function Results({
   comparison,
   feeGaps,
-  referenceProblems,
+  amountHasProblem,
   warnings,
   ownFees,
   onGoToField,
@@ -45,7 +46,7 @@ export function Results({
         Resultado
       </h2>
       <p className="summary" aria-live="polite" aria-atomic="true">
-        {summaryText(comparison, referenceProblems)}
+        {summaryText(comparison, amountHasProblem)}
       </p>
       {common.length > 0 && firstRoute !== undefined && (
         <p className="missing">

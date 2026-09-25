@@ -10,7 +10,9 @@ Compare how many Argentine pesos reach your bank when you move USD out of Payone
   broker.
 
 For each route the calculator shows the pesos that reach the bank, what the fees cost in pesos,
-and the loss against the MEP dollar. The screen is in Spanish.
+and how much more or less it leaves than the other routes: the best one against the runner-up,
+every other one against the best. Each route needs only the prices it converts with, so the MEP
+price is needed only for the MEP route. The screen is in Spanish.
 
 ## Status
 

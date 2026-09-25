@@ -1,4 +1,4 @@
-import type { RouteComparison } from "../calculator/index.ts";
+import type { RouteComparison, Standing } from "../calculator/index.ts";
 import type { FeeGap } from "../form/form.ts";
 import { missingFieldId, missingKey } from "../form/missing.ts";
 import { missingInputLabel } from "../form/messages.ts";
@@ -17,7 +17,10 @@ interface RouteFiguresProps {
   readonly onGoToField: (routeId: string, id: string) => void;
 }
 
-/** A route's three figures, or what it still needs, each item a link to its field. */
+/**
+ * A route's three figures (what reaches the bank, the fees, and the difference with the best route
+ * or, for the best, with the runner-up), or what it still needs, each item a link to its field.
+ */
 export function RouteFigures({
   entry,
   feeGaps,
@@ -56,8 +59,8 @@ export function RouteFigures({
     );
   }
   const { final } = entry.result;
-  const loss = entry.lossVsReference;
-  const gain = loss.amount.lt(0);
+  const { standing } = entry;
+  const top = standing.kind === "ahead" || standing.kind === "tied";
   return (
     <>
       <dl className="figures">
@@ -69,9 +72,11 @@ export function RouteFigures({
           <dt>Comisiones</dt>
           <dd>{formatMoney(entry.feeCost.amount, entry.feeCost.currency)}</dd>
         </div>
-        <div className={gain ? "figure figure-gain" : "figure"}>
-          <dt>{gain ? "Ganancia vs. dólar MEP" : "Pérdida vs. dólar MEP"}</dt>
-          <dd>{formatMoney(loss.amount.abs(), loss.currency)}</dd>
+        <div className={top ? "figure figure-gain" : "figure"}>
+          <dt>Diferencia</dt>
+          <dd>
+            <DifferenceText standing={standing} />
+          </dd>
         </div>
       </dl>
       {unusualPrices.length > 0 && (
@@ -82,4 +87,24 @@ export function RouteFigures({
       )}
     </>
   );
+}
+
+/** How much more or less this route leaves than the one it is compared with. */
+function DifferenceText({ standing }: { readonly standing: Standing }) {
+  switch (standing.kind) {
+    case "ahead":
+    case "behind":
+      return (
+        <>
+          {formatMoney(standing.by.amount, standing.by.currency)}{" "}
+          <span className="figure-detail">
+            {standing.kind === "ahead" ? "más" : "menos"} que {standing.other.name}
+          </span>
+        </>
+      );
+    case "tied":
+      return <span className="figure-detail">Igual que {standing.other.name}</span>;
+    case "alone":
+      return <span className="figure-detail">Todavía no hay otra ruta para comparar</span>;
+  }
 }

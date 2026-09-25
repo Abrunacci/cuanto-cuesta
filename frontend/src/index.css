@@ -474,6 +474,13 @@ h3 {
   color: var(--gain);
 }
 
+/* Under an amount, what it is compared with; or a sentence where there is no amount. */
+.figure-detail {
+  display: block;
+  font-size: 0.9rem;
+  font-weight: 400;
+}
+
 .missing {
   margin: 0.25rem 0 0.75rem;
   color: var(--muted);
