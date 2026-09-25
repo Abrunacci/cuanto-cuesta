@@ -14,6 +14,8 @@ and the loss against the MEP dollar. The screen is in Spanish.
 
 ## Status
 
+Online at <https://cuanto-cuesta.abrunacci.dev>.
+
 Stage 1: a calculator that runs entirely in the browser, with no backend.
 
 - The person types the amount and the day's prices. Prices start empty on every visit, because an
@@ -66,22 +68,54 @@ uv run ruff check . && uv run ruff format --check .
 
 ## Deploying
 
-The frontend is published to <https://cuanto-cuesta.abrunacci.dev> by the [Deploy workflow](.github/workflows/deploy.yml). The server side (the restricted deploy key, `deploy.sh`, releases and rollback) lives in the infra repository: see "Deploying a project" in its `ansible/README.md`.
+The frontend is published to <https://cuanto-cuesta.abrunacci.dev> by the
+[Deploy workflow](.github/workflows/deploy.yml). The server side (the restricted deploy key,
+`deploy.sh`, releases and rollback) lives in the infra repository: see "Deploying a project" in
+its `ansible/README.md`.
 
-**Before the workflow first reaches `main`**, the repository needs the `production` environment exactly as that section describes: required reviewers, deployments from `main` only, and the `DEPLOY_SSH_KEY` and `DEPLOY_KNOWN_HOSTS` secrets. A job that names a missing environment makes GitHub create it without any protection.
+**Before the workflow first reaches `main`**, the repository needs the `production` environment
+exactly as that section describes: required reviewers, deployments from `main` only, and the
+`DEPLOY_SSH_KEY` and `DEPLOY_KNOWN_HOSTS` secrets. A job that names a missing environment makes
+GitHub create it without any protection.
 
-1. **A push to `main`** (a merged pull request) starts the workflow. It can also be started by hand: **Actions → Deploy → Run workflow**, on `main`.
-2. **Check and build** runs the same frontend checks as CI (`npm run check`: typecheck, lint, format, tests) and `npm run build`. If anything fails, nothing is deployed.
-3. **Deploy to production** waits for approval: the `production` environment requires a reviewer. The run shows **Review deployments**; approve it there, or reject it to skip this deploy. Only `main` can use the environment and its secrets. Deploys run one at a time, and a run waiting for approval holds the queue: reject the ones you will not approve. The build is kept for 7 days, so an approval can come later than the push; within those days, **Re-run failed jobs** can retry just the deploy.
-4. **The deploy** sends `frontend/dist` to the server over SSH, checking the server's host key against the pinned `known_hosts` line. The server checks the archive and switches to the new release atomically; if it rejects the upload, the job fails and what was published stays published.
-5. **The published site is checked**: the job fails unless the site serves exactly this build's files: its `index.html` and the assets it loads.
+1. **A push to `main`** (a merged pull request) starts the workflow when it changes something the
+   build depends on: `frontend/`, `backend/config/` (the fee data the frontend's bundled copy must
+   match, checked by its tests) or the workflow itself. Other changes, such as the README or the
+   Python code, do not deploy; CI still checks them. The workflow can also be started by hand:
+   **Actions → Deploy → Run workflow**, on `main`. Use that to publish `main` after a rejected or
+   failed deploy when the next pushes do not touch those paths.
+2. **Check and build** runs the same frontend checks as CI (`npm run check`: typecheck, lint,
+   format, tests) and `npm run build`. If anything fails, nothing is deployed.
+3. **Deploy to production** waits for approval: the `production` environment requires a reviewer.
+   The run shows **Review deployments**; approve it there, or reject it to skip this deploy. Only
+   `main` can use the environment and its secrets. Deploys run one at a time, and a run waiting
+   for approval holds the queue: reject the ones you will not approve. The build is kept for 7
+   days, so an approval can come later than the push; within those days, **Re-run failed jobs**
+   can retry just the deploy.
+4. **The deploy** sends `frontend/dist` to the server over SSH, checking the server's host key
+   against the pinned `known_hosts` line. The server checks the archive and switches to the new
+   release atomically; if it rejects the upload, the job fails and what was published stays
+   published.
+5. **The published site is checked**: the job fails unless the site serves exactly this build's
+   files: its `index.html` and the assets it loads.
 
-Each release on the server is named after its UTC time and commit (`20260925T141500Z-3f9c2ab1d4e0`), and the job's log shows it (`Deployed cuanto-cuesta release …`).
+Each release on the server is named after its UTC time and commit
+(`20260925T141500Z-3f9c2ab1d4e0`), and the job's log shows it
+(`Deployed cuanto-cuesta release …`).
 
 ### Going back
 
-- **Redeploy an earlier commit from GitHub.** Open that commit's run under **Actions → Deploy**, choose **Re-run all jobs**, and approve the deploy. It rebuilds that commit and publishes it as a new release. GitHub keeps runs re-runnable for 30 days; for an older commit, revert to it in a pull request instead.
-- **Switch back on the server, without rebuilding.** The server keeps the last releases, and the admin can publish an earlier one with `site-rollback`, instantly and without a CI run. See the deploy notes in the [infra repository's README](https://github.com/Abrunacci/infra/blob/main/ansible/README.md#design-notes). The next deploy publishes its own release as usual, so fix `main` (or reject that deploy) before the next push if the problem is in the code.
+- **Redeploy an earlier commit from GitHub.** Open that commit's run under **Actions → Deploy**
+  (or, if it has none because it did not change the site, the run of the last commit before it
+  that deployed), choose **Re-run all jobs**, and approve the deploy. It rebuilds that commit and
+  publishes it as a new release. GitHub keeps runs re-runnable for 30 days; for an older commit,
+  revert to it in a pull request instead.
+- **Switch back on the server, without rebuilding.** The server keeps the last releases, and the
+  admin can publish an earlier one with `site-rollback`, instantly and without a CI run. See the
+  deploy notes in the
+  [infra repository's README](https://github.com/Abrunacci/infra/blob/main/ansible/README.md#design-notes).
+  The next deploy publishes its own release as usual, so fix `main` (or reject that deploy) before
+  the next push if the problem is in the code.
 
 ## Contributing
 
