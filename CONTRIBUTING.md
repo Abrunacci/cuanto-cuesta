@@ -92,8 +92,10 @@ with `Depends`.
   right away with `roundedDown` or `roundedUp`.
 - In Python `Money` is non-negative by construction: every amount the backend holds is a fee, so
   a negative one cannot be built. In the calculator `Money` does not check the sign, but no amount
-  it reports is negative: a step whose fees exceed its amount is set to zero and marked as
-  exhausted, and a difference is always the larger amount minus the smaller.
+  it reports is negative: fees refuse a negative value when they are built (`fees.ts`), a step
+  whose fees exceed its amount is set to zero and marked as exhausted, the gaps between routes
+  are taken from the best one, and `feeCost` takes the real result from the fee-free one, which
+  is never smaller.
 
 ## Language
 

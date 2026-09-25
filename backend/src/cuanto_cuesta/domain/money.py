@@ -1,8 +1,8 @@
 """Money and currencies: an exact, non-negative decimal amount in a currency, never a float.
 
 The backend only holds and validates amounts, all of them fees, so a negative one cannot be
-built. The calculation, and the rounding policy that goes
-with it, live in the calculator (``frontend/src/calculator/money.ts``).
+built. The calculation, and the rounding policy that goes with it, live in the calculator
+(``frontend/src/calculator/money.ts``).
 """
 
 from __future__ import annotations
