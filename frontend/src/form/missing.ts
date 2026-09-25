@@ -36,15 +36,12 @@ export function missingFieldId(
  * What every route is missing, in the order the first route lists it; empty as soon as one route
  * can be computed. Shown once instead of repeated under each route.
  */
-export function commonMissing(comparison: Comparison): MissingInput[] {
-  const [first, ...rest] = comparison.routes;
-  if (first?.status !== "incomplete" || rest.some((r) => r.status !== "incomplete")) {
+export function commonMissing({ ranking, incomplete }: Comparison): MissingInput[] {
+  const [first, ...rest] = incomplete;
+  if (ranking.kind !== "none" || first === undefined) {
     return [];
   }
   return first.missing.filter((missing) =>
-    rest.every(
-      (r) =>
-        r.status === "incomplete" && r.missing.some((m) => missingKey(m) === missingKey(missing)),
-    ),
+    rest.every((r) => r.missing.some((m) => missingKey(m) === missingKey(missing))),
   );
 }

@@ -1,37 +1,42 @@
 /**
- * Compare routes: rank them by what they deliver, say how each one stands against the others,
- * and split each route's cost into fees and exchange rate against a reference rate (the MEP
- * dollar). The split mirrors `backend/src/cuanto_cuesta/domain/comparison.py`:
- *
- *     amount x reference = final + feeCost + fxLoss
- *
- * - `feeCost`: how many more target units the route would deliver if every fee were zero.
- * - `fxLoss`: the rest, how far the route's rates (and rounding) fall short of the reference.
- *   It is negative when the route beats the reference.
- * - `lossVsReference` = `feeCost + fxLoss`; negative means a gain over the reference.
- *
- * Unlike the Python domain, a route does not need the reference to be computed: only the rates
- * it converts with. Without the reference its `fxLoss` and `lossVsReference` are null.
+ * Compare routes: rank them by what they deliver and say how each one stands against the others.
+ * For each route, `feeCost` is how many more target units it would deliver if every fee were
+ * zero. The final amount and `feeCost` match the Python domain
+ * (`backend/src/cuanto_cuesta/domain/comparison.py`), which also splits the rest of the cost
+ * against a reference rate; the calculator no longer does.
  *
  * An input that was left empty is never read as zero: a route that needs it is reported as
- * incomplete, with the list of what is missing.
+ * incomplete, with the list of what is missing. A route whose own data is wrong (a currency that
+ * does not chain, a malformed rate or fee) is reported as failed, and the others are still
+ * compared: in stage 2 routes and fees can come from a pipeline.
  */
 
-import { withoutCharge, type Fee } from "./fees.ts";
+import { InvalidFeeError, withoutCharge, type Fee } from "./fees.ts";
 import type { PositiveAmount, PositivePrice } from "./inputs.ts";
-import { add, CurrencyMismatchError, subtract, type Money } from "./money.ts";
-import { convert, rate, type Rate, type RateDefinition } from "./rates.ts";
-import { feeIds, rateKeys, runRoute, type Route, type RouteResult } from "./routes.ts";
+import { CurrencyMismatchError, subtract, type Currency, type Money } from "./money.ts";
+import { InvalidRateError, rate, type Rate, type RateDefinition } from "./rates.ts";
+import {
+  feeIds,
+  rateKeys,
+  runRoute,
+  UnknownFeeError,
+  UnknownRateError,
+  type Route,
+  type RouteResult,
+} from "./routes.ts";
 
 export interface ComparisonInput {
   readonly routes: readonly Route[];
+  /** The currency routes are compared in; a route that ends in another one fails. */
+  readonly target: Currency;
   readonly rateDefinitions: readonly RateDefinition[];
-  /** Key of the rate used as the reference; it is also a rate routes can convert with. */
-  readonly referenceKey: string;
   readonly amount: PositiveAmount | null;
   /** Price per rate key; missing or null when the person left it empty. */
   readonly prices: ReadonlyMap<string, PositivePrice | null>;
-  /** Fee per id; missing or null when the person left it empty. */
+  /**
+   * Fee per id, every known fee present; null when the person left it empty. A route that uses
+   * an id not in the map fails.
+   */
   readonly fees: ReadonlyMap<string, Fee | null>;
 }
 
@@ -40,31 +45,40 @@ export type MissingInput =
   | { readonly kind: "rate"; readonly key: string }
   | { readonly kind: "fee"; readonly id: string };
 
-/**
- * How a complete route stands against the other complete routes. The best route is compared
- * with the runner-up, every other route with the best one. `by` is always positive: a zero
- * difference is a tie.
- */
-export type Standing =
-  /** The best route, `by` more than the runner-up (`other`). */
-  | { readonly kind: "ahead"; readonly other: Route; readonly by: Money }
-  /** `by` less than the best route (`other`). */
-  | { readonly kind: "behind"; readonly other: Route; readonly by: Money }
-  /** Delivers the same as `other`: the runner-up for the best route, else the best one. */
-  | { readonly kind: "tied"; readonly other: Route }
-  /** The only route that could be computed. */
-  | { readonly kind: "alone" };
+/** The best route, `by` more than the runner-up (`other`). `by` is positive. */
+export interface Ahead {
+  readonly kind: "ahead";
+  readonly other: Route;
+  readonly by: Money;
+}
 
-export interface CompleteRoute {
+/** `by` less than the best route (`other`). `by` is positive. */
+export interface Behind {
+  readonly kind: "behind";
+  readonly other: Route;
+  readonly by: Money;
+}
+
+/** Delivers the same as `other`: the runner-up for the best route, else the best one. */
+export interface Tied {
+  readonly kind: "tied";
+  readonly other: Route;
+}
+
+/** The only route that could be computed. */
+export interface Alone {
+  readonly kind: "alone";
+}
+
+/** How a complete route stands against the other complete routes. */
+export type Standing = Ahead | Behind | Tied | Alone;
+
+export interface CompleteRoute<S extends Standing = Standing> {
   readonly status: "complete";
   readonly route: Route;
   readonly result: RouteResult;
-  readonly standing: Standing;
+  readonly standing: S;
   readonly feeCost: Money;
-  /** Null while the reference price is missing. */
-  readonly fxLoss: Money | null;
-  /** Null while the reference price is missing. */
-  readonly lossVsReference: Money | null;
 }
 
 export interface IncompleteRoute {
@@ -73,32 +87,69 @@ export interface IncompleteRoute {
   readonly missing: readonly MissingInput[];
 }
 
-export type RouteComparison = CompleteRoute | IncompleteRoute;
+/** A route that cannot be computed because of its own data, not because of what was typed. */
+export interface FailedRoute {
+  readonly status: "failed";
+  readonly route: Route;
+  readonly error: DataError;
+}
+
+/** The errors a route's data can cause. Anything else is a bug and is not caught. */
+export type DataError =
+  CurrencyMismatchError | InvalidFeeError | InvalidRateError | UnknownFeeError | UnknownRateError;
+
+export type RouteComparison = CompleteRoute | IncompleteRoute | FailedRoute;
+
+/**
+ * The complete routes, best (most received) first. The best one is compared with the runner-up
+ * and every other one with the best, so the best is never behind and only a lone route is alone.
+ */
+export type Ranking =
+  | { readonly kind: "none" }
+  | { readonly kind: "alone"; readonly only: CompleteRoute<Alone> }
+  | {
+      readonly kind: "ranked";
+      readonly best: CompleteRoute<Ahead | Tied>;
+      readonly rest: readonly [
+        CompleteRoute<Behind | Tied>,
+        ...(readonly CompleteRoute<Behind | Tied>[]),
+      ];
+    };
 
 export interface Comparison {
-  /** `amount x reference`, or null while the amount or the reference is missing. */
-  readonly atReference: Money | null;
-  /** Complete routes first, best (most received) first; then incomplete ones in input order. */
-  readonly routes: readonly RouteComparison[];
+  readonly ranking: Ranking;
+  /** The routes that cannot be computed yet, in input order. */
+  readonly incomplete: readonly IncompleteRoute[];
+  /** The routes whose data is wrong, in input order. */
+  readonly failed: readonly FailedRoute[];
 }
 
 export function compareRoutes(input: ComparisonInput): Comparison {
-  const rates = buildRates(input.rateDefinitions, input.prices);
-  const reference = rates.get(input.referenceKey) ?? null;
-  const atReference =
-    input.amount !== null && reference !== null
-      ? convert(reference, input.amount, reference.quote)
-      : null;
-
-  requireOneTarget(input.routes);
+  const { rates, brokenRates } = buildRates(input.rateDefinitions, input.prices);
+  const defined = new Set(input.rateDefinitions.map((d) => d.key));
   const complete: Unranked[] = [];
   const incomplete: IncompleteRoute[] = [];
+  const failed: FailedRoute[] = [];
   for (const route of input.routes) {
+    // What is wrong with the route's own data wins over what is still empty: filling a field
+    // would not fix it.
+    const error = dataError(route, input, defined, brokenRates);
+    if (error !== null) {
+      failed.push({ status: "failed", route, error });
+      continue;
+    }
     const missing = missingInputs(route, input, rates);
     if (missing.length > 0 || input.amount === null) {
       incomplete.push({ status: "incomplete", route, missing });
-    } else {
-      complete.push(compareOne(route, input.amount, knownFees(input.fees), rates, atReference));
+      continue;
+    }
+    try {
+      complete.push(compareOne(route, input.amount, knownFees(input.fees), rates));
+    } catch (error) {
+      if (!isDataError(error)) {
+        throw error;
+      }
+      failed.push({ status: "failed", route, error });
     }
   }
   complete.sort((a, b) => {
@@ -109,46 +160,92 @@ export function compareRoutes(input: ComparisonInput): Comparison {
     // By code point, like Python, so the order does not depend on the locale.
     return a.route.id < b.route.id ? -1 : a.route.id > b.route.id ? 1 : 0;
   });
-  const [best, runnerUp] = complete;
-  const ranked = complete.map((entry): CompleteRoute => ({
-    ...entry,
-    standing: standing(entry, best, runnerUp),
-  }));
-  return { atReference, routes: [...ranked, ...incomplete] };
+  return { ranking: rank(complete), incomplete, failed };
+}
+
+/** Every route in the order it is shown: the ranking, the routes still incomplete, the failed. */
+export function routesInOrder({ ranking, incomplete, failed }: Comparison): RouteComparison[] {
+  switch (ranking.kind) {
+    case "none":
+      return [...incomplete, ...failed];
+    case "alone":
+      return [ranking.only, ...incomplete, ...failed];
+    case "ranked":
+      return [ranking.best, ...ranking.rest, ...incomplete, ...failed];
+  }
+}
+
+/**
+ * A problem with the route's data found without running it. What only running it finds (a fee
+ * in a currency the step never holds, a result in another currency than declared) shows once
+ * every field it needs is filled.
+ */
+function dataError(
+  route: Route,
+  input: ComparisonInput,
+  defined: ReadonlySet<string>,
+  brokenRates: ReadonlyMap<string, InvalidRateError>,
+): DataError | null {
+  if (route.target !== input.target) {
+    return new CurrencyMismatchError(
+      `Route ${route.id} ends in ${route.target}, the comparison is in ${input.target}`,
+    );
+  }
+  const unknownFee = [...feeIds(route)].find((id) => !input.fees.has(id));
+  if (unknownFee !== undefined) {
+    return new UnknownFeeError(`Route ${route.id} uses fee ${unknownFee}, which does not exist`);
+  }
+  const unknownRate = [...rateKeys(route)].find((key) => !defined.has(key));
+  if (unknownRate !== undefined) {
+    return new UnknownRateError(`Route ${route.id} uses rate ${unknownRate}, which does not exist`);
+  }
+  return (
+    [...rateKeys(route)].map((key) => brokenRates.get(key)).find((e) => e !== undefined) ?? null
+  );
+}
+
+function isDataError(error: unknown): error is DataError {
+  return (
+    error instanceof CurrencyMismatchError ||
+    error instanceof InvalidFeeError ||
+    error instanceof InvalidRateError ||
+    error instanceof UnknownFeeError ||
+    error instanceof UnknownRateError
+  );
 }
 
 type Unranked = Omit<CompleteRoute, "standing">;
 
-/** Routes are ranked by what they deliver, which only compares within one currency. */
-function requireOneTarget(routes: readonly Route[]): void {
-  const [first] = routes;
-  for (const route of routes) {
-    if (first !== undefined && route.target !== first.target) {
-      throw new CurrencyMismatchError(
-        `Route ${route.id} ends in ${route.target}, route ${first.id} in ${first.target}`,
-      );
-    }
+/** Standings for complete routes sorted best first. */
+function rank(sorted: readonly Unranked[]): Ranking {
+  const [best, runnerUp, ...others] = sorted;
+  if (best === undefined) {
+    return { kind: "none" };
   }
-}
-
-function standing(
-  entry: Unranked,
-  best: Unranked | undefined,
-  runnerUp: Unranked | undefined,
-): Standing {
-  if (best === undefined || runnerUp === undefined) {
-    return { kind: "alone" };
+  if (runnerUp === undefined) {
+    return { kind: "alone", only: { ...best, standing: { kind: "alone" } } };
   }
-  const isBest = entry === best;
-  const other = isBest ? runnerUp : best;
-  // Routes are sorted best first, so this is never negative.
-  const by = isBest
-    ? subtract(entry.result.final, other.result.final)
-    : subtract(other.result.final, entry.result.final);
-  if (by.amount.eq(0)) {
-    return { kind: "tied", other: other.route };
-  }
-  return { kind: isBest ? "ahead" : "behind", other: other.route, by };
+  // Sorted best first, so these differences are never negative.
+  const lead = subtract(best.result.final, runnerUp.result.final);
+  const trail = (entry: Unranked): CompleteRoute<Behind | Tied> => {
+    const by = subtract(best.result.final, entry.result.final);
+    return {
+      ...entry,
+      standing: by.amount.eq(0)
+        ? { kind: "tied", other: best.route }
+        : { kind: "behind", other: best.route, by },
+    };
+  };
+  return {
+    kind: "ranked",
+    best: {
+      ...best,
+      standing: lead.amount.eq(0)
+        ? { kind: "tied", other: runnerUp.route }
+        : { kind: "ahead", other: runnerUp.route, by: lead },
+    },
+    rest: [trail(runnerUp), ...others.map(trail)],
+  };
 }
 
 function compareOne(
@@ -156,24 +253,14 @@ function compareOne(
   amount: Money,
   fees: ReadonlyMap<string, Fee>,
   rates: ReadonlyMap<string, Rate>,
-  atReference: Money | null,
 ): Unranked {
-  if (atReference !== null && route.target !== atReference.currency) {
-    throw new CurrencyMismatchError(
-      `Route ${route.id} ends in ${route.target}, the reference is in ${atReference.currency}`,
-    );
-  }
   const result = runRoute(route, amount, fees, rates);
   const withoutFees = runRoute(route, amount, zeroed(fees, route), rates);
-  const feeCost = subtract(withoutFees.final, result.final);
-  const fxLoss = atReference === null ? null : subtract(atReference, withoutFees.final);
   return {
     status: "complete",
     route,
     result,
-    feeCost,
-    fxLoss,
-    lossVsReference: fxLoss === null ? null : add(feeCost, fxLoss),
+    feeCost: subtract(withoutFees.final, result.final),
   };
 }
 
@@ -199,18 +286,28 @@ function missingInputs(
   return missing;
 }
 
+/** The rates of the prices typed, and the definitions that cannot make a rate, by key. */
 function buildRates(
   definitions: readonly RateDefinition[],
   prices: ReadonlyMap<string, PositivePrice | null>,
-): Map<string, Rate> {
+): { rates: Map<string, Rate>; brokenRates: Map<string, InvalidRateError> } {
   const rates = new Map<string, Rate>();
+  const brokenRates = new Map<string, InvalidRateError>();
   for (const definition of definitions) {
     const price = prices.get(definition.key) ?? null;
-    if (price !== null) {
+    if (price === null) {
+      continue;
+    }
+    try {
       rates.set(definition.key, rate(definition.key, definition.base, definition.quote, price));
+    } catch (error) {
+      if (!(error instanceof InvalidRateError)) {
+        throw error;
+      }
+      brokenRates.set(definition.key, error);
     }
   }
-  return rates;
+  return { rates, brokenRates };
 }
 
 function knownFees(fees: ReadonlyMap<string, Fee | null>): Map<string, Fee> {

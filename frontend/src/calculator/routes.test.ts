@@ -188,6 +188,14 @@ describe("invalid input", () => {
     );
   });
 
+  it("refuses a result in a currency other than the one the route declares", () => {
+    // ARQ's first two steps charge only USD fees and convert nothing: it ends in USD, not ARS.
+    const broken: Route = { ...ARQ, steps: ARQ.steps.slice(0, 2) };
+    expect(() => runRoute(broken, money("1000", "USD"), SAMPLE_FEES, SAMPLE_RATES)).toThrow(
+      /ends in USD, it declares ARS/,
+    );
+  });
+
   it("needs every fee and rate the route uses", () => {
     const fees = new Map([...SAMPLE_FEES].filter(([id]) => id !== "arq_ach_deposit"));
     expect(() => runRoute(ARQ, money("1000", "USD"), fees, SAMPLE_RATES)).toThrow(UnknownFeeError);

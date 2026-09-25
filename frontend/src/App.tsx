@@ -32,7 +32,10 @@ export function App() {
     });
   };
 
-  /** Open the route's card if the field is inside it, then focus the field. */
+  /**
+   * Open the route's card if the field is inside it, then focus the field; or focus any other
+   * element with that id, such as a route's result heading.
+   */
   const goToField = (routeId: string, id: string) => {
     const inCard = ROUTES.find((r) => r.id === routeId)?.steps.some((step) =>
       step.feeIds.some((fee) => id === fieldId.fee(fee) || id === fieldId.minimum(fee)),

@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { compareRoutes } from "../compare.ts";
+import { compareRoutes, routesInOrder } from "../compare.ts";
 import type { Fee } from "../fees.ts";
 import { feeProblems } from "../limits.ts";
 import { validAmount, validPrice } from "../sample.fixture.ts";
 import { feeIds, rateKeys, routeProblems } from "../routes.ts";
 import { FEE_DEFAULTS } from "./fees.ts";
-import { RATE_FIELDS, REFERENCE_KEY, ROUTES } from "./routes.ts";
+import { RATE_FIELDS, ROUTES, TARGET_CURRENCY } from "./routes.ts";
 
 const feeIdsInDefaults = FEE_DEFAULTS.map((d) => d.fee.id);
 const usedFeeIds = new Set(ROUTES.flatMap((r) => [...feeIds(r)]));
@@ -31,10 +31,13 @@ describe("the bundled routes and fees", () => {
     expect([...usedFeeIds].filter((id) => !feeIdsInDefaults.includes(id))).toEqual([]);
   });
 
-  it("only use rates the person can type, and the MEP is one of them", () => {
+  it("all end in the comparison's currency", () => {
+    expect(ROUTES.filter((r) => r.target !== TARGET_CURRENCY).map((r) => r.id)).toEqual([]);
+  });
+
+  it("only use rates the person can type", () => {
     const fields = new Set(RATE_FIELDS.map((f) => f.key));
     expect(ROUTES.flatMap((r) => [...rateKeys(r)]).filter((k) => !fields.has(k))).toEqual([]);
-    expect(fields.has(REFERENCE_KEY)).toBe(true);
   });
 
   it("keep every default within the caps, minimums included", () => {
@@ -77,52 +80,43 @@ describe("the bundled data, calculated end to end", () => {
   const summarize = (amount: string) => {
     const comparison = compareRoutes({
       routes: ROUTES,
+      target: TARGET_CURRENCY,
       rateDefinitions: RATE_FIELDS,
-      referenceKey: REFERENCE_KEY,
       amount: validAmount(amount),
       prices,
       fees,
     });
-    return {
-      atReference: comparison.atReference?.amount.toFixed(2),
-      routes: comparison.routes.map((r) =>
-        r.status === "complete"
-          ? [r.route.id, ...[r.result.final, r.feeCost, r.fxLoss].map((m) => m?.amount.toFixed(2))]
-          : [r.route.id, "incomplete"],
-      ),
-    };
+    return routesInOrder(comparison).map((r) =>
+      r.status === "complete"
+        ? [r.route.id, ...[r.result.final, r.feeCost].map((m) => m.amount.toFixed(2))]
+        : [r.route.id, "incomplete"],
+    );
   };
 
   it("computes the three routes for 1000 USD", () => {
     // Binance: 1000.00 - 4.00 = 996.00 USD / 1.03 = 966.99 USDT - 0.08 = 966.91; - 0.07 = 966.84;
     // 0.6 % = 5.80104 -> 5.81; 961.03 x 1596.21 = 1534005.6963
-    expect(summarize("1000.00")).toEqual({
-      atReference: "1536160.00",
-      routes: [
-        ["binance_bitso", "1534005.69", "15706.71", "-13552.40"],
-        ["arq", "1524869.44", "68515.56", "-57225.00"],
-        ["mep", "1503624.13", "32535.87", "0.00"],
-      ],
-    });
+    expect(summarize("1000.00")).toEqual([
+      ["binance_bitso", "1534005.69", "15706.71"],
+      ["arq", "1524869.44", "68515.56"],
+      ["mep", "1503624.13", "32535.87"],
+    ]);
   });
 
   it("computes the three routes for 100 USD, where the Payoneer minimum applies to ARQ", () => {
-    expect(summarize("100.00")).toEqual({
-      atReference: "153616.00",
-      routes: [
-        ["mep", "150359.34", "3256.66", "0.00"],
-        ["binance_bitso", "147633.46", "7326.60", "-1344.06"],
-        ["arq", "122690.64", "36647.86", "-5722.50"],
-      ],
-    });
+    expect(summarize("100.00")).toEqual([
+      ["mep", "150359.34", "3256.66"],
+      ["binance_bitso", "147633.46", "7326.60"],
+      ["arq", "122690.64", "36647.86"],
+    ]);
   });
 
   it("compares the routes with each other for 1500 USD with ARQ's price left empty", () => {
     // The example that showed the MEP route "losing" its own fees against the MEP.
     const comparison = compareRoutes({
       routes: ROUTES,
+      target: TARGET_CURRENCY,
       rateDefinitions: RATE_FIELDS,
-      referenceKey: REFERENCE_KEY,
       amount: validAmount("1500.00"),
       prices: new Map([
         ["mep", validPrice("1500")],
@@ -132,7 +126,7 @@ describe("the bundled data, calculated end to end", () => {
       ]),
       fees,
     });
-    const [binance, mep, arq] = comparison.routes;
+    const [binance, mep, arq] = routesInOrder(comparison);
     expect(binance?.status === "complete" && binance.standing).toMatchObject({
       kind: "ahead",
       other: { id: "mep" },

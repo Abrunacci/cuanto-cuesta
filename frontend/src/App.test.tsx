@@ -390,6 +390,19 @@ describe("the calculator page", () => {
     });
   });
 
+  it("does not hold back problems after a press whose release leaving the window took", async () => {
+    const { type, user } = setup();
+    await type(/^Dólar MEP \(compra\)/, "0");
+    // A press whose release never reaches the page: the window lost the focus first.
+    fireEvent.pointerDown(screen.getByRole("heading", { name: "Tus datos" }));
+    fireEvent.blur(window);
+    // Leaving with the keyboard shows the problem right away.
+    await user.tab();
+    expect(document.getElementById("price-mep-problem")).toHaveTextContent(
+      "Tiene que ser mayor que 0.",
+    );
+  });
+
   it("does not hold back problems after a press whose release a context menu took", async () => {
     const { type, user } = setup();
     await type(/^Dólar MEP \(compra\)/, "0");

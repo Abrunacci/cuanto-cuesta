@@ -7,9 +7,12 @@
 import {
   FEE_DEFAULTS,
   RATE_FIELDS,
+  type Ahead,
+  type Behind,
   type CompleteRoute,
   type FeeDefault,
   type Route,
+  type Tied,
 } from "../calculator/index.ts";
 import { lowerFirst } from "../text/case.ts";
 import { fieldId } from "./form.ts";
@@ -57,19 +60,43 @@ export function routeNeedsReview(
 /**
  * The route to check before trusting a route's difference, which rests on both routes compared:
  * the other one when it needs review (what the route itself needs is listed under it), else the
- * route itself; null when neither does or there is nothing to compare with.
+ * route itself; null when neither does.
  */
 export function differenceToReview(
-  entry: CompleteRoute,
+  route: Route,
+  standing: Ahead | Behind | Tied,
   ownFees: ReadonlySet<string>,
   warnings: ReadonlyMap<string, string>,
 ): Route | null {
-  const { standing } = entry;
-  if (standing.kind === "alone") {
-    return null;
-  }
   if (routeNeedsReview(standing.other, ownFees, warnings)) {
     return standing.other;
   }
-  return routeNeedsReview(entry.route, ownFees, warnings) ? entry.route : null;
+  return routeNeedsReview(route, ownFees, warnings) ? route : null;
+}
+
+/**
+ * A route's difference figure: nothing to compare with, or how the route stands and the route
+ * whose values to check before trusting it (null when none).
+ */
+export type Difference =
+  | { readonly kind: "alone" }
+  | {
+      readonly kind: "compared";
+      readonly standing: Ahead | Behind | Tied;
+      readonly review: Route | null;
+    };
+
+export function difference(
+  entry: CompleteRoute,
+  ownFees: ReadonlySet<string>,
+  warnings: ReadonlyMap<string, string>,
+): Difference {
+  const { standing } = entry;
+  return standing.kind === "alone"
+    ? { kind: "alone" }
+    : {
+        kind: "compared",
+        standing,
+        review: differenceToReview(entry.route, standing, ownFees, warnings),
+      };
 }

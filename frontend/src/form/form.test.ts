@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { Comparison } from "../calculator/index.ts";
+import { routesInOrder, type Comparison } from "../calculator/index.ts";
 import { fieldId, initialTexts, readForm, type FormTexts } from "./form.ts";
 
 const PRICES = {
@@ -15,7 +15,7 @@ function filled(overrides: Partial<FormTexts> = {}): FormTexts {
 }
 
 function finals(comparison: Comparison) {
-  return comparison.routes.map((r) =>
+  return routesInOrder(comparison).map((r) =>
     r.status === "complete" ? [r.route.id, r.result.final.amount.toFixed(2)] : [r.route.id, null],
   );
 }
@@ -39,7 +39,7 @@ describe("initialTexts", () => {
 describe("readForm", () => {
   it("computes nothing until the amount and prices are typed", () => {
     const { comparison, problems, echoes } = readForm(initialTexts());
-    expect(comparison.routes.every((r) => r.status === "incomplete")).toBe(true);
+    expect(routesInOrder(comparison).every((r) => r.status === "incomplete")).toBe(true);
     expect(problems.size).toBe(0);
     expect(echoes.size).toBe(0);
   });
@@ -67,7 +67,9 @@ describe("readForm", () => {
 
   it("leaves a route incomplete when one of its fees is emptied", () => {
     const texts = filled({ fees: { ...initialTexts().fees, bitso_taker: "" } });
-    const binance = readForm(texts).comparison.routes.find((r) => r.route.id === "binance_bitso");
+    const binance = routesInOrder(readForm(texts).comparison).find(
+      (r) => r.route.id === "binance_bitso",
+    );
     expect(binance?.status === "incomplete" && binance.missing).toEqual([
       { kind: "fee", id: "bitso_taker" },
     ]);
@@ -76,7 +78,7 @@ describe("readForm", () => {
   it("explains a value that is not a number and does not use it", () => {
     const { comparison, problems } = readForm(filled({ amount: "mil" }));
     expect(problems.get(fieldId.amount)).toBe("Escribí un número, por ejemplo 1.234,56.");
-    expect(comparison.routes.every((r) => r.status === "incomplete")).toBe(true);
+    expect(routesInOrder(comparison).every((r) => r.status === "incomplete")).toBe(true);
   });
 
   it.each([
@@ -115,7 +117,8 @@ describe("numbers read a thousand times off", () => {
       problem: reading.problems.get(id),
       warning: reading.warnings.get(id),
       echo: reading.echoes.get(id),
-      route: (routeId: string) => reading.comparison.routes.find((r) => r.route.id === routeId),
+      route: (routeId: string) =>
+        routesInOrder(reading.comparison).find((r) => r.route.id === routeId),
     };
   };
 
@@ -194,7 +197,7 @@ describe("numbers read a thousand times off", () => {
 
 describe("invalid fees are never read as zero", () => {
   const route = (texts: FormTexts, id: string) =>
-    readForm(texts).comparison.routes.find((r) => r.route.id === id);
+    routesInOrder(readForm(texts).comparison).find((r) => r.route.id === id);
 
   it("leaves the route incomplete when a fee is not a number", () => {
     const texts = filled({ fees: { ...initialTexts().fees, arq_ach_deposit: "abc" } });
@@ -229,7 +232,7 @@ describe("fees typed with a leading zero or in an ambiguous way", () => {
     // BYMA and broker fees are 0.01 to 0.05 %; typed with a phone's dot they must stay small.
     const reading = withFee("byma_buy", "0.015");
     expect(reading.problems.get(fieldId.fee("byma_buy"))).toBeUndefined();
-    const mep = reading.comparison.routes.find((r) => r.route.id === "mep");
+    const mep = routesInOrder(reading.comparison).find((r) => r.route.id === "mep");
     // 1000.00 - 2 % = 980.00; broker 0.49 twice; BYMA 0.015 % = 0.147 -> 0.15, and 0.10
     // 980.00 - 0.98 - 0.25 = 978.77 x 1536.16 = 1503547.3232
     expect(mep?.status === "complete" && mep.result.final.amount.toFixed(2)).toBe("1503547.32");

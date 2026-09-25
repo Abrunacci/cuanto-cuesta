@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { compareRoutes, fixedFee } from "../calculator/index.ts";
+import { compareRoutes, fixedFee, routesInOrder } from "../calculator/index.ts";
 import { validAmount, validPrice } from "../calculator/sample.fixture.ts";
 import { initialTexts, readForm, type FormTexts } from "./form.ts";
 import { commonMissing } from "./missing.ts";
@@ -31,7 +31,8 @@ const ONLY_MEP = {
 };
 
 /** Two routes that deliver the same (1000 x 1500, no fees) and a third 1500 behind. */
-function tiedComparison() {
+/** Routes A and B (and D, when asked) deliver the same; C pays a fee and trails. */
+function tiedComparison(withD = false) {
   const route = (id: string, name: string, fee: string) => ({
     id,
     name,
@@ -45,15 +46,42 @@ function tiedComparison() {
       route("c", "Ruta C", "one"),
       route("a", "Ruta A", "zero"),
       route("b", "Ruta B", "zero"),
+      ...(withD ? [route("d", "Ruta D", "zero")] : []),
     ],
+    target: "ARS",
     rateDefinitions: [{ key: "mep", base: "USD", quote: "ARS" }],
-    referenceKey: "mep",
     amount: validAmount("1000"),
     prices: new Map([["mep", validPrice("1500")]]),
     fees: new Map([
       ["zero", fixedFee("zero", "0", "USD")],
       ["one", fixedFee("one", "1", "USD")],
     ]),
+  });
+}
+
+/**
+ * Route a ends in ARS and route b in USD; compared in USD, a fails. Compared in USDT, both fail.
+ * Without the amount, a route that does not fail is incomplete.
+ */
+function withFailures(target: "USD" | "USDT", amount: string | null = "1000") {
+  const route = (id: string, end: "ARS" | "USD") => ({
+    id,
+    name: id,
+    source: "USD" as const,
+    target: end,
+    steps:
+      end === "ARS"
+        ? [{ label: "s", feeIds: ["zero"], conversion: { rateKey: "mep", target: "ARS" as const } }]
+        : [{ label: "s", feeIds: ["zero"], conversion: null }],
+    warnings: [],
+  });
+  return compareRoutes({
+    routes: [route("a", "ARS"), route("b", "USD")],
+    target,
+    rateDefinitions: [{ key: "mep", base: "USD", quote: "ARS" }],
+    amount: amount === null ? null : validAmount(amount),
+    prices: new Map([["mep", validPrice("1500")]]),
+    fees: new Map([["zero", fixedFee("zero", "0", "USD")]]),
   });
 }
 
@@ -65,7 +93,7 @@ describe("commonMissing", () => {
 
   it("is empty as soon as one route can be computed", () => {
     const partial = read({ amount: "1000", prices: { ...PRICES, bitso_usdt_ars: "" } });
-    expect(partial.comparison.routes.some((r) => r.status === "complete")).toBe(true);
+    expect(routesInOrder(partial.comparison).some((r) => r.status === "complete")).toBe(true);
     expect(commonMissing(partial.comparison)).toEqual([]);
   });
 });
@@ -190,7 +218,7 @@ describe("barText", () => {
       prices: { ...PRICES, p2p_usdt_usd: "", arq_usd_ars: "" },
       fees: { ...initialTexts().fees, broker_buy: "" },
     });
-    expect(reading.comparison.routes.every((r) => r.status === "incomplete")).toBe(true);
+    expect(routesInOrder(reading.comparison).every((r) => r.status === "incomplete")).toBe(true);
     expect(barText(reading, false)).toEqual({
       kind: "pending",
       text: "Todavía ninguna ruta se puede calcular: mirá qué le falta a cada una.",
@@ -226,6 +254,37 @@ describe("summaryText", () => {
     expect(summaryText(tiedComparison(), false)).toBe(
       "Empatan Ruta A y Ruta B: llegan $\u00a01.500.000,00.",
     );
+  });
+
+  it("names every tied route, not only the runner-up", () => {
+    expect(summaryText(tiedComparison(true), false)).toBe(
+      "Empatan Ruta A, Ruta B y Ruta D: llegan $\u00a01.500.000,00.",
+    );
+  });
+
+  it("says no route can be computed when every route's data is wrong", () => {
+    const comparison = withFailures("USDT");
+    expect(comparison.failed).toHaveLength(2);
+    const text =
+      "No se puede calcular ninguna ruta: hay un problema con las cotizaciones o comisiones que usan. No es un error en lo que cargaste.";
+    const bar = { kind: "pending", text, short: "Ninguna ruta se puede calcular" };
+    expect(summaryText(comparison, false)).toBe(text);
+    expect(barText({ ...read({}), comparison }, false)).toEqual(bar);
+    // A wrong amount (read as none) would not make any route computable either.
+    const withoutAmount = withFailures("USDT", null);
+    expect(withoutAmount.failed).toHaveLength(2);
+    expect(summaryText(withoutAmount, true)).toBe(text);
+    expect(barText({ ...read({}), comparison: withoutAmount }, true)).toEqual(bar);
+  });
+
+  it("asks for what is missing when some routes failed and the rest are incomplete", () => {
+    const comparison = withFailures("USD", null);
+    expect([comparison.failed.length, comparison.incomplete.length]).toEqual([1, 1]);
+    expect(summaryText(comparison, false)).toBe("Completá el monto para comparar las rutas.");
+    expect(barText({ ...read({}), comparison }, false)).toMatchObject({
+      kind: "pending",
+      short: "Falta: monto",
+    });
   });
 
   it.each([

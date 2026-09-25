@@ -6,6 +6,9 @@
 import type { RateDefinition } from "../rates.ts";
 import type { Route } from "../routes.ts";
 
+/** Every route ends in pesos: that is what reaches the bank. */
+export const TARGET_CURRENCY = "ARS";
+
 export const ROUTES: readonly Route[] = [
   {
     id: "binance_bitso",
@@ -91,9 +94,6 @@ export interface RateField extends RateDefinition {
   /** Where to find this price, in a line, shown on screen in Spanish. */
   readonly help: string;
 }
-
-/** The MEP dollar is both the reference and the rate of the MEP route. */
-export const REFERENCE_KEY = "mep";
 
 /**
  * Every price the person types. ARQ credits incoming dollars as USDc and the app treats USDc at
