@@ -1,20 +1,10 @@
-"""Small catalogs for application tests. Values are test inputs, not app defaults."""
+"""Small fee catalogs for application tests. Values are test inputs, not app defaults."""
 
 from datetime import date
 from decimal import Decimal
 
 from cuanto_cuesta.application import FeeDefault, Verified
-from cuanto_cuesta.domain import (
-    Conversion,
-    Currency,
-    Fee,
-    FixedFee,
-    Money,
-    Percentage,
-    PercentFee,
-    Route,
-    Step,
-)
+from cuanto_cuesta.domain import Currency, Fee, FixedFee, Money, Percentage, PercentFee
 
 
 def usd(amount: str) -> Money:
@@ -34,15 +24,4 @@ def default(fee: Fee) -> FeeDefault:
         fee=fee,
         label=fee.id,
         provenance=Verified("https://example.com/fees", date(2026, 9, 23)),
-    )
-
-
-def route(route_id: str, *fee_ids: str, rate_key: str = "usd_ars") -> Route:
-    """USD -> ARS: the fees are charged in USD, then one conversion."""
-    return Route(
-        route_id,
-        route_id,
-        Currency.USD,
-        Currency.ARS,
-        (Step("Convert", fee_ids, Conversion(rate_key, Currency.ARS)),),
     )

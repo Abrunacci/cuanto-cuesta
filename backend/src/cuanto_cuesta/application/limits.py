@@ -1,4 +1,4 @@
-"""The caps on fee values, for defaults and user overrides alike.
+"""The caps on fee values. The calculator applies the same caps to what the person types.
 
 They reject typos and nonsense (a 90 % fee, a 5000 USD fixed fee), not unusual but real fees:
 every default in ``fees.yaml`` sits far below them.

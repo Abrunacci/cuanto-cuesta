@@ -4,23 +4,8 @@ from pathlib import Path
 
 import pytest
 
-from cuanto_cuesta.application import (
-    Catalog,
-    Estimate,
-    UserDefined,
-    Verified,
-    apply_overrides,
-)
-from cuanto_cuesta.domain import (
-    Conversion,
-    Currency,
-    FixedFee,
-    Money,
-    Percentage,
-    PercentFee,
-    Rate,
-    run_route,
-)
+from cuanto_cuesta.application import Catalog, Estimate, UserDefined, Verified
+from cuanto_cuesta.domain import Currency, FixedFee, Money, Percentage, PercentFee
 from cuanto_cuesta.infrastructure.config import ConfigError, load_catalog
 
 CONFIG_DIR = Path(__file__).parents[2] / "config"
@@ -47,40 +32,21 @@ fees:
     note: Up to 0.1 %.
 """
 
-ROUTES = """\
-routes:
-  - id: r
-    name: Route
-    source: USD
-    target: ARS
-    warnings: [Careful]
-    steps:
-      - label: Pay
-        fees: [wire]
-      - label: Convert
-        fees: [spread]
-        conversion: {rate: usd_ars, to: ARS}
-"""
 
-
-def _load(tmp_path: Path, fees: str = FEES, routes: str = ROUTES) -> Catalog:
-    fees_path, routes_path = tmp_path / "fees.yaml", tmp_path / "routes.yaml"
+def _load(tmp_path: Path, fees: str = FEES) -> Catalog:
+    fees_path = tmp_path / "fees.yaml"
     fees_path.write_text(fees)
-    routes_path.write_text(routes)
-    return load_catalog(fees_path, routes_path)
+    return load_catalog(fees_path)
 
 
-def _error(tmp_path: Path, fees: str = FEES, routes: str = ROUTES) -> str:
+def _error(tmp_path: Path, fees: str = FEES) -> str:
     with pytest.raises(ConfigError) as info:
-        _load(tmp_path, fees, routes)
+        _load(tmp_path, fees)
     return str(info.value)
 
 
 class TestTheShippedConfig:
-    CATALOG = load_catalog(CONFIG_DIR / "fees.yaml", CONFIG_DIR / "routes.yaml")
-
-    def test_has_the_three_routes(self) -> None:
-        assert [r.id for r in self.CATALOG.routes] == ["binance_bitso", "arq", "mep"]
+    CATALOG = load_catalog(CONFIG_DIR / "fees.yaml")
 
     def test_every_fee_links_to_an_https_source(self) -> None:
         for default in self.CATALOG.fees:
@@ -90,10 +56,6 @@ class TestTheShippedConfig:
                 case UserDefined(reference_url=url):
                     pass
             assert url.startswith("https://"), default.id
-
-    def test_charges_the_broker_and_byma_on_each_side_of_the_mep(self) -> None:
-        mep = next(r for r in self.CATALOG.routes if r.id == "mep")
-        assert {"broker_buy", "broker_sell", "byma_buy", "byma_sell"} <= mep.fee_ids()
 
     def test_the_payoneer_us_withdrawal_minimum_is_an_estimate(self) -> None:
         withdrawal = next(d for d in self.CATALOG.fees if d.id == "payoneer_us_withdrawal")
@@ -106,14 +68,6 @@ class TestTheShippedConfig:
             "https://www.payoneer.com/pricing/", date(2026, 9, 23), upper_bound=True
         )
 
-    def test_the_payoneer_us_withdrawal_minimum_can_be_set_to_zero(self) -> None:
-        fees = apply_overrides(self.CATALOG, {}, {"payoneer_us_withdrawal": Decimal(0)})
-        assert fees["payoneer_us_withdrawal"] == PercentFee(
-            "payoneer_us_withdrawal",
-            Percentage(Decimal(4)),
-            Money(Decimal(0), Currency.USD),
-        )
-
     def test_arq_usd_to_usdc_is_an_editable_estimate_at_par(self) -> None:
         conversion = next(d for d in self.CATALOG.fees if d.id == "arq_usd_usdc_conversion")
         assert conversion.fee == PercentFee("arq_usd_usdc_conversion", Percentage(Decimal(0)))
@@ -121,39 +75,6 @@ class TestTheShippedConfig:
             "https://help.arqfinance.com/es/articles/13901700-recargar-mi-cuenta-con-dolares-usd",
             date(2026, 9, 23),
             upper_bound=False,
-        )
-        arq = next(r for r in self.CATALOG.routes if r.id == "arq")
-        receive = next(s for s in arq.steps if "arq_ach_deposit" in s.fee_ids)
-        assert "arq_usd_usdc_conversion" in receive.fee_ids
-
-    def test_the_arq_conversion_is_charged_on_what_arq_receives(self) -> None:
-        arq = next(r for r in self.CATALOG.routes if r.id == "arq")
-        rates = {
-            "arq_usd_ars": Rate(
-                "arq_usd_ars", Currency.USD, Currency.ARS, Decimal(1500), Decimal(1500)
-            )
-        }
-        amount = Money(Decimal("1000.00"), Currency.USD)
-        at_par = run_route(arq, amount, apply_overrides(self.CATALOG, {}, {}), rates)
-        with_spread = run_route(
-            arq,
-            amount,
-            apply_overrides(self.CATALOG, {"arq_usd_usdc_conversion": Decimal("0.5")}, {}),
-            rates,
-        )
-        receive = with_spread.steps[1]
-        # 1000.00 - 4 % Payoneer = 960.00 reaches ARQ; 0.5 % of 960.00 = 4.80, plus 3.00 ACH
-        assert receive.amount_in == Money(Decimal("960.00"), Currency.USD)
-        assert [c.amount.amount for c in receive.fees] == [Decimal("3.00"), Decimal("4.80")]
-        # 957.00 x 1500 = 1435500.00 at par; 952.20 x 1500 = 1428300.00 with the spread
-        assert at_par.final == Money(Decimal("1435500.00"), Currency.ARS)
-        assert with_spread.final == Money(Decimal("1428300.00"), Currency.ARS)
-
-    def test_the_mep_warning_links_the_bcra_rules(self) -> None:
-        (warning,) = next(r for r in self.CATALOG.routes if r.id == "mep").warnings
-        assert warning == (
-            "[Verificá las restricciones sobre el dólar MEP]"
-            "(https://www.bcra.gob.ar/Pdfs/comytexord/A8481.pdf)"
         )
 
     def test_the_p2p_premium_is_set_by_the_user(self) -> None:
@@ -185,24 +106,17 @@ class TestLoading:
         # As a float, 0.1 would be 0.1000000000000000055511151231257827...
         assert spread.rate.value == Decimal("0.1")
 
-    def test_builds_routes(self, tmp_path: Path) -> None:
-        (route,) = _load(tmp_path).routes
-        assert route.warnings == ("Careful",)
-        assert [s.fee_ids for s in route.steps] == [("wire",), ("spread",)]
-        assert route.steps[1].conversion == Conversion("usd_ars", Currency.ARS)
-
 
 class TestInvalidFiles:
     def test_a_missing_file(self, tmp_path: Path) -> None:
         with pytest.raises(ConfigError, match="cannot read"):
-            load_catalog(tmp_path / "nope.yaml", tmp_path / "routes.yaml")
+            load_catalog(tmp_path / "nope.yaml")
 
     def test_a_file_that_is_not_utf8(self, tmp_path: Path) -> None:
-        fees_path, routes_path = tmp_path / "fees.yaml", tmp_path / "routes.yaml"
+        fees_path = tmp_path / "fees.yaml"
         fees_path.write_bytes(b"\xff\xfe" + FEES.encode())
-        routes_path.write_text(ROUTES)
         with pytest.raises(ConfigError, match="not UTF-8"):
-            load_catalog(fees_path, routes_path)
+            load_catalog(fees_path)
 
     def test_an_empty_file(self, tmp_path: Path) -> None:
         assert "(root): Input should be a valid dictionary" in _error(tmp_path, fees="")
@@ -323,26 +237,9 @@ class TestInvalidFees:
 
     def test_a_default_above_its_cap(self, tmp_path: Path) -> None:
         message = _error(tmp_path, fees=FEES.replace("value: 0.1", "value: 25"))
+        assert message.startswith(str(tmp_path / "fees.yaml"))
         assert "Fee 'spread': value must be at most 20" in message
 
-
-class TestInvalidRoutes:
-    def test_a_broken_currency_chain_names_the_routes_file(self, tmp_path: Path) -> None:
-        message = _error(tmp_path, routes=ROUTES.replace("target: ARS", "target: USDT"))
-        assert message.startswith(str(tmp_path / "routes.yaml"))
-        assert "Route 'r' ends in ARS, expected USDT" in message
-
-    def test_an_unknown_currency(self, tmp_path: Path) -> None:
-        assert "routes.0.source" in _error(tmp_path, routes=ROUTES.replace("USD\n", "EUR\n", 1))
-
-    def test_fees_that_do_not_fit_the_routes_name_both_files(self, tmp_path: Path) -> None:
-        message = _error(tmp_path, routes=ROUTES.replace("fees: [wire]", "fees: [ghost]"))
-        assert f"{tmp_path / 'fees.yaml'} and {tmp_path / 'routes.yaml'}" in message
-        assert "Route 'r' uses unknown fee 'ghost'" in message
-        assert "Fee 'wire' is not used by any route" in message
-
-    def test_a_fee_in_a_currency_the_step_never_holds(self, tmp_path: Path) -> None:
-        fees = FEES.replace(
-            "currency: USD\n    status: verified", "currency: USDT\n    status: verified"
-        )
-        assert "fee 'wire' is in USDT, expected USD" in _error(tmp_path, fees=fees)
+    def test_a_repeated_fee_id(self, tmp_path: Path) -> None:
+        message = _error(tmp_path, fees=FEES.replace("id: spread", "id: wire"))
+        assert "Duplicate fee id 'wire'" in message
