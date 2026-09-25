@@ -1,12 +1,19 @@
 name: Deploy
 
 # Publishes the frontend to https://cuanto-cuesta.abrunacci.dev on every push
-# to main, or by hand. The server side (deploy user, one key per project,
-# deploy.sh) lives in the infra repository: see "Deploying a project" in its
-# ansible/README.md.
+# to main that can change the site, or by hand. The server side (deploy user,
+# one key per project, deploy.sh) lives in the infra repository: see
+# "Deploying a project" in its ansible/README.md.
 on:
   push:
     branches: [main]
+    # What the build reads: the frontend, the fee config its tests keep in
+    # parity (tests/config-parity.test.ts) and this file. CI (ci.yml) has no
+    # filter and still checks every pull request and every push.
+    paths:
+      - "frontend/**"
+      - "backend/config/**"
+      - ".github/workflows/deploy.yml"
   workflow_dispatch:
 
 # Nothing by default; each job asks for what it needs.
