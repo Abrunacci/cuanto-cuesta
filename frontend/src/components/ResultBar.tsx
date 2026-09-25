@@ -1,26 +1,24 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
 
 import type { BarLead, BarText } from "../form/summary.ts";
-import { RESULTS_TITLE_ID, routeResultId } from "./ids.ts";
 
 interface ResultBarProps {
   readonly text: BarText;
-  /** Take the person to the heading with this id: the whole result, or one route's result. */
-  readonly onOpen: (headingId: string) => void;
+  /** Where the bar takes the person: the whole result, or what to review in the best route. */
+  readonly targetId: string;
+  readonly onOpen: (targetId: string) => void;
 }
 
 /**
  * On a phone, the best route stays in view at the bottom while the person types; tapping it goes
- * to the full result, or straight to the best route's result when it has something to review.
+ * to the full result, or straight to what the best route has to review when it has something.
  * While the keyboard is open the bar shrinks to one line. Hidden on wide screens, where the
  * result sits in its own column.
  */
-export function ResultBar({ text, onOpen }: ResultBarProps) {
+export function ResultBar({ text, targetId, onOpen }: ResultBarProps) {
   const keyboard = useKeyboard();
   const bar = useRef<HTMLAnchorElement>(null);
   useReserveHeight(bar);
-  const headingId =
-    text.kind === "best" && text.review ? routeResultId(text.routeId) : RESULTS_TITLE_ID;
   const compact = keyboard.open;
   return (
     <aside aria-label="Resumen del resultado">
@@ -30,11 +28,11 @@ export function ResultBar({ text, onOpen }: ResultBarProps) {
       <a
         ref={bar}
         className={compact ? "result-bar result-bar-compact" : "result-bar"}
-        href={`#${headingId}`}
+        href={`#${targetId}`}
         style={{ bottom: `${String(keyboard.inset)}px` }}
         onClick={(event) => {
           event.preventDefault();
-          onOpen(headingId);
+          onOpen(targetId);
         }}
       >
         {compact ? <CompactLine text={text} /> : <FullText text={text} />}{" "}

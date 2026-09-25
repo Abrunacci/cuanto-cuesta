@@ -590,6 +590,13 @@ h3 {
   margin: 0.25rem 0;
 }
 
+/* The folded review list: a line that counts what to check, and opens the list. */
+.review > summary {
+  cursor: pointer;
+  color: var(--accent);
+  min-height: 1.75rem;
+}
+
 /* Last, so it wins over the .result-bar rules above: wide screens show the result in a column. */
 @media (min-width: 64rem) {
   .result-bar {
@@ -654,11 +661,20 @@ h3 {
   .figures {
     grid-template-columns: auto auto minmax(0, 1fr);
     column-gap: 1.5rem;
-    margin: 0.25rem 0 0.5rem;
+    margin: 0.125rem 0 0.25rem;
   }
 
   .ranking > li {
-    padding: 0.5rem 0;
+    padding: 0.25rem 0;
+  }
+
+  .review {
+    margin-bottom: 0.25rem;
+  }
+
+  /* 24px, the smallest target WCAG 2.5.8 accepts. */
+  .review > summary {
+    min-height: 1.5rem;
   }
 
   .figure-main {

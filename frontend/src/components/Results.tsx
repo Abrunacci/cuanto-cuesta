@@ -21,6 +21,9 @@ interface ResultsProps {
   readonly warnings: ReadonlyMap<string, string>;
   /** Ids of the fees the person set. */
   readonly ownFees: ReadonlySet<string>;
+  /** Ids of the routes whose review list is open. */
+  readonly openReviews: ReadonlySet<string>;
+  readonly onReviewToggle: (routeId: string, open: boolean) => void;
   readonly onGoToField: (routeId: string, id: string) => void;
 }
 
@@ -35,6 +38,8 @@ export function Results({
   amountHasProblem,
   warnings,
   ownFees,
+  openReviews,
+  onReviewToggle,
   onGoToField,
 }: ResultsProps) {
   const common = commonMissing(comparison);
@@ -83,6 +88,10 @@ export function Results({
               skip={listedOnce}
               warnings={warnings}
               ownFees={ownFees}
+              reviewOpen={openReviews.has(entry.route.id)}
+              onReviewToggle={(open) => {
+                onReviewToggle(entry.route.id, open);
+              }}
               onGoToField={onGoToField}
             />
             {entry.route.warnings.map((warning) => (
@@ -104,6 +113,8 @@ function RouteBody({
   skip,
   warnings,
   ownFees,
+  reviewOpen,
+  onReviewToggle,
   onGoToField,
 }: {
   readonly entry: RouteComparison;
@@ -111,6 +122,8 @@ function RouteBody({
   readonly skip: ReadonlySet<string>;
   readonly warnings: ReadonlyMap<string, string>;
   readonly ownFees: ReadonlySet<string>;
+  readonly reviewOpen: boolean;
+  readonly onReviewToggle: (open: boolean) => void;
   readonly onGoToField: ResultsProps["onGoToField"];
 }) {
   switch (entry.status) {
@@ -122,9 +135,16 @@ function RouteBody({
             feeCost={entry.feeCost}
             difference={difference(entry, ownFees, warnings)}
             unusualPrices={unusualPrices(entry.route, warnings)}
+            ownFees={ownFees}
             onGoToField={onGoToField}
           />
-          <RouteReview route={entry.route} ownFees={ownFees} onGoToField={onGoToField} />
+          <RouteReview
+            route={entry.route}
+            ownFees={ownFees}
+            open={reviewOpen}
+            onToggle={onReviewToggle}
+            onGoToField={onGoToField}
+          />
         </>
       );
     case "incomplete":

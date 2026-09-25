@@ -15,6 +15,7 @@ import {
   type Tied,
 } from "../calculator/index.ts";
 import { lowerFirst } from "../text/case.ts";
+import { joinSpanish } from "../text/lists.ts";
 import { fieldId } from "./form.ts";
 
 export interface FeesToReview {
@@ -37,6 +38,42 @@ export function feesToReview(route: Route, ownFees: ReadonlySet<string>): FeesTo
   };
 }
 
+/**
+ * The line that stands for a route's review list while it is folded: what there is to check,
+ * counted, so a 0 left to set is seen without opening it; or, with nothing to check, how many
+ * fees hold the person's value. Null when the route has none of either.
+ */
+export function reviewSummary(review: FeesToReview): string | null {
+  const { toSet, estimated, own } = review;
+  if (!hasFeesToCheck(review)) {
+    return own.length > 0 ? `Con tu valor: ${count(own.length, "comisión", "comisiones")}` : null;
+  }
+  const parts = [
+    ...(toSet.length > 0 ? [count(toSet.length, "valor para poner", "valores para poner")] : []),
+    ...(estimated.length > 0
+      ? [count(estimated.length, "comisión estimada", "comisiones estimadas")]
+      : []),
+  ];
+  return `Qué revisar: ${joinSpanish(parts)}`;
+}
+
+/** Whether any fee holds a value to set or an estimate; the person's own values do not count. */
+export function hasFeesToCheck({ toSet, estimated }: FeesToReview): boolean {
+  return toSet.length > 0 || estimated.length > 0;
+}
+
+/**
+ * Whether "revisá" for a route opens its review list: only when it has fees to check. Otherwise
+ * it goes to the route's heading, under which the unusual prices it was computed with are noted.
+ */
+export function reviewOpensList(route: Route, ownFees: ReadonlySet<string>): boolean {
+  return hasFeesToCheck(feesToReview(route, ownFees));
+}
+
+function count(n: number, one: string, many: string): string {
+  return `${String(n)} ${n === 1 ? one : many}`;
+}
+
 /** Labels of the unusual prices a route's result depends on: the rates it converts with. */
 export function unusualPrices(route: Route, warnings: ReadonlyMap<string, string>): string[] {
   const keys = new Set(
@@ -53,8 +90,7 @@ export function routeNeedsReview(
   ownFees: ReadonlySet<string>,
   warnings: ReadonlyMap<string, string>,
 ): boolean {
-  const { toSet, estimated } = feesToReview(route, ownFees);
-  return toSet.length > 0 || estimated.length > 0 || unusualPrices(route, warnings).length > 0;
+  return reviewOpensList(route, ownFees) || unusualPrices(route, warnings).length > 0;
 }
 
 /**

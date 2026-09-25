@@ -1,12 +1,13 @@
-import type { IncompleteRoute, Money, RouteResult } from "../calculator/index.ts";
+import type { IncompleteRoute, Money, Route, RouteResult } from "../calculator/index.ts";
 import type { FeeGap } from "../form/form.ts";
 import { missingFieldId, missingKey } from "../form/missing.ts";
 import { missingInputLabel } from "../form/messages.ts";
 import type { Difference } from "../form/review.ts";
 import { joinSpanish } from "../text/lists.ts";
 import { formatMoney } from "../text/numbers.ts";
-import { routeResultId } from "./ids.ts";
 import { InPageAnchor } from "./LinkList.tsx";
+import { reviewOpensList } from "../form/review.ts";
+import { reviewTargetId } from "./ids.ts";
 
 /**
  * Take the person to a field, opening the route's card when the field is inside it; or to any
@@ -20,6 +21,8 @@ interface RouteFiguresProps {
   readonly difference: Difference;
   /** Labels of the unusual prices this route was computed with, e.g. ["precio P2P…"]. */
   readonly unusualPrices: readonly string[];
+  /** Ids of the fees the person set. */
+  readonly ownFees: ReadonlySet<string>;
   readonly onGoToField: GoTo;
 }
 
@@ -32,6 +35,7 @@ export function RouteFigures({
   feeCost,
   difference,
   unusualPrices,
+  ownFees,
   onGoToField,
 }: RouteFiguresProps) {
   const { final } = result;
@@ -52,7 +56,7 @@ export function RouteFigures({
         <div className={top ? "figure figure-gain" : "figure"}>
           <dt>Diferencia</dt>
           <dd>
-            <DifferenceText difference={difference} onGoToField={onGoToField} />
+            <DifferenceText difference={difference} ownFees={ownFees} onGoToField={onGoToField} />
           </dd>
         </div>
       </dl>
@@ -72,9 +76,11 @@ export function RouteFigures({
  */
 function DifferenceText({
   difference,
+  ownFees,
   onGoToField,
 }: {
   readonly difference: Difference;
+  readonly ownFees: ReadonlySet<string>;
   readonly onGoToField: GoTo;
 }) {
   if (difference.kind === "alone") {
@@ -82,23 +88,7 @@ function DifferenceText({
   }
   const { standing, review } = difference;
   const reviewLink = review !== null && (
-    <>
-      {" "}
-      <span className="figure-review">
-        <span aria-hidden="true">· </span>
-        <InPageAnchor
-          link={{
-            key: review.id,
-            href: `#${routeResultId(review.id)}`,
-            text: "revisá",
-            label: `Revisá los valores de ${review.name}`,
-            onClick: () => {
-              onGoToField(review.id, routeResultId(review.id));
-            },
-          }}
-        />
-      </span>
-    </>
+    <ReviewLink review={review} ownFees={ownFees} onGoToField={onGoToField} />
   );
   switch (standing.kind) {
     case "ahead":
@@ -120,6 +110,38 @@ function DifferenceText({
         </span>
       );
   }
+}
+
+/** " · revisá": a link to what to check in `review`, the route the difference rests on. */
+function ReviewLink({
+  review,
+  ownFees,
+  onGoToField,
+}: {
+  readonly review: Route;
+  readonly ownFees: ReadonlySet<string>;
+  readonly onGoToField: GoTo;
+}) {
+  const target = reviewTargetId(review.id, reviewOpensList(review, ownFees));
+  return (
+    <>
+      {" "}
+      <span className="figure-review">
+        <span aria-hidden="true">· </span>
+        <InPageAnchor
+          link={{
+            key: review.id,
+            href: `#${target}`,
+            text: "revisá",
+            label: `Revisá los valores de ${review.name}`,
+            onClick: () => {
+              onGoToField(review.id, target);
+            },
+          }}
+        />
+      </span>
+    </>
+  );
 }
 
 interface RouteMissingProps {

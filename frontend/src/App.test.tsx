@@ -47,7 +47,16 @@ function setup() {
   const openCard = async (name: string) => {
     await user.click(screen.getByText(name, { selector: ".route-card-title" }));
   };
-  return { user, field, type, results, ranking, openCard };
+  /** The line that opens a route's review list in the result, found by what it says. */
+  const reviewLine = (name: string) => {
+    const route = within(results()).getByRole("heading", { name }).closest("li");
+    if (route === null) {
+      throw new Error(`${name} is not in the ranking`);
+    }
+    // The list inside can also say "Con tu valor: …"; the line is the one that opens it.
+    return within(route).getByText(/^(Qué revisar|Con tu valor):/, { selector: "summary" });
+  };
+  return { user, field, type, results, ranking, openCard, reviewLine };
 }
 
 async function fillEverything(type: (name: RegExp, text: string) => Promise<void>) {
@@ -236,7 +245,7 @@ describe("the calculator page", () => {
   });
 
   it("asks to review a difference that rests on another route's values, and goes there", async () => {
-    const { type, user, results, ranking } = setup();
+    const { type, user, results, ranking, reviewLine } = setup();
     await fillEverything(type);
     // Binance's P2P premium is still at 0 and it has estimates: every difference with it rests
     // on them.
@@ -251,12 +260,18 @@ describe("the calculator page", () => {
     if (first === undefined) {
       throw new Error("expected a link");
     }
+    const premium = within(results()).getByRole("link", {
+      name: "Recargo P2P por pagar con Payoneer",
+    });
+    expect(premium).not.toBeVisible();
     await user.click(first);
-    expect(screen.getByRole("heading", { name: "Binance P2P + Bitso" })).toHaveFocus();
+    // Straight to what to review: the route's folded list opens, its line focused.
+    expect(reviewLine("Binance P2P + Bitso")).toHaveFocus();
+    expect(premium).toBeVisible();
   });
 
   it("points at the route's own values once the other route has nothing to review", async () => {
-    const { type, user, openCard, ranking, results } = setup();
+    const { type, user, openCard, ranking, results, reviewLine } = setup();
     await fillEverything(type);
     await openCard("Binance P2P + Bitso");
     await type(/^Recargo P2P por pagar con Payoneer/, "0,1");
@@ -267,10 +282,35 @@ describe("the calculator page", () => {
     await user.click(
       within(results()).getByRole("link", { name: "Revisá los valores de Dólar MEP" }),
     );
-    expect(screen.getByRole("heading", { name: "Dólar MEP" })).toHaveFocus();
+    expect(reviewLine("Dólar MEP")).toHaveFocus();
     expect(
       within(results()).queryByRole("link", { name: "Revisá los valores de Binance P2P + Bitso" }),
     ).toBeNull();
+  });
+
+  it("takes a difference's review to the heading when the route only has an unusual price", async () => {
+    const { type, user, openCard, results, reviewLine } = setup();
+    await fillEverything(type);
+    await openCard("Binance P2P + Bitso");
+    await type(/^Recargo P2P por pagar con Payoneer/, "0,1");
+    await type(/^Transferencia de Payoneer al comprador P2P/, "3");
+    await type(/^Comisión taker de Binance P2P/, "0,07");
+    await type(/^Precio de venta en Bitso/, "60.000");
+    // Its fees are all the person's own: a list to open exists, but holds nothing to check.
+    expect(reviewLine("Binance P2P + Bitso")).toHaveTextContent("Con tu valor: 3 comisiones");
+    const [link] = within(results()).getAllByRole("link", {
+      name: "Revisá los valores de Binance P2P + Bitso",
+    });
+    if (link === undefined) {
+      throw new Error("expected a link");
+    }
+    await user.click(link);
+    // The unusual price is noted under the heading.
+    expect(screen.getByRole("heading", { name: "Binance P2P + Bitso" })).toHaveFocus();
+    // The list of the person's values stays folded.
+    expect(
+      within(results()).getByRole("link", { name: "recargo P2P por pagar con Payoneer" }),
+    ).not.toBeVisible();
   });
 
   it("computes Binance P2P + Bitso without the MEP, with nothing to compare it with", async () => {
@@ -586,9 +626,49 @@ describe("the calculator page", () => {
     );
   });
 
-  it("says in the result which fees to review, each a link that opens its card", async () => {
-    const { type, user, field, ranking, results } = setup();
+  it("folds what to review under each route, counting it in the line that opens it", async () => {
+    const { type, user, results, reviewLine } = setup();
     await fillEverything(type);
+    expect(reviewLine("Binance P2P + Bitso")).toHaveTextContent(
+      "Qué revisar: 1 valor para poner y 2 comisiones estimadas",
+    );
+    expect(reviewLine("ARQ (ex DolarApp)")).toHaveTextContent(
+      "Qué revisar: 2 comisiones estimadas",
+    );
+    const premium = within(results()).getByRole("link", {
+      name: "Recargo P2P por pagar con Payoneer",
+    });
+    expect(premium).not.toBeVisible();
+    await user.click(reviewLine("Binance P2P + Bitso"));
+    expect(premium).toBeVisible();
+    // Only that route's list opened.
+    expect(
+      within(results()).getByRole("link", { name: "conversión USD→USDc en ARQ" }),
+    ).not.toBeVisible();
+  });
+
+  it("counts one fee left to review in the singular", async () => {
+    const { type, openCard, reviewLine } = setup();
+    await fillEverything(type);
+    await openCard("Binance P2P + Bitso");
+    await type(/^Recargo P2P por pagar con Payoneer/, "0,5");
+    await type(/^Comisión taker de Binance P2P/, "0,06");
+    expect(reviewLine("Binance P2P + Bitso")).toHaveTextContent("Qué revisar: 1 comisión estimada");
+  });
+
+  it("says how many fees hold the person's value when nothing is left to review", async () => {
+    const { type, openCard, reviewLine } = setup();
+    await fillEverything(type);
+    await openCard("ARQ (ex DolarApp)");
+    await type(/^Retiro de Payoneer a una cuenta de EE.UU.(?!: mínimo)/, "3");
+    await type(/^Conversión USD→USDc en ARQ/, "0,1");
+    expect(reviewLine("ARQ (ex DolarApp)")).toHaveTextContent("Con tu valor: 2 comisiones");
+  });
+
+  it("says in the result which fees to review, each a link that opens its card", async () => {
+    const { type, user, field, ranking, results, reviewLine } = setup();
+    await fillEverything(type);
+    await user.click(reviewLine("Binance P2P + Bitso"));
     const binance = ranking().find((item) => item.includes("Binance"));
     expect(binance).toContain("Recargo P2P por pagar con Payoneer: está en 0 %, poné tu valor.");
     expect(binance).toContain(
@@ -602,8 +682,9 @@ describe("the calculator page", () => {
   });
 
   it("links an estimated fee to its field in another route's card", async () => {
-    const { type, user, field, results } = setup();
+    const { type, user, field, results, reviewLine } = setup();
     await fillEverything(type);
+    await user.click(reviewLine("ARQ (ex DolarApp)"));
     await user.click(within(results()).getByRole("link", { name: "conversión USD→USDc en ARQ" }));
     expect(field(/^Conversión USD→USDc en ARQ/)).toBeVisible();
     expect(field(/^Conversión USD→USDc en ARQ/)).toHaveFocus();
@@ -703,8 +784,8 @@ describe("the calculator page", () => {
     expect(screen.getByRole("heading", { name: "Resultado" })).toHaveFocus();
   });
 
-  it("takes the person to the best route's result when it has values to review", async () => {
-    const { user, type } = setup();
+  it("takes the person to the best route's review list when it has values to review", async () => {
+    const { user, type, reviewLine } = setup();
     await fillEverything(type);
     const bar = screen.getByRole("link", { name: /Ver resultado$/ });
     // The P2P premium is still at 0 and two Binance fees are estimates.
@@ -712,8 +793,10 @@ describe("the calculator page", () => {
       "Mejor ruta: Binance P2P + Bitso. Llegan $\u00a01.534.005,69 · revisá los valores de esta " +
         "ruta. Ver resultado",
     );
+    expect(bar).toHaveAttribute("href", "#review-binance_bitso");
     await user.click(bar);
-    expect(screen.getByRole("heading", { name: "Binance P2P + Bitso" })).toHaveFocus();
+    expect(reviewLine("Binance P2P + Bitso")).toHaveFocus();
+    expect(screen.getByRole("link", { name: "Recargo P2P por pagar con Payoneer" })).toBeVisible();
   });
 
   it("drops the review mark once the best route's values are set", async () => {
@@ -732,7 +815,7 @@ describe("the calculator page", () => {
   });
 
   it("marks the bar for review when the best route uses an unusual price", async () => {
-    const { type, openCard } = setup();
+    const { user, type, openCard } = setup();
     await fillEverything(type);
     await openCard("Binance P2P + Bitso");
     await type(/^Recargo P2P por pagar con Payoneer/, "0,1");
@@ -742,6 +825,9 @@ describe("the calculator page", () => {
     const bar = screen.getByRole("link", { name: /Ver resultado$/ });
     expect(bar).toHaveTextContent("Mejor ruta: Binance P2P + Bitso");
     expect(bar).toHaveTextContent("· revisá");
+    // No fee left to review, so no list to open: the unusual price is noted under the heading.
+    await user.click(bar);
+    expect(screen.getByRole("heading", { name: "Binance P2P + Bitso" })).toHaveFocus();
   });
 
   describe("with an on-screen keyboard that only shrinks the visual viewport (Safari on iOS)", () => {
