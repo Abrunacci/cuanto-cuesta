@@ -1,7 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { initialTexts, type FormTexts } from "./form.ts";
-import { FORMAT_VERSION, fromStored, toStored } from "./storage.ts";
+import { FORMAT_VERSION, fromStored, loadTexts, saveTexts, toStored } from "./storage.ts";
 
 const start = initialTexts();
 const texts = (overrides: Partial<FormTexts>): FormTexts => ({ ...start, ...overrides });
@@ -84,5 +84,28 @@ describe("the stored form", () => {
     expect(back.fees.arq_ach_deposit).toBe(start.fees.arq_ach_deposit);
     // broker_buy has no minimum: a stored one is ignored.
     expect(back.minimums).toEqual(start.minimums);
+  });
+});
+
+describe("a browser that refuses to store", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("keeps working when the storage is full", () => {
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new DOMException("The quota has been exceeded.", "QuotaExceededError");
+    });
+    expect(() => {
+      saveTexts(texts({ amount: "1.000" }));
+    }).not.toThrow();
+    expect(localStorage.length).toBe(0);
+  });
+
+  it("starts from a first visit when reading the storage fails", () => {
+    vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
+      throw new DOMException("Access denied.", "SecurityError");
+    });
+    expect(loadTexts()).toEqual(start);
   });
 });
