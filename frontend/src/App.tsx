@@ -99,7 +99,7 @@ export function App() {
             Vienen cargadas con los valores investigados. Abrí una ruta para ajustarlas: lo que
             pongas queda guardado en este navegador.
           </p>
-          <ResetFees ownCount={texts.ownFees.size} onReset={form.resetFees} />
+          <ResetFees ownCount={reading.ownFees.size} onReset={form.resetFees} />
           {ROUTES.map((route) => (
             <RouteCard
               key={route.id}

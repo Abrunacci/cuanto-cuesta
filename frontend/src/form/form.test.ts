@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { routesInOrder, type Comparison } from "../calculator/index.ts";
-import { fieldId, initialTexts, readForm, type FormTexts } from "./form.ts";
+import { fieldId, initialTexts, readForm, withFeeReset, type FormTexts } from "./form.ts";
 
 const PRICES = {
   mep: "1.536,16",
@@ -260,5 +260,30 @@ describe("fees typed with a leading zero or in an ambiguous way", () => {
     expect(withFee("arq_ach_deposit", "-1").problems.get(fieldId.fee("arq_ach_deposit"))).toBe(
       "No puede ser negativo.",
     );
+  });
+});
+
+describe("withFeeReset", () => {
+  const edited = filled({
+    fees: { ...initialTexts().fees, payoneer_us_withdrawal: "3", bitso_taker: "0,5" },
+    minimums: { payoneer_us_withdrawal: "0" },
+    ownFees: new Set(["payoneer_us_withdrawal", "bitso_taker"]),
+  });
+
+  it("puts one fee back to its researched value, minimum included, and no longer own", () => {
+    const back = withFeeReset(edited, "payoneer_us_withdrawal");
+    expect(back.fees.payoneer_us_withdrawal).toBe("4");
+    expect(back.minimums.payoneer_us_withdrawal).toBe("20");
+    expect(back.ownFees).toEqual(new Set(["bitso_taker"]));
+    // The other fee the person set stays theirs.
+    expect(back.fees.bitso_taker).toBe("0,5");
+  });
+
+  it("leaves the texts as they are for a fee that is not the person's own", () => {
+    expect(withFeeReset(edited, "arq_ach_deposit")).toBe(edited);
+  });
+
+  it("leaves the texts as they are for an id that is no fee", () => {
+    expect(withFeeReset(edited, "no_such_fee")).toBe(edited);
   });
 });

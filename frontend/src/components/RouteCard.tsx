@@ -48,7 +48,7 @@ export function RouteCard({
       <summary>
         <span className="route-card-title">{route.name}</span>
         <span className="route-card-hint">
-          Ajustar comisiones{ownCountText(route, texts.ownFees)}
+          Ajustar comisiones{ownCountText(route, reading.ownFees)}
         </span>
       </summary>
       {route.steps.map((step) => {
@@ -188,7 +188,7 @@ function FeeInputs({
   }
   const { fee, label, note, provenance } = found;
   const valueId = fieldId.fee(id);
-  const own = texts.ownFees.has(id);
+  const own = reading.ownFees.has(id);
   const minimumId = fieldId.minimum(id);
   return (
     <div className="fee">
