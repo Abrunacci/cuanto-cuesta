@@ -108,8 +108,8 @@ describe("the calculator page", () => {
       within(inputs).getByLabelText(/^Binance con tarjeta \(USDT por USD\)/),
     ).toHaveAccessibleDescription(
       "En Binance, Comprar con tarjeta: el precio de la pantalla final de pago (1 USD ≈ … USDT), " +
-        "antes de confirmar. No lo que recibís dividido lo que pagás, que ya descuenta la " +
-        "comisión, ni el de la lista de métodos de pago, que es más alto que el real.",
+        "antes de confirmar. No uses lo que recibís dividido lo que pagás (ya descuenta la " +
+        "comisión) ni el de la lista de métodos de pago (es más alto que el real).",
     );
     expect(within(inputs).getByLabelText(/^Precio de venta en Bitso/)).toHaveAccessibleDescription(
       "En Bitso, cuántos pesos te dan por cada USDT que vendés.",

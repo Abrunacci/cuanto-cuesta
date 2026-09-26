@@ -28,7 +28,7 @@ export const FEE_DEFAULTS: readonly FeeDefault[] = [
   {
     fee: percentFee("binance_card_purchase", "2", null),
     label: "Comisión de Binance por comprar con tarjeta",
-    note: 'Binance dice "hasta alrededor de 2 %". Observado el 25/09/2026 en la pantalla final de pago, antes de confirmar la compra: 0,20 USD con 10 USD y 2,00 USD con 100 USD. Si tu pantalla final muestra otra comisión, poné la tuya. Payoneer debitó exactamente el monto en USD cargado en Binance (observado el 25/09/2026): la tarjeta no suma cargos.',
+    note: 'Binance dice "hasta alrededor de 2 %". Observado el 25/09/2026 en la pantalla final de pago, antes de confirmar la compra: 0,20 USD con 10 USD y 2,00 USD con 100 USD. Si tu pantalla final muestra otra comisión, poné la tuya. En compras propias, Payoneer debita siempre exactamente el monto en USD que se carga en Binance: la tarjeta no suma cargos (última observación: 25/09/2026).',
     provenance: {
       kind: "verified",
       sourceUrl:

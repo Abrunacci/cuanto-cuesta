@@ -171,6 +171,6 @@ export const RATE_FIELDS: readonly RateField[] = [
     quote: "USDT",
     label: "Binance con tarjeta (USDT por USD)",
     shortLabel: "precio con tarjeta",
-    help: "En Binance, Comprar con tarjeta: el precio de la pantalla final de pago (1 USD ≈ … USDT), antes de confirmar. No lo que recibís dividido lo que pagás, que ya descuenta la comisión, ni el de la lista de métodos de pago, que es más alto que el real.",
+    help: "En Binance, Comprar con tarjeta: el precio de la pantalla final de pago (1 USD ≈ … USDT), antes de confirmar. No uses lo que recibís dividido lo que pagás (ya descuenta la comisión) ni el de la lista de métodos de pago (es más alto que el real).",
   },
 ];
