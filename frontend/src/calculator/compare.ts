@@ -126,9 +126,11 @@ export type RouteComparison = CompleteRoute | IncompleteRoute | FailedRoute;
  * compared with the runner-up without risk, and every other one with the best.
  *
  * - `alone`: one route could be computed, risky or not.
- * - `ranked`: several, at least one without risk. `above` holds the risky routes that deliver at
- *   least as much as the best, most first; `rest` the routes that deliver at most as much. At
- *   least one of the two holds a route.
+ * - `ranked`: several, at least two without risk. `above` holds the risky routes that deliver at
+ *   least as much as the best, most first; `rest` the routes that deliver at most as much, the
+ *   runner-up without risk among them.
+ * - `unrivaled`: several, only one without risk, the best; the others are risky, in `above` and
+ *   `rest` as for `ranked`, and at least one of the two holds a route.
  * - `risky`: several, every one risky. They are compared among themselves, best first, but none
  *   is recommended.
  */
@@ -138,7 +140,13 @@ export type Ranking =
   | {
       readonly kind: "ranked";
       readonly above: readonly CompleteRoute<Over | Tied>[];
-      readonly best: CompleteRoute<Ahead | Tied | Unrivaled>;
+      readonly best: CompleteRoute<Ahead | Tied>;
+      readonly rest: readonly CompleteRoute<Behind | Tied>[];
+    }
+  | {
+      readonly kind: "unrivaled";
+      readonly above: readonly CompleteRoute<Over | Tied>[];
+      readonly best: CompleteRoute<Unrivaled>;
       readonly rest: readonly CompleteRoute<Behind | Tied>[];
     }
   | {
@@ -205,6 +213,7 @@ export function routesInOrder({ ranking, incomplete, failed }: Comparison): Rout
     case "alone":
       return [ranking.only, ...incomplete, ...failed];
     case "ranked":
+    case "unrivaled":
       return [...ranking.above, ranking.best, ...ranking.rest, ...incomplete, ...failed];
     case "risky":
       return [ranking.leader, ...ranking.rest, ...incomplete, ...failed];
@@ -272,15 +281,29 @@ function rank(sorted: readonly Unranked[]): Ranking {
   }
   const below = sorted.slice(bestIndex + 1);
   const runnerUp = below.find((entry) => entry.route.risk === null);
-  return {
-    kind: "ranked",
-    above: sorted.slice(0, bestIndex).map((entry) => over(best, entry)),
-    best: {
-      ...best,
-      standing: runnerUp === undefined ? { kind: "unrivaled" } : lead(best, runnerUp),
-    },
-    rest: below.map((entry) => trail(best, entry)),
-  };
+  const above = sorted.slice(0, bestIndex).map((entry) => over(best, entry));
+  const rest = below.map((entry) => trail(best, entry));
+  return runnerUp === undefined
+    ? { kind: "unrivaled", above, best: { ...best, standing: { kind: "unrivaled" } }, rest }
+    : { kind: "ranked", above, best: { ...best, standing: lead(best, runnerUp) }, rest };
+}
+
+/**
+ * Whether the page recommends this route: the best route without risk, and any route without
+ * risk tied with it. When every route computed is risky, or only one could be computed, none is.
+ */
+export function isRecommended(ranking: Ranking, entry: CompleteRoute): boolean {
+  switch (ranking.kind) {
+    case "none":
+    case "alone":
+    case "risky":
+      return false;
+    case "ranked":
+    case "unrivaled":
+      return (
+        entry.route.risk === null && (entry === ranking.best || entry.standing.kind === "tied")
+      );
+  }
 }
 
 /** How `best` stands against `runnerUp`, which delivers at most as much. */

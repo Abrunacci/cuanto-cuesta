@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   compareRoutes,
+  isRecommended,
   routesInOrder,
   type ComparisonInput,
   type RouteComparison,
@@ -370,11 +371,39 @@ describe("routes with a risk", () => {
 
   it("leaves the best route unrivaled when every other route computed is risky", () => {
     // 1524869.44 - 1503624.13 = 21245.31; 1518602.26 - 1503624.13 = 14978.13
-    expect(standings(compareRoutes(input({ routes: risky("arq", "binance_p2p_bitso") })))).toEqual([
+    const comparison = compareRoutes(input({ routes: risky("arq", "binance_p2p_bitso") }));
+    expect(comparison.ranking.kind).toBe("unrivaled");
+    expect(standings(comparison)).toEqual([
       ["arq", "over", "21245.31", "mep"],
       ["binance_p2p_bitso", "over", "14978.13", "mep"],
       ["mep", "unrivaled"],
     ]);
+  });
+
+  it("recommends the best route without risk and those without risk tied with it", () => {
+    const recommended = (comparison: ReturnType<typeof compareRoutes>) =>
+      routesInOrder(comparison)
+        .filter((r) => r.status === "complete")
+        .filter((r) => isRecommended(comparison.ranking, r))
+        .map((r) => r.route.id);
+    // ARQ is risky and delivers most: Binance is the best route.
+    expect(recommended(compareRoutes(input({ routes: risky("arq") })))).toEqual([
+      "binance_p2p_bitso",
+    ]);
+    expect(
+      recommended(compareRoutes(input({ routes: risky("arq", "binance_p2p_bitso") }))),
+    ).toEqual(["mep"]);
+    expect(
+      recommended(compareRoutes(input({ routes: risky("arq", "binance_p2p_bitso", "mep") }))),
+    ).toEqual([]);
+    // Alone, a route is shown but not recommended over anything.
+    expect(
+      recommended(
+        compareRoutes(
+          input({ prices: new Map([...SAMPLE_PRICES, ["arq_usd_ars", null], ["mep", null]]) }),
+        ),
+      ),
+    ).toEqual([]);
   });
 
   it("recommends none when every route computed is risky, and still compares them", () => {

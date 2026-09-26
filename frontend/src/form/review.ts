@@ -6,6 +6,7 @@
 
 import {
   feeDefault,
+  isRecommended,
   RATE_FIELDS,
   type Ahead,
   type Behind,
@@ -145,20 +146,8 @@ export function difference(
       return {
         kind: "compared",
         standing,
-        recommended: isRecommended(entry, ranking),
+        recommended: isRecommended(ranking, entry),
         review: differenceToReview(entry.route, standing, ownFees, warnings),
       };
   }
-}
-
-/**
- * The best route without risk, and any route without risk tied with it. When every route
- * computed is risky, none is.
- */
-function isRecommended(entry: CompleteRoute, ranking: Ranking): boolean {
-  return (
-    ranking.kind === "ranked" &&
-    entry.route.risk === null &&
-    (entry === ranking.best || entry.standing.kind === "tied")
-  );
 }

@@ -25,6 +25,7 @@ export function summaryText(comparison: Comparison, amountHasProblem: boolean): 
       return `Por ahora solo se puede calcular ${only.route.name}${riskDetail(only)}: ${arrives(only)}.`;
     }
     case "ranked":
+    case "unrivaled":
       return [bestText(ranking), ...ranking.above.flatMap(riskyOverText)].join(" ");
     case "risky": {
       const { leader } = ranking;
@@ -34,7 +35,10 @@ export function summaryText(comparison: Comparison, amountHasProblem: boolean): 
 }
 
 /** The recommended route: the best without risk, or those tied with it. */
-function bestText(ranking: RankedRanking): string {
+function bestText(ranking: RankedRanking | UnrivaledRanking): string {
+  if (ranking.kind === "unrivaled") {
+    return `Mejor ruta: ${ranking.best.route.name}, ${arrives(ranking.best)}.`;
+  }
   const { best } = ranking;
   switch (best.standing.kind) {
     case "ahead": {
@@ -43,8 +47,6 @@ function bestText(ranking: RankedRanking): string {
     }
     case "tied":
       return `Empatan ${joinSpanish(tiedNames(ranking))}: ${arrives(best)}.`;
-    case "unrivaled":
-      return `Mejor ruta: ${best.route.name}, ${arrives(best)}.`;
   }
 }
 
@@ -95,6 +97,7 @@ function arrives({ result }: CompleteRoute): string {
 }
 
 type RankedRanking = Extract<Ranking, { kind: "ranked" }>;
+type UnrivaledRanking = Extract<Ranking, { kind: "unrivaled" }>;
 
 /**
  * The names of the routes without risk that deliver as much as the best one, best first. A risky
@@ -189,6 +192,8 @@ function leadOf(ranking: Ranking): Lead | null {
       return { entry: ranking.only, kind: "alone", name: ranking.only.route.name };
     case "ranked":
       return rankedLead(ranking);
+    case "unrivaled":
+      return { entry: ranking.best, kind: "best", name: ranking.best.route.name };
     case "risky":
       return { entry: ranking.leader, kind: "risky", name: ranking.leader.route.name };
   }
@@ -198,7 +203,6 @@ function rankedLead(ranking: RankedRanking): Lead {
   const { best } = ranking;
   switch (best.standing.kind) {
     case "ahead":
-    case "unrivaled":
       return { entry: best, kind: "best", name: best.route.name };
     case "tied":
       return { entry: best, kind: "tied", name: joinSpanish(tiedNames(ranking)) };

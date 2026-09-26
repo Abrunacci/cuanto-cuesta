@@ -1,4 +1,4 @@
-export { compareRoutes, routesInOrder } from "./compare.ts";
+export { compareRoutes, isRecommended, routesInOrder } from "./compare.ts";
 export type {
   Ahead,
   Alone,
