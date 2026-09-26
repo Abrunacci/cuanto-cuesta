@@ -5,7 +5,7 @@
  */
 
 import {
-  FEE_DEFAULTS,
+  feeDefault,
   RATE_FIELDS,
   type Ahead,
   type Behind,
@@ -30,7 +30,7 @@ export interface FeesToReview {
 export function feesToReview(route: Route, ownFees: ReadonlySet<string>): FeesToReview {
   const fees = route.steps
     .flatMap((step) => step.feeIds)
-    .map((id) => FEE_DEFAULTS.find((d) => d.fee.id === id))
+    .map((id) => feeDefault(id))
     .filter((d) => d !== undefined);
   const reference = fees.filter((d) => !ownFees.has(d.fee.id));
   return {

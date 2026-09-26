@@ -8,7 +8,7 @@
  * allows) is dropped.
  */
 
-import { FEE_DEFAULTS } from "../calculator/index.ts";
+import { feeDefault } from "../calculator/index.ts";
 import { initialTexts, MAX_FIELD_LENGTH, type FormTexts } from "./form.ts";
 
 export const STORAGE_KEY = "cuanto-cuesta:form";
@@ -52,7 +52,7 @@ export function fromStored(text: string | null): FormTexts {
   const minimums = { ...start.minimums };
   const ownFees = new Set<string>();
   for (const [id, value] of Object.entries(stored.fees)) {
-    const known = FEE_DEFAULTS.find((d) => d.fee.id === id);
+    const known = feeDefault(id);
     if (known === undefined || !isFieldText(value)) {
       continue;
     }

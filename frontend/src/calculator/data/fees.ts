@@ -221,3 +221,16 @@ export const FEE_DEFAULTS: readonly FeeDefault[] = [
     },
   },
 ];
+
+/** The default of the fee with this id, if there is one. */
+export function feeDefault(id: string): FeeDefault | undefined {
+  return FEE_DEFAULTS.find((d) => d.fee.id === id);
+}
+
+/**
+ * The fee's label, as shown on screen. Every fee a route uses has a default (a data test
+ * checks), so the id it falls back to is never shown.
+ */
+export function feeLabel(id: string): string {
+  return feeDefault(id)?.label ?? id;
+}
