@@ -1,7 +1,7 @@
 import { useRef } from "react";
 
 import { feeDefault, feeLabel, rateField, type Route, type Step } from "../calculator/index.ts";
-import { byCard, cardOf, ownFieldsIn } from "../form/cards.ts";
+import { byCard, cardOf, ownFieldCount } from "../form/cards.ts";
 import { fieldId, type FormReading, type FormTexts } from "../form/form.ts";
 import { lowerFirst } from "../text/case.ts";
 import { joinSpanish } from "../text/lists.ts";
@@ -145,7 +145,7 @@ function repeatsItsFee(step: Step, here: readonly string[]): boolean {
  * this card count: a shared fee counts in the card that holds it.
  */
 function ownCountText(route: Route, ownFees: ReadonlySet<string>): string {
-  const count = ownFieldsIn(route, ownFees);
+  const count = ownFieldCount(route, ownFees);
   return count === 0 ? "" : ` · ${String(count)} con tu valor`;
 }
 

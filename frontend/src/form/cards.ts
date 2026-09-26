@@ -11,32 +11,27 @@ export function cardOf(feeId: string, routes: readonly Route[] = ROUTES): Route 
   return routes.find((route) => route.steps.some((step) => step.feeIds.includes(feeId)));
 }
 
-/** Fees grouped by the card that holds their fields, in the order they first appear. */
+/** A card and the fees whose fields it holds; never empty. */
 export interface CardGroup {
   readonly card: Route;
   readonly feeIds: readonly [string, ...string[]];
 }
 
+/** Fees grouped by the card that holds their fields, cards in the order they first appear. */
 export function byCard(feeIds: readonly string[], routes: readonly Route[] = ROUTES): CardGroup[] {
-  const groups: CardGroup[] = [];
+  const groups = new Map<Route, [string, ...string[]]>();
   for (const id of feeIds) {
     const card = cardOf(id, routes);
-    if (card === undefined) {
-      continue;
-    }
-    const index = groups.findIndex((group) => group.card === card);
-    const group = groups[index];
-    if (group === undefined) {
-      groups.push({ card, feeIds: [id] });
-    } else {
-      groups[index] = { card, feeIds: [...group.feeIds, id] };
+    if (card !== undefined) {
+      const previous = groups.get(card);
+      groups.set(card, previous === undefined ? [id] : [...previous, id]);
     }
   }
-  return groups;
+  return [...groups].map(([card, ids]) => ({ card, feeIds: ids }));
 }
 
 /** How many of the fields this route's card holds are the person's own. */
-export function ownFieldsIn(
+export function ownFieldCount(
   route: Route,
   ownFees: ReadonlySet<string>,
   routes: readonly Route[] = ROUTES,

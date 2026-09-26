@@ -103,9 +103,22 @@ describe("a browser that refuses to store", () => {
   });
 
   it("starts from a first visit when reading the storage fails", () => {
-    vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
+    localStorage.setItem("cuanto-cuesta:form", toStored(texts({ amount: "1.000" })) ?? "");
+    const getItem = vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
       throw new DOMException("Access denied.", "SecurityError");
     });
     expect(loadTexts()).toEqual(start);
+    expect(getItem).toHaveBeenCalled();
+  });
+
+  it("keeps working when the person blocked site data, so even reaching the storage fails", () => {
+    const blocked = vi.spyOn(window, "localStorage", "get").mockImplementation(() => {
+      throw new DOMException("Access denied.", "SecurityError");
+    });
+    expect(loadTexts()).toEqual(start);
+    expect(() => {
+      saveTexts(texts({ amount: "1.000" }));
+    }).not.toThrow();
+    expect(blocked).toHaveBeenCalledTimes(2);
   });
 });

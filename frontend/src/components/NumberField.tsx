@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 
 import { MAX_FIELD_LENGTH } from "../form/form.ts";
 
@@ -54,6 +54,17 @@ export function NumberField({
   // The help says what goes in the field, which is what a problem needs.
   const helpHidden = helpWhileNeeded && !focused && value !== "" && shownProblem === null;
   const input = useRef<HTMLInputElement>(null);
+  // One function for the life of the field, so React does not detach and reattach it on every
+  // render.
+  const setInput = useCallback(
+    (element: HTMLInputElement | null) => {
+      input.current = element;
+      if (inputRef !== undefined) {
+        inputRef.current = element;
+      }
+    },
+    [inputRef],
+  );
   const pointerDown = usePointerDown();
   const leave = () => {
     // Leaving can show a problem or a warning and hide the help, which moves what is below the
@@ -104,12 +115,7 @@ export function NumberField({
       </label>
       <div className="field-input">
         <input
-          ref={(element) => {
-            input.current = element;
-            if (inputRef !== undefined) {
-              inputRef.current = element;
-            }
-          }}
+          ref={setInput}
           id={id}
           type="text"
           inputMode="decimal"

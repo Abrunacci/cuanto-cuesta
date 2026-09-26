@@ -25,8 +25,14 @@ export function summaryText(comparison: Comparison, amountHasProblem: boolean): 
       return `Por ahora solo se puede calcular ${only.route.name}${riskDetail(only)}: ${arrives(only)}.`;
     }
     case "ranked":
-    case "unrivaled":
       return [bestText(ranking), ...ranking.above.flatMap(riskyOverText)].join(" ");
+    case "unrivaled": {
+      const { best } = ranking;
+      return [
+        `Mejor ruta: ${best.route.name}, ${arrives(best)}.`,
+        ...ranking.above.flatMap(riskyOverText),
+      ].join(" ");
+    }
     case "risky": {
       const { leader } = ranking;
       return `Por ahora solo se pueden calcular rutas con riesgo: ${leader.route.name}, ${arrives(leader)}${riskDetail(leader)}.`;
@@ -35,10 +41,7 @@ export function summaryText(comparison: Comparison, amountHasProblem: boolean): 
 }
 
 /** The recommended route: the best without risk, or those tied with it. */
-function bestText(ranking: RankedRanking | UnrivaledRanking): string {
-  if (ranking.kind === "unrivaled") {
-    return `Mejor ruta: ${ranking.best.route.name}, ${arrives(ranking.best)}.`;
-  }
+function bestText(ranking: RankedRanking): string {
   const { best } = ranking;
   switch (best.standing.kind) {
     case "ahead": {
@@ -97,7 +100,6 @@ function arrives({ result }: CompleteRoute): string {
 }
 
 type RankedRanking = Extract<Ranking, { kind: "ranked" }>;
-type UnrivaledRanking = Extract<Ranking, { kind: "unrivaled" }>;
 
 /**
  * The names of the routes without risk that deliver as much as the best one, best first. A risky

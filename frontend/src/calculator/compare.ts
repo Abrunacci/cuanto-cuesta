@@ -300,6 +300,7 @@ export function isRecommended(ranking: Ranking, entry: CompleteRoute): boolean {
       return false;
     case "ranked":
     case "unrivaled":
+      // With no rival, no other route without risk can tie with the best: only it passes.
       return (
         entry.route.risk === null && (entry === ranking.best || entry.standing.kind === "tied")
       );

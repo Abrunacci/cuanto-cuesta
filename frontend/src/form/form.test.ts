@@ -272,8 +272,10 @@ describe("withFeeReset", () => {
 
   it("puts one fee back to its researched value, minimum included, and no longer own", () => {
     const back = withFeeReset(edited, "payoneer_us_withdrawal");
-    expect(back.fees.payoneer_us_withdrawal).toBe("4");
-    expect(back.minimums.payoneer_us_withdrawal).toBe("20");
+    expect(back.fees.payoneer_us_withdrawal).toBe(initialTexts().fees.payoneer_us_withdrawal);
+    expect(back.minimums.payoneer_us_withdrawal).toBe(
+      initialTexts().minimums.payoneer_us_withdrawal,
+    );
     expect(back.ownFees).toEqual(new Set(["bitso_taker"]));
     // The other fee the person set stays theirs.
     expect(back.fees.bitso_taker).toBe("0,5");

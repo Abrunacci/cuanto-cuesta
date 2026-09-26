@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { Route } from "../calculator/index.ts";
-import { byCard, cardOf, ownFieldsIn } from "./cards.ts";
+import { byCard, cardOf, ownFieldCount } from "./cards.ts";
 
 /** A route whose one step charges these fees. */
 const route = (id: string, feeIds: string[]): Route => ({
@@ -40,9 +40,9 @@ describe("byCard", () => {
   });
 });
 
-describe("ownFieldsIn", () => {
+describe("ownFieldCount", () => {
   it("counts only the person's fees whose fields the route's card holds", () => {
     const own = new Set(["x", "z"]);
-    expect(ROUTES.map((r) => ownFieldsIn(r, own, ROUTES))).toEqual([1, 1, 0]);
+    expect(ROUTES.map((r) => ownFieldCount(r, own, ROUTES))).toEqual([1, 1, 0]);
   });
 });

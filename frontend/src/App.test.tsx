@@ -173,9 +173,17 @@ describe("the calculator page", () => {
     // With no field of its own, a step keeps its title in view.
     expect(within(card).getByText("Retirar ARS al banco")).not.toHaveClass("visually-hidden");
     // Each link says which fees it is for, so the three can be told apart.
-    const names = within(card)
-      .getAllByRole("link", { name: /^Binance con tarjeta \+ Bitso: / })
-      .map((link) => link.getAttribute("aria-label"));
+    // The accessible names as Testing Library computes them, whatever they are built from.
+    const names: string[] = [];
+    within(card).getAllByRole("link", {
+      name: (name) => {
+        const match = name.startsWith("Binance con tarjeta + Bitso: ");
+        if (match) {
+          names.push(name);
+        }
+        return match;
+      },
+    });
     expect(names).toHaveLength(3);
     expect(new Set(names).size).toBe(3);
     await user.click(
