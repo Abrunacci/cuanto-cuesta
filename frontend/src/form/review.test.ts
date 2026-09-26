@@ -92,7 +92,7 @@ describe("reviewSummary", () => {
   });
 });
 
-describe("differenceToReview", () => {
+describe("difference", () => {
   const PRICES = {
     mep: "1.536,16",
     binance_p2p_usdt_usd: "1,03",

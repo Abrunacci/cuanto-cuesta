@@ -393,6 +393,9 @@ describe("the calculator page", () => {
     }
     await user.click(own);
     expect(reviewLine("Dólar MEP")).toHaveFocus();
+    expect(scrolledToTop()).toEqual([
+      { element: reviewLine("Dólar MEP"), options: { block: "start" } },
+    ]);
     expect(
       within(results()).queryByRole("link", { name: "Revisá los valores de ARQ (ex DolarApp)" }),
     ).toBeNull();
@@ -1437,6 +1440,22 @@ describe("the calculator page", () => {
       expect(
         screen.getByRole("button", { name: "Restablecer valores de referencia" }),
       ).toBeVisible();
+    });
+
+    it("closes the question when another fee is set while it is open", async () => {
+      // The person confirmed a count that no longer holds, so the question goes away.
+      const { user, type, openCard } = setup();
+      await openCard("Binance P2P + Bitso");
+      await type(PREMIUM, "0,5");
+      await user.click(screen.getByRole("button", { name: "Restablecer valores de referencia" }));
+      expect(screen.getByText(/^¿Volver/)).toBeVisible();
+      await type(/^Comisión taker de Binance P2P/, "0,07");
+      expect(screen.queryByText(/^¿Volver/)).toBeNull();
+      expect(
+        screen.getByRole("button", { name: "Restablecer valores de referencia" }),
+      ).toBeVisible();
+      // Nothing was reset.
+      expect(screen.getByLabelText(PREMIUM)).toHaveValue("0,5");
     });
 
     it("does not bring back an old Listo after a fee is put back on its own", async () => {
