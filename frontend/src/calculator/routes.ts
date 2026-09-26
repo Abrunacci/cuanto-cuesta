@@ -46,7 +46,11 @@ export interface Route {
 
 /** What a risky route can cost the person, shown on screen in Spanish. */
 export interface RouteRisk {
-  /** A few words next to the route's name: "Riesgo de bloqueo". */
+  /**
+   * A few words next to the route's name: "Riesgo de bloqueo". It holds the word "riesgo": the
+   * phone's bar shows only that word and has the label read out, and what is seen must be in
+   * what is heard (a data test checks).
+   */
   readonly label: string;
   /** Said after what the route delivers: "con riesgo de bloqueo de tu cuenta de Binance". */
   readonly detail: string;

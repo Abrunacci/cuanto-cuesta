@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 
-import { initialTexts, readForm, type FormReading, type FormTexts } from "./form.ts";
+import { initialTexts, readForm, withFeeReset, type FormReading, type FormTexts } from "./form.ts";
 import { loadTexts, saveTexts } from "./storage.ts";
 
 export interface Form {
@@ -53,20 +53,7 @@ export function useForm(): Form {
       }));
     },
     resetFee: (id) => {
-      const start = initialTexts();
-      setTexts((current) => {
-        const ownFees = new Set(current.ownFees);
-        ownFees.delete(id);
-        const value = start.fees[id];
-        const minimum = start.minimums[id];
-        return {
-          ...current,
-          fees: value === undefined ? current.fees : { ...current.fees, [id]: value },
-          minimums:
-            minimum === undefined ? current.minimums : { ...current.minimums, [id]: minimum },
-          ownFees,
-        };
-      });
+      setTexts((current) => withFeeReset(current, id));
     },
     resetFees: () => {
       const start = initialTexts();

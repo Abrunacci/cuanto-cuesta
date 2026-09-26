@@ -316,3 +316,25 @@ function feeGap(valueMissing: boolean, minimumMissing: boolean): FeeGap | null {
   }
   return minimumMissing ? "minimum" : null;
 }
+
+/**
+ * One fee back to its researched value, minimum included, and no longer the person's own. A fee
+ * that is not the person's own already holds its researched value: the texts come back as they
+ * are, so nothing renders again.
+ */
+export function withFeeReset(texts: FormTexts, id: string): FormTexts {
+  if (!texts.ownFees.has(id)) {
+    return texts;
+  }
+  const start = initialTexts();
+  const ownFees = new Set(texts.ownFees);
+  ownFees.delete(id);
+  const value = start.fees[id];
+  const minimum = start.minimums[id];
+  return {
+    ...texts,
+    fees: value === undefined ? texts.fees : { ...texts.fees, [id]: value },
+    minimums: minimum === undefined ? texts.minimums : { ...texts.minimums, [id]: minimum },
+    ownFees,
+  };
+}

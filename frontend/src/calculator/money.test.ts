@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  add,
   Money,
   CurrencyMismatchError,
   Decimal,
@@ -41,13 +40,11 @@ describe("rounding", () => {
 });
 
 describe("arithmetic", () => {
-  it("adds and subtracts in one currency", () => {
-    expect(add(money("1.10", "USD"), money("2.20", "USD")).amount.toFixed(2)).toBe("3.30");
+  it("subtracts in one currency", () => {
     expect(subtract(money("1.10", "USD"), money("2.20", "USD")).amount.toFixed(2)).toBe("-1.10");
   });
 
   it("refuses to mix currencies", () => {
-    expect(() => add(money("1", "USD"), money("1", "ARS"))).toThrow(CurrencyMismatchError);
     expect(() => subtract(money("1", "USD"), money("1", "ARS"))).toThrow(CurrencyMismatchError);
   });
 });

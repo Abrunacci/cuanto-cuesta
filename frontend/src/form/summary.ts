@@ -26,6 +26,13 @@ export function summaryText(comparison: Comparison, amountHasProblem: boolean): 
     }
     case "ranked":
       return [bestText(ranking), ...ranking.above.flatMap(riskyOverText)].join(" ");
+    case "unrivaled": {
+      const { best } = ranking;
+      return [
+        `Mejor ruta: ${best.route.name}, ${arrives(best)}.`,
+        ...ranking.above.flatMap(riskyOverText),
+      ].join(" ");
+    }
     case "risky": {
       const { leader } = ranking;
       return `Por ahora solo se pueden calcular rutas con riesgo: ${leader.route.name}, ${arrives(leader)}${riskDetail(leader)}.`;
@@ -43,8 +50,6 @@ function bestText(ranking: RankedRanking): string {
     }
     case "tied":
       return `Empatan ${joinSpanish(tiedNames(ranking))}: ${arrives(best)}.`;
-    case "unrivaled":
-      return `Mejor ruta: ${best.route.name}, ${arrives(best)}.`;
   }
 }
 
@@ -189,6 +194,8 @@ function leadOf(ranking: Ranking): Lead | null {
       return { entry: ranking.only, kind: "alone", name: ranking.only.route.name };
     case "ranked":
       return rankedLead(ranking);
+    case "unrivaled":
+      return { entry: ranking.best, kind: "best", name: ranking.best.route.name };
     case "risky":
       return { entry: ranking.leader, kind: "risky", name: ranking.leader.route.name };
   }
@@ -198,7 +205,6 @@ function rankedLead(ranking: RankedRanking): Lead {
   const { best } = ranking;
   switch (best.standing.kind) {
     case "ahead":
-    case "unrivaled":
       return { entry: best, kind: "best", name: best.route.name };
     case "tied":
       return { entry: best, kind: "tied", name: joinSpanish(tiedNames(ranking)) };

@@ -99,7 +99,7 @@ export function App() {
             Vienen cargadas con los valores investigados. Abrí una ruta para ajustarlas: lo que
             pongas queda guardado en este navegador.
           </p>
-          <ResetFees ownCount={texts.ownFees.size} onReset={form.resetFees} />
+          <ResetFees ownCount={reading.ownFees.size} onReset={form.resetFees} />
           {ROUTES.map((route) => (
             <RouteCard
               key={route.id}
@@ -137,10 +137,10 @@ export function App() {
 /**
  * Focus the element with this id where the person can see it and what follows it. A field is
  * scrolled into view by the browser, above the phone's bar thanks to `scroll-padding-bottom`.
- * Anything else (the result's title, a route's heading, a review line) goes to the top of the
- * screen: browsers only scroll it as far as needed, or not at all when it shows just above the
- * bar, which leaves the route or the list just opened under the bar. Wide screens have no bar but
- * do the same, so the route or the list below is in view there too.
+ * Anything else (a `.jump-target`: the result's title, a route's heading, a review line) goes to
+ * the top of the screen: browsers only scroll it as far as needed, or not at all when it shows
+ * just above the bar, which leaves the route or the list just opened under the bar. Wide screens
+ * have no bar but do the same, so the route or the list below is in view there too.
  */
 function focusInView(id: string): void {
   const target = document.getElementById(id);

@@ -113,6 +113,17 @@ describe("the bundled routes and fees", () => {
     expect(withSpread.final.amount.toFixed(2)).toBe("1428300.00");
   });
 
+  it("give every price a short label", () => {
+    expect(RATE_FIELDS.filter((field) => field.shortLabel.trim() === "").map((f) => f.key)).toEqual(
+      [],
+    );
+  });
+
+  it('say "riesgo" in every risk label, the word the phone\'s bar shows', () => {
+    const risks = ROUTES.flatMap((r) => (r.risk === null ? [] : [r.risk.label]));
+    expect(risks.filter((label) => !/\briesgo\b/i.test(label))).toEqual([]);
+  });
+
   it("mark Binance P2P + Bitso as the one risky route, with what it risks", () => {
     expect(ROUTES.filter((r) => r.risk !== null).map((r) => [r.id, r.risk])).toEqual([
       [

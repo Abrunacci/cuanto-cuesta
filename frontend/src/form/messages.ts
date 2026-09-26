@@ -10,7 +10,7 @@ import type {
 } from "../calculator/index.ts";
 import type { FeeGap } from "./form.ts";
 import { inRange, type PriceCheck } from "./plausible.ts";
-import { FEE_DEFAULTS, RATE_FIELDS } from "../calculator/index.ts";
+import { feeLabel, rateField } from "../calculator/index.ts";
 import { lowerFirst } from "../text/case.ts";
 import { formatExact, formatFeeValue, formatNumber, formatUnambiguous } from "../text/numbers.ts";
 
@@ -66,13 +66,9 @@ export function missingInputLabel(
     case "amount":
       return "monto en USD";
     case "rate":
-      return lowerFirst(
-        RATE_FIELDS.find((field) => field.key === missing.key)?.label ?? missing.key,
-      );
+      return lowerFirst(rateField(missing.key)?.label ?? missing.key);
     case "fee": {
-      const label = lowerFirst(
-        FEE_DEFAULTS.find((d) => d.fee.id === missing.id)?.label ?? missing.id,
-      );
+      const label = lowerFirst(feeLabel(missing.id));
       switch (feeGaps.get(missing.id) ?? "value") {
         case "value":
           return label;
@@ -91,11 +87,11 @@ export function missingInputShortLabel(missing: MissingInput): string {
     case "amount":
       return "monto";
     case "rate":
-      return RATE_FIELDS.find((field) => field.key === missing.key)?.shortLabel ?? missing.key;
+      return rateField(missing.key)?.shortLabel ?? missing.key;
     case "fee":
       // Never missing in every route at once: no fee is used by every route, as a data test
       // checks. So this is never shown in the one-line bar.
-      return lowerFirst(FEE_DEFAULTS.find((d) => d.fee.id === missing.id)?.label ?? missing.id);
+      return lowerFirst(feeLabel(missing.id));
   }
 }
 

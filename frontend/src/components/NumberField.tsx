@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 
 import { MAX_FIELD_LENGTH } from "../form/form.ts";
 
@@ -25,6 +25,8 @@ interface NumberFieldProps {
   /** More about the field, outside its description (e.g. a collapsible "Detalles"). */
   readonly children?: ReactNode;
   readonly placeholder?: string;
+  /** Holds the input too, for whoever needs to focus it (e.g. a button among the children). */
+  readonly inputRef?: RefObject<HTMLInputElement | null>;
 }
 
 export function NumberField({
@@ -40,6 +42,7 @@ export function NumberField({
   helpWhileNeeded = false,
   children,
   placeholder,
+  inputRef,
 }: NumberFieldProps) {
   // Show the field's own problem or warning once the person leaves it, so typing "1540" does
   // not flag the field at "1"; after that it updates as they fix it. The results summary
@@ -51,6 +54,17 @@ export function NumberField({
   // The help says what goes in the field, which is what a problem needs.
   const helpHidden = helpWhileNeeded && !focused && value !== "" && shownProblem === null;
   const input = useRef<HTMLInputElement>(null);
+  // One function for the life of the field, so React does not detach and reattach it on every
+  // render.
+  const setInput = useCallback(
+    (element: HTMLInputElement | null) => {
+      input.current = element;
+      if (inputRef !== undefined) {
+        inputRef.current = element;
+      }
+    },
+    [inputRef],
+  );
   const pointerDown = usePointerDown();
   const leave = () => {
     // Leaving can show a problem or a warning and hide the help, which moves what is below the
@@ -101,7 +115,7 @@ export function NumberField({
       </label>
       <div className="field-input">
         <input
-          ref={input}
+          ref={setInput}
           id={id}
           type="text"
           inputMode="decimal"

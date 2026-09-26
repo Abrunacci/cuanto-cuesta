@@ -8,7 +8,7 @@
  * allows) is dropped.
  */
 
-import { FEE_DEFAULTS } from "../calculator/index.ts";
+import { feeDefault } from "../calculator/index.ts";
 import { initialTexts, MAX_FIELD_LENGTH, type FormTexts } from "./form.ts";
 
 export const STORAGE_KEY = "cuanto-cuesta:form";
@@ -52,7 +52,7 @@ export function fromStored(text: string | null): FormTexts {
   const minimums = { ...start.minimums };
   const ownFees = new Set<string>();
   for (const [id, value] of Object.entries(stored.fees)) {
-    const known = FEE_DEFAULTS.find((d) => d.fee.id === id);
+    const known = feeDefault(id);
     if (known === undefined || !isFieldText(value)) {
       continue;
     }
@@ -118,35 +118,30 @@ function isFieldText(value: string | undefined): value is string {
 }
 
 /**
- * The browser's storage, or null where there is none: reading `localStorage` throws when the
- * person blocked site data, and some private modes refuse writes.
+ * The form as remembered, or a first visit's. Reading `localStorage` itself throws when the
+ * person blocked site data, so the whole read is guarded.
  */
-function storage(): Storage | null {
-  try {
-    return window.localStorage;
-  } catch {
-    return null;
-  }
-}
-
 export function loadTexts(): FormTexts {
   try {
-    return fromStored(storage()?.getItem(STORAGE_KEY) ?? null);
+    return fromStored(window.localStorage.getItem(STORAGE_KEY));
   } catch {
     return initialTexts();
   }
 }
 
-/** Remember the form; if the browser refuses, the page keeps working without remembering. */
+/**
+ * Remember the form; if the browser refuses (blocked site data, full storage, a private mode that
+ * refuses writes), the page keeps working without remembering.
+ */
 export function saveTexts(texts: FormTexts): void {
   const text = toStored(texts);
   try {
     if (text === null) {
-      storage()?.removeItem(STORAGE_KEY);
+      window.localStorage.removeItem(STORAGE_KEY);
     } else {
-      storage()?.setItem(STORAGE_KEY, text);
+      window.localStorage.setItem(STORAGE_KEY, text);
     }
   } catch {
-    // Full or disabled storage: nothing to do.
+    // Nothing to do: the form still works, it is just not remembered.
   }
 }
