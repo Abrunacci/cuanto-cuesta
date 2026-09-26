@@ -1,5 +1,5 @@
 import { feeDefault, feeLabel, rateField, type Route, type Step } from "../calculator/index.ts";
-import { cardOf } from "../form/cards.ts";
+import { byCard, cardOf, ownFieldsIn } from "../form/cards.ts";
 import { fieldId, type FormReading, type FormTexts } from "../form/form.ts";
 import { lowerFirst } from "../text/case.ts";
 import { joinSpanish } from "../text/lists.ts";
@@ -94,18 +94,8 @@ function SetElsewhere({
   readonly feeIds: readonly string[];
   readonly onGoToField: RouteCardProps["onGoToField"];
 }) {
-  const byCard = new Map<Route, string[]>();
-  for (const id of feeIds) {
-    const card = cardOf(id);
-    if (card !== undefined) {
-      byCard.set(card, [...(byCard.get(card) ?? []), id]);
-    }
-  }
-  return [...byCard].map(([card, ids]) => {
+  return byCard(feeIds).map(({ card, feeIds: ids }) => {
     const [first] = ids;
-    if (first === undefined) {
-      return null;
-    }
     const id = fieldId.fee(first);
     const labels = ids.map((fee) => lowerFirst(feeLabel(fee)));
     return (
@@ -153,9 +143,7 @@ function repeatsItsFee(step: Step, here: readonly string[]): boolean {
  * this card count: a shared fee counts in the card that holds it.
  */
 function ownCountText(route: Route, ownFees: ReadonlySet<string>): string {
-  const count = route.steps
-    .flatMap((step) => step.feeIds)
-    .filter((id) => ownFees.has(id) && cardOf(id)?.id === route.id).length;
+  const count = ownFieldsIn(route, ownFees);
   return count === 0 ? "" : ` · ${String(count)} con tu valor`;
 }
 

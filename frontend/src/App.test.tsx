@@ -172,7 +172,12 @@ describe("the calculator page", () => {
     ]);
     // With no field of its own, a step keeps its title in view.
     expect(within(card).getByText("Retirar ARS al banco")).not.toHaveClass("visually-hidden");
-    // Each link says which fees it is for.
+    // Each link says which fees it is for, so the three can be told apart.
+    const names = within(card)
+      .getAllByRole("link", { name: /^Binance con tarjeta \+ Bitso: / })
+      .map((link) => link.getAttribute("aria-label"));
+    expect(names).toHaveLength(3);
+    expect(new Set(names).size).toBe(3);
     await user.click(
       within(card).getByRole("link", {
         name: "Binance con tarjeta + Bitso: retiro de USDT de Binance por Polygon y depósito de USDT en Bitso",
