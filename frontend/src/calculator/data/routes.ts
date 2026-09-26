@@ -1,5 +1,5 @@
 /**
- * The three routes, as data. This is their only definition: `data.test.ts` checks that they chain
+ * The four routes, as data. This is their only definition: `data.test.ts` checks that they chain
  * their currencies and use only fees and rates that exist.
  */
 
@@ -11,6 +11,33 @@ export const TARGET_CURRENCY = "ARS";
 
 export const ROUTES: readonly Route[] = [
   {
+    id: "binance_card_bitso",
+    name: "Binance con tarjeta + Bitso",
+    source: "USD",
+    target: "ARS",
+    steps: [
+      {
+        label: "Comprar USDT con la tarjeta de Payoneer en Binance",
+        feeIds: ["binance_card_purchase"],
+        conversion: { rateKey: "binance_card_usd_usdt", target: "USDT" },
+      },
+      {
+        label: "Retirar USDT a Bitso por Polygon",
+        feeIds: ["binance_withdrawal_polygon", "bitso_usdt_deposit"],
+        conversion: null,
+      },
+      {
+        label: "Vender USDT por ARS en Bitso",
+        feeIds: ["bitso_taker"],
+        conversion: { rateKey: "bitso_usdt_ars", target: "ARS" },
+      },
+      { label: "Retirar ARS al banco", feeIds: ["bitso_ars_withdrawal"], conversion: null },
+    ],
+    warnings: [],
+    // Adding funds with a card is a standard Binance feature, not a payment from a third party.
+    risk: null,
+  },
+  {
     id: "binance_p2p_bitso",
     name: "Binance P2P + Bitso",
     source: "USD",
@@ -19,7 +46,7 @@ export const ROUTES: readonly Route[] = [
       {
         label: "Vender USD por USDT en Binance P2P",
         feeIds: ["payoneer_p2p_transfer", "p2p_premium", "binance_p2p_taker"],
-        conversion: { rateKey: "p2p_usdt_usd", target: "USDT" },
+        conversion: { rateKey: "binance_p2p_usdt_usd", target: "USDT" },
       },
       {
         label: "Retirar USDT a Bitso por Polygon",
@@ -115,7 +142,7 @@ export const RATE_FIELDS: readonly RateField[] = [
     help: "Lo que te pagan por cada dólar vendido por MEP. Lo ves en tu banco o broker.",
   },
   {
-    key: "p2p_usdt_usd",
+    key: "binance_p2p_usdt_usd",
     base: "USDT",
     quote: "USD",
     label: "Precio P2P en Binance (USD por USDT)",
@@ -137,5 +164,13 @@ export const RATE_FIELDS: readonly RateField[] = [
     label: "Cotización de ARQ (ARS por USDc)",
     shortLabel: "cotización ARQ",
     help: "En la app de ARQ, cuántos pesos te dan por cada dólar digital (USDc).",
+  },
+  {
+    key: "binance_card_usd_usdt",
+    base: "USD",
+    quote: "USDT",
+    label: "Binance con tarjeta (USDT por USD)",
+    shortLabel: "precio con tarjeta",
+    help: "En Binance, Comprar con tarjeta: el precio de la pantalla final de pago (1 USD ≈ … USDT), antes de confirmar. No lo que recibís dividido lo que pagás, que ya descuenta la comisión, ni el de la lista de métodos de pago, que es más alto que el real.",
   },
 ];

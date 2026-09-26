@@ -66,6 +66,7 @@ async function fillEverything(type: (name: RegExp, text: string) => Promise<void
   await type(/^Precio P2P en Binance/, "1,03");
   await type(/^Precio de venta en Bitso/, "1.596,21");
   await type(/^Cotización de ARQ/, "1.593,385");
+  await type(/^Binance con tarjeta \(USDT por USD\)/, "0,95448");
 }
 
 /** The elements scrolled to the top of the screen, with the options used. */
@@ -87,7 +88,7 @@ describe("the calculator page", () => {
     expect(screen.getByRole("heading", { level: 1, name: "¿Cuánto cuesta?" })).toBeInTheDocument();
   });
 
-  it("asks for the five numbers together at the top, each with where to find it", () => {
+  it("asks for the six numbers together at the top, each with where to find it", () => {
     setup();
     const inputs = screen.getByRole("region", { name: "Tus datos" });
     const labels = within(inputs)
@@ -96,11 +97,20 @@ describe("the calculator page", () => {
     expect(labels).toEqual([
       "amount",
       "price-mep",
-      "price-p2p_usdt_usd",
+      "price-binance_p2p_usdt_usd",
       "price-bitso_usdt_ars",
       "price-arq_usd_ars",
+      "price-binance_card_usd_usdt",
     ]);
     expect(within(inputs).getByLabelText(/^Precio de venta en Bitso/)).toHaveValue("");
+    // The card price is the one on the final payment screen, not the list's.
+    expect(
+      within(inputs).getByLabelText(/^Binance con tarjeta \(USDT por USD\)/),
+    ).toHaveAccessibleDescription(
+      "En Binance, Comprar con tarjeta: el precio de la pantalla final de pago (1 USD ≈ … USDT), " +
+        "antes de confirmar. No lo que recibís dividido lo que pagás, que ya descuenta la " +
+        "comisión, ni el de la lista de métodos de pago, que es más alto que el real.",
+    );
     expect(within(inputs).getByLabelText(/^Precio de venta en Bitso/)).toHaveAccessibleDescription(
       "En Bitso, cuántos pesos te dan por cada USDT que vendés.",
     );
@@ -109,9 +119,67 @@ describe("the calculator page", () => {
   it("keeps the fees, at their researched values, in closed cards", async () => {
     const { field, openCard } = setup();
     expect(field(/^Comisión taker del libro de órdenes de Bitso/)).not.toBeVisible();
-    await openCard("Binance P2P + Bitso");
+    await openCard("Binance con tarjeta + Bitso");
     expect(field(/^Comisión taker del libro de órdenes de Bitso/)).toBeVisible();
     expect(field(/^Comisión taker del libro de órdenes de Bitso/)).toHaveValue("0,6");
+    expect(field(/^Comisión de Binance por comprar con tarjeta/)).toHaveValue("2");
+  });
+
+  it("counts a shared fee set by the person in the card that holds it only", async () => {
+    const { type, openCard, reviewLine } = setup();
+    await fillEverything(type);
+    await openCard("Binance con tarjeta + Bitso");
+    await type(/^Comisión taker del libro de órdenes de Bitso/, "0,5");
+    const hint = (name: string) =>
+      screen.getByText(name, { selector: ".route-card-title" }).nextSibling;
+    expect(hint("Binance con tarjeta + Bitso")).toHaveTextContent(
+      "Ajustar comisiones · 1 con tu valor",
+    );
+    expect(hint("Binance P2P + Bitso")).toHaveTextContent(/^Ajustar comisiones$/);
+    // The P2P route's result still rests on it, so its list says so.
+    expect(reviewLine("Binance P2P + Bitso").closest("details")).toHaveTextContent(
+      "Con tu valor: comisión taker del libro de órdenes de Bitso.",
+    );
+  });
+
+  it("shows a fee shared by two routes once, and links to it from the other card", async () => {
+    const { user, field, openCard } = setup();
+    // One field per fee on the page, even for the Bitso leg both Binance routes use.
+    expect(screen.getAllByLabelText(/^Comisión taker del libro de órdenes de Bitso/)).toHaveLength(
+      1,
+    );
+    const ids = [...document.querySelectorAll("[id]")].map((element) => element.id);
+    expect(ids.filter((id, index) => ids.indexOf(id) !== index)).toEqual([]);
+    await openCard("Binance P2P + Bitso");
+    const card = screen
+      .getByText("Binance P2P + Bitso", { selector: ".route-card-title" })
+      .closest("details");
+    if (card === null) {
+      throw new Error("expected the card");
+    }
+    // The withdrawal to Bitso, the sale and the withdrawal to the bank.
+    expect(within(card).getAllByText(/se ajustan? en/)).toHaveLength(3);
+    expect(within(card).getByText(/^Estas comisiones se ajustan en/)).toHaveTextContent(
+      "Estas comisiones se ajustan en Binance con tarjeta + Bitso.",
+    );
+    expect(
+      within(card)
+        .getAllByText(/^Esta comisión se ajusta en/)
+        .map((p) => p.textContent),
+    ).toEqual([
+      "Esta comisión se ajusta en Binance con tarjeta + Bitso.",
+      "Esta comisión se ajusta en Binance con tarjeta + Bitso.",
+    ]);
+    // With no field of its own, a step keeps its title in view.
+    expect(within(card).getByText("Retirar ARS al banco")).not.toHaveClass("visually-hidden");
+    // Each link says which fees it is for.
+    await user.click(
+      within(card).getByRole("link", {
+        name: "Binance con tarjeta + Bitso: retiro de USDT de Binance por Polygon y depósito de USDT en Bitso",
+      }),
+    );
+    expect(field(/^Retiro de USDT de Binance por Polygon/)).toBeVisible();
+    expect(field(/^Retiro de USDT de Binance por Polygon/)).toHaveFocus();
   });
 
   it("says what each route is missing, each item a link to its field", () => {
@@ -120,9 +188,10 @@ describe("the calculator page", () => {
       screen.getByText("Completá el monto y las cotizaciones para comparar las rutas."),
     ).toBeVisible();
     expect(ranking()[0]).toContain("Falta completar o corregir:");
+    // Under each of the two routes that sell on Bitso.
     expect(
       within(results()).getAllByRole("link", { name: "precio de venta en Bitso (ARS por USDT)" }),
-    ).toHaveLength(1);
+    ).toHaveLength(2);
   });
 
   it("ranks the routes as soon as everything is typed, without a button", async () => {
@@ -192,18 +261,22 @@ describe("the calculator page", () => {
     const { type, user, field, results } = setup();
     await fillEverything(type);
     await type(/^Precio de venta en Bitso/, "");
-    await user.click(
-      within(results()).getByRole("link", { name: "precio de venta en Bitso (ARS por USDT)" }),
-    );
+    const [link] = within(results()).getAllByRole("link", {
+      name: "precio de venta en Bitso (ARS por USDT)",
+    });
+    if (link === undefined) {
+      throw new Error("expected a link");
+    }
+    await user.click(link);
     expect(field(/^Precio de venta en Bitso/)).toHaveFocus();
   });
 
   it("opens a closed card and focuses a missing fee inside it", async () => {
     const { type, user, field, results, openCard } = setup();
     await fillEverything(type);
-    await openCard("Binance P2P + Bitso");
+    await openCard("Binance con tarjeta + Bitso");
     await type(/^Comisión taker del libro de órdenes de Bitso/, "");
-    await openCard("Binance P2P + Bitso");
+    await openCard("Binance con tarjeta + Bitso");
     const input = field(/^Comisión taker del libro de órdenes de Bitso/);
     expect(input).not.toBeVisible();
     // A browser ignores focus() on a field inside a closed <details>: the card must already be
@@ -212,9 +285,17 @@ describe("the calculator page", () => {
     input.addEventListener("focus", () => {
       openAtFocus = input.closest("details")?.open;
     });
-    await user.click(
-      within(results()).getByRole("link", { name: "comisión taker del libro de órdenes de Bitso" }),
-    );
+    // Missing under both Binance routes. From the P2P route, whose card does not hold the field,
+    // the link opens the card that does.
+    const name = "comisión taker del libro de órdenes de Bitso";
+    expect(within(results()).getAllByRole("link", { name })).toHaveLength(2);
+    const p2p = within(results())
+      .getByRole("heading", { name: "Binance P2P + Bitso" })
+      .closest("li");
+    if (p2p === null) {
+      throw new Error("expected the route");
+    }
+    await user.click(within(p2p).getByRole("link", { name }));
     expect(openAtFocus).toBe(true);
     expect(input).toBeVisible();
     expect(input).toHaveFocus();
@@ -246,7 +327,9 @@ describe("the calculator page", () => {
           "Binance P2P + Bitso deja $ 176.662,00 más, con riesgo de bloqueo de tu cuenta de Binance.",
       ),
     ).toBeVisible();
-    const [binance, mep, arq] = ranking();
+    // The two routes computed, then the two still missing their prices.
+    const [binance, mep, card, arq] = ranking();
+    expect(card).toContain("Binance con tarjeta + BitsoFalta completar o corregir:");
     expect(binance).toContain("Llegan al banco$ 2.378.992,00");
     expect(binance).toContain("Comisiones$ 21.008,00");
     expect(binance).toContain("Diferencia$ 176.662,00 más que Dólar MEP");
@@ -267,8 +350,8 @@ describe("the calculator page", () => {
     const links = within(results()).getAllByRole("link", {
       name: "Revisá los valores de ARQ (ex DolarApp)",
     });
-    // Binance's and the MEP route's differences.
-    expect(links).toHaveLength(2);
+    // Binance P2P's, the MEP route's and Binance with a card's differences.
+    expect(links).toHaveLength(3);
     const [first] = links;
     if (first === undefined) {
       throw new Error("expected a link");
@@ -385,6 +468,7 @@ describe("the calculator page", () => {
       false,
       true,
       true,
+      false,
     ]);
     expect(screen.getByRole("link", { name: /Ver resultado$/ })).toHaveTextContent(
       "Empatan: ARQ (ex DolarApp) y Dólar MEP",
@@ -409,6 +493,7 @@ describe("the calculator page", () => {
     const differences = within(results()).getAllByText("Diferencia");
     expect(differences.map((dt) => dt.parentElement?.classList.contains("figure-gain"))).toEqual([
       true,
+      false,
       false,
       false,
     ]);
@@ -471,7 +556,9 @@ describe("the calculator page", () => {
     expect(field(/^Precio P2P en Binance/)).toHaveAccessibleDescription(
       description("Valor inusual: leímos 1.030,00 USD por USDT"),
     );
-    expect(document.getElementById("price-p2p_usdt_usd-help")).toHaveClass("visually-hidden");
+    expect(document.getElementById("price-binance_p2p_usdt_usd-help")).toHaveClass(
+      "visually-hidden",
+    );
   });
 
   it("shows a problem found on leaving when the press elsewhere is cancelled", async () => {
@@ -614,13 +701,11 @@ describe("the calculator page", () => {
     // 1000.00 - 4.00 = 996.00 USD / 1030 = 0.9669... -> 0.96 USDT - 0.08 = 0.88; - 0.07 = 0.81;
     // 0.6 % of 0.81 = 0.00486 -> 0.01; 0.80 x 1596.21 = 1276.968 -> 1276.96
     const items = ranking();
-    expect(items.at(-1)).toContain("Binance P2P + Bitso");
-    expect(items.at(-1)).toContain("Llegan al banco$ 1.276,96");
-    expect(items.at(-1)).toContain(
-      "Calculado con un valor inusual: precio P2P en Binance (USD por USDT).",
-    );
+    const p2p = items.find((item) => item.startsWith("Binance P2P + Bitso"));
+    expect(p2p).toContain("Llegan al banco$ 1.276,96");
+    expect(p2p).toContain("Calculado con un valor inusual: precio P2P en Binance (USD por USDT).");
     // Only the route that converts with that price says so.
-    for (const other of items.slice(0, -1)) {
+    for (const other of items.filter((item) => item !== p2p)) {
       expect(other).not.toContain("Calculado con un valor inusual");
     }
   });
@@ -631,7 +716,7 @@ describe("the calculator page", () => {
     await type(/^Dólar MEP \(compra\)/, "1,536");
     await user.tab();
     const items = ranking();
-    expect(items).toHaveLength(3);
+    expect(items).toHaveLength(4);
     for (const item of items) {
       expect(item.includes("Calculado con un valor inusual: dólar MEP (compra).")).toBe(
         item.startsWith("Dólar MEP"),
@@ -752,15 +837,19 @@ describe("the calculator page", () => {
 
   it("shows every kind of status badge without opening Detalles", async () => {
     const { openCard } = setup();
+    const card = (name: string) => {
+      const details = screen.getByText(name, { selector: ".route-card-title" }).closest("details");
+      if (details === null) {
+        throw new Error(`no card ${name}`);
+      }
+      return details;
+    };
     await openCard("Binance P2P + Bitso");
-    const card = screen.getByText("Binance P2P + Bitso", { selector: ".route-card-title" });
-    const details = card.closest("details");
-    expect(details).not.toBeNull();
-    if (details !== null) {
-      expect(within(details).getAllByText("Estimado")[0]).toBeVisible();
-      expect(within(details).getByText("Lo definís vos")).toBeVisible();
-      expect(within(details).getAllByText("Verificado")[0]).toBeVisible();
-    }
+    expect(within(card("Binance P2P + Bitso")).getAllByText("Estimado")[0]).toBeVisible();
+    expect(within(card("Binance P2P + Bitso")).getByText("Lo definís vos")).toBeVisible();
+    // The Bitso leg's verified fees are in the card route's card.
+    await openCard("Binance con tarjeta + Bitso");
+    expect(within(card("Binance con tarjeta + Bitso")).getAllByText("Verificado")[0]).toBeVisible();
   });
 
   it("stops listing a fee once the person sets it", async () => {
@@ -816,7 +905,7 @@ describe("the calculator page", () => {
     const [listedOnce] = within(results()).getAllByText(/^Falta completar o corregir:/);
     expect(listedOnce).toHaveTextContent("Falta completar o corregir: monto en USD.");
     expect(within(results()).getAllByRole("link", { name: "monto en USD" })).toHaveLength(1);
-    const binance = ranking().find((item) => item.includes("Binance"));
+    const binance = ranking().find((item) => item.startsWith("Binance P2P + Bitso"));
     expect(binance).toContain("precio P2P en Binance (USD por USDT)");
     expect(binance).not.toContain("monto en USD");
     // The MEP route needs nothing beyond what is listed once, so it only says it is waiting.

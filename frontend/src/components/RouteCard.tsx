@@ -1,8 +1,11 @@
 import { FEE_DEFAULTS, RATE_FIELDS, type Route, type Step } from "../calculator/index.ts";
+import { cardOf } from "../form/cards.ts";
 import { fieldId, type FormReading, type FormTexts } from "../form/form.ts";
 import { lowerFirst } from "../text/case.ts";
+import { joinSpanish } from "../text/lists.ts";
 import { NumberField } from "./NumberField.tsx";
 import { feeStatusText, referenceValueText } from "../form/messages.ts";
+import { InPageAnchor } from "./LinkList.tsx";
 import { Provenance, StatusBadge } from "./Provenance.tsx";
 import { RichText } from "./RichText.tsx";
 
@@ -15,9 +18,14 @@ interface RouteCardProps {
   readonly onFee: (id: string, text: string) => void;
   readonly onMinimum: (id: string, text: string) => void;
   readonly onResetFee: (id: string) => void;
+  /** Open the card that holds a field and focus it. */
+  readonly onGoToField: (routeId: string, id: string) => void;
 }
 
-/** One route's fees, step by step, in a card that stays closed until the person opens it. */
+/**
+ * One route's fees, step by step, in a card that stays closed until the person opens it. A fee
+ * another route's card already holds (a shared leg) is not repeated: its step links there.
+ */
 export function RouteCard({
   route,
   open,
@@ -27,6 +35,7 @@ export function RouteCard({
   onFee,
   onMinimum,
   onResetFee,
+  onGoToField,
 }: RouteCardProps) {
   return (
     <details
@@ -42,50 +51,113 @@ export function RouteCard({
           Ajustar comisiones{ownCountText(route, texts.ownFees)}
         </span>
       </summary>
-      {route.steps.map((step) => (
-        <fieldset key={step.label} className="step">
-          <legend className={repeatsItsFee(step) ? "visually-hidden" : undefined}>
-            {step.label}
-          </legend>
-          {step.conversion !== null && (
-            <p className="muted small">
-              Convierte con: {rateLabel(step.conversion.rateKey)}, que cargaste arriba.
-            </p>
-          )}
-          {step.feeIds.map((id) => (
-            <FeeInputs
-              key={id}
-              id={id}
-              texts={texts}
-              reading={reading}
-              onFee={onFee}
-              onMinimum={onMinimum}
-              onResetFee={onResetFee}
-            />
-          ))}
-        </fieldset>
-      ))}
+      {route.steps.map((step) => {
+        const here = step.feeIds.filter((id) => cardOf(id)?.id === route.id);
+        const elsewhere = step.feeIds.filter((id) => cardOf(id)?.id !== route.id);
+        return (
+          <fieldset key={step.label} className="step">
+            <legend className={repeatsItsFee(step, here) ? "visually-hidden" : undefined}>
+              {step.label}
+            </legend>
+            {step.conversion !== null && (
+              <p className="muted small">
+                Convierte con: {rateLabel(step.conversion.rateKey)}, que cargaste arriba.
+              </p>
+            )}
+            {here.map((id) => (
+              <FeeInputs
+                key={id}
+                id={id}
+                texts={texts}
+                reading={reading}
+                onFee={onFee}
+                onMinimum={onMinimum}
+                onResetFee={onResetFee}
+              />
+            ))}
+            <SetElsewhere feeIds={elsewhere} onGoToField={onGoToField} />
+          </fieldset>
+        );
+      })}
     </details>
   );
 }
 
 /**
- * A step whose only content is one fee named like the step ("Retirar de Payoneer a…" and
- * "Retiro de Payoneer a…"): its title would repeat the fee's, so it is only kept for screen
- * readers.
+ * "Estas comisiones se ajustan en <route>": the step's fees whose fields other routes' cards
+ * hold, one line per card, with a link that opens that card at its first one.
  */
-function repeatsItsFee(step: Step): boolean {
-  const [id] = step.feeIds;
-  if (step.conversion !== null || step.feeIds.length !== 1 || id === undefined) {
+function SetElsewhere({
+  feeIds,
+  onGoToField,
+}: {
+  readonly feeIds: readonly string[];
+  readonly onGoToField: RouteCardProps["onGoToField"];
+}) {
+  const byCard = new Map<Route, string[]>();
+  for (const id of feeIds) {
+    const card = cardOf(id);
+    if (card !== undefined) {
+      byCard.set(card, [...(byCard.get(card) ?? []), id]);
+    }
+  }
+  return [...byCard].map(([card, ids]) => {
+    const [first] = ids;
+    if (first === undefined) {
+      return null;
+    }
+    const id = fieldId.fee(first);
+    const labels = ids.map((fee) =>
+      lowerFirst(FEE_DEFAULTS.find((d) => d.fee.id === fee)?.label ?? fee),
+    );
+    return (
+      <p key={card.id} className="muted small">
+        {ids.length === 1 ? "Esta comisión se ajusta en " : "Estas comisiones se ajustan en "}
+        <InPageAnchor
+          link={{
+            key: id,
+            href: `#${id}`,
+            text: card.name,
+            // Several steps link to the same card: the name says which fees each one is for.
+            label: `${card.name}: ${joinSpanish(labels)}`,
+            onClick: () => {
+              onGoToField(card.id, id);
+            },
+          }}
+        />
+        .
+      </p>
+    );
+  });
+}
+
+/**
+ * A step whose only content is one fee field named like the step ("Retirar de Payoneer a…" and
+ * "Retiro de Payoneer a…"): its title would repeat the fee's, so it is only kept for screen
+ * readers. `here` are the step's fees whose fields this card holds.
+ */
+function repeatsItsFee(step: Step, here: readonly string[]): boolean {
+  const [id] = here;
+  if (
+    step.conversion !== null ||
+    step.feeIds.length !== 1 ||
+    here.length !== 1 ||
+    id === undefined
+  ) {
     return false;
   }
   const label = FEE_DEFAULTS.find((d) => d.fee.id === id)?.label;
   return label !== undefined && withoutFirstWord(label) === withoutFirstWord(step.label);
 }
 
-/** " · 2 con tu valor", or nothing while the route has only researched values. */
+/**
+ * " · 2 con tu valor", or nothing while the card holds only researched values. Only the fields in
+ * this card count: a shared fee counts in the card that holds it.
+ */
 function ownCountText(route: Route, ownFees: ReadonlySet<string>): string {
-  const count = route.steps.flatMap((step) => step.feeIds).filter((id) => ownFees.has(id)).length;
+  const count = route.steps
+    .flatMap((step) => step.feeIds)
+    .filter((id) => ownFees.has(id) && cardOf(id)?.id === route.id).length;
   return count === 0 ? "" : ` · ${String(count)} con tu valor`;
 }
 

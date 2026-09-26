@@ -6,7 +6,8 @@
 #                the fee applies to
 #   verified_at  when it was last checked against that page (for user_defined, when the reference
 #                price was checked)
-#   status       verified: the source states this value
+#   status       verified: the source states this value, or it was observed on the operation's
+#                own screen (the note says when and with which amounts)
 #                pending: an estimate (a cap, a range, a contradiction, or an assumption no source
 #                confirms); shown as such
 #                user_defined: no source can give it; the user sets it
@@ -16,7 +17,20 @@
 # kind: percent -> value in percent (0.6 means 0.6 %), optional minimum {amount, currency}
 
 fees:
-  # --- Payoneer -> Binance P2P -> Bitso -> bank ---------------------------------------------
+  # --- Payoneer -> Binance (card or P2P) -> Bitso -> bank ------------------------------------
+
+  - id: binance_card_purchase
+    label: Comisión de Binance por comprar con tarjeta
+    kind: percent
+    value: 2
+    status: verified
+    verified_at: 2026-09-25
+    source_url: https://www.binance.com/en/blog/fiat/can-you-buy-cryptocurrency-with-a-credit-card-421499824684903691
+    note: >-
+      Binance dice "hasta alrededor de 2 %". Observado el 25/09/2026 en la pantalla final de
+      pago, antes de confirmar la compra: 0,20 USD con 10 USD y 2,00 USD con 100 USD. Si tu
+      pantalla final muestra otra comisión, poné la tuya. Payoneer debitó exactamente el monto en
+      USD cargado en Binance (observado el 25/09/2026): la tarjeta no suma cargos.
 
   - id: payoneer_p2p_transfer
     label: Transferencia de Payoneer al comprador P2P

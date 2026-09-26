@@ -37,7 +37,7 @@ export const SAMPLE_FEES: ReadonlyMap<string, Fee> = new Map(
 
 /** Python's sample had bid and ask; each route used one side, so the price here is that side. */
 export const SAMPLE_RATE_DEFINITIONS: readonly RateDefinition[] = [
-  { key: "p2p_usdt_usd", base: "USDT", quote: "USD" }, // ask 1.03: buying USDT with USD
+  { key: "binance_p2p_usdt_usd", base: "USDT", quote: "USD" }, // ask 1.03: buying USDT with USD
   { key: "bitso_usdt_ars", base: "USDT", quote: "ARS" }, // bid 1596.21: selling USDT
   { key: "arq_usd_ars", base: "USD", quote: "ARS" }, // bid 1593.385: selling USD
   { key: "mep", base: "USD", quote: "ARS" },
@@ -62,7 +62,7 @@ export function validAmount(text: string): PositiveAmount {
 }
 
 export const SAMPLE_PRICES: ReadonlyMap<string, PositivePrice> = new Map([
-  ["p2p_usdt_usd", validPrice("1.03")],
+  ["binance_p2p_usdt_usd", validPrice("1.03")],
   ["bitso_usdt_ars", validPrice("1596.21")],
   ["arq_usd_ars", validPrice("1593.385")],
   ["mep", validPrice("1536.16")],
@@ -77,7 +77,7 @@ export const BINANCE: Route = {
     {
       label: "Sell USD on Binance P2P",
       feeIds: ["payoneer_p2p_transfer", "p2p_premium", "binance_p2p_taker"],
-      conversion: { rateKey: "p2p_usdt_usd", target: "USDT" },
+      conversion: { rateKey: "binance_p2p_usdt_usd", target: "USDT" },
     },
     {
       label: "Withdraw to Bitso over Polygon",

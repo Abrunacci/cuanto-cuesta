@@ -25,6 +25,8 @@ describe("missingInputShortLabel", () => {
   it("names the amount and each price in a word or two", () => {
     expect(missingInputShortLabel({ kind: "amount" })).toBe("monto");
     expect(missingInputShortLabel({ kind: "rate", key: "mep" })).toBe("MEP");
-    expect(missingInputShortLabel({ kind: "rate", key: "p2p_usdt_usd" })).toBe("precio P2P");
+    expect(missingInputShortLabel({ kind: "rate", key: "binance_p2p_usdt_usd" })).toBe(
+      "precio P2P",
+    );
   });
 });

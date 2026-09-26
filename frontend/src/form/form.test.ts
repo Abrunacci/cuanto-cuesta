@@ -5,9 +5,10 @@ import { fieldId, initialTexts, readForm, type FormTexts } from "./form.ts";
 
 const PRICES = {
   mep: "1.536,16",
-  p2p_usdt_usd: "1,03",
+  binance_p2p_usdt_usd: "1,03",
   bitso_usdt_ars: "1.596,21",
   arq_usd_ars: "1.593,385",
+  binance_card_usd_usdt: "0,95448",
 };
 
 function filled(overrides: Partial<FormTexts> = {}): FormTexts {
@@ -24,7 +25,7 @@ describe("initialTexts", () => {
   it("starts the amount and every price empty", () => {
     const texts = initialTexts();
     expect(texts.amount).toBe("");
-    expect(Object.values(texts.prices)).toEqual(["", "", "", ""]);
+    expect(Object.values(texts.prices)).toEqual(["", "", "", "", ""]);
   });
 
   it("starts every fee at its researched value, in Argentine notation", () => {
@@ -44,12 +45,13 @@ describe("readForm", () => {
     expect(echoes.size).toBe(0);
   });
 
-  it("computes the three routes with the researched fees", () => {
+  it("computes the four routes with the researched fees", () => {
     // Same values as the calculator's end-to-end test for 1000 USD.
     expect(finals(readForm(filled()).comparison)).toEqual([
       ["binance_p2p_bitso", "1534005.69"],
       ["arq", "1524869.44"],
       ["mep", "1503624.13"],
+      ["binance_card_bitso", "1483996.43"],
     ]);
   });
 
@@ -124,7 +126,10 @@ describe("numbers read a thousand times off", () => {
 
   it("warns about a P2P price typed with three decimals and a dot, and still computes", () => {
     // Binance shows P2P prices like 1.030; typed that way it reads as one thousand thirty.
-    const read = priceOf(filled({ prices: { ...PRICES, p2p_usdt_usd: "1.030" } }), "p2p_usdt_usd");
+    const read = priceOf(
+      filled({ prices: { ...PRICES, binance_p2p_usdt_usd: "1.030" } }),
+      "binance_p2p_usdt_usd",
+    );
     expect(read.problem).toBeUndefined();
     expect(read.warning).toBe(
       "Valor inusual: leímos 1.030,00 USD por USDT y lo común está entre 0,5 y 2. Revisalo. " +
@@ -190,7 +195,8 @@ describe("numbers read a thousand times off", () => {
 
   it("warns without a suggestion when no other reading fits", () => {
     expect(
-      priceOf(filled({ prices: { ...PRICES, p2p_usdt_usd: "50" } }), "p2p_usdt_usd").warning,
+      priceOf(filled({ prices: { ...PRICES, binance_p2p_usdt_usd: "50" } }), "binance_p2p_usdt_usd")
+        .warning,
     ).toBe("Valor inusual: leímos 50,00 USD por USDT y lo común está entre 0,5 y 2. Revisalo.");
   });
 });

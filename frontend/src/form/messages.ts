@@ -93,7 +93,7 @@ export function missingInputShortLabel(missing: MissingInput): string {
     case "rate":
       return RATE_FIELDS.find((field) => field.key === missing.key)?.shortLabel ?? missing.key;
     case "fee":
-      // Never missing in every route at once: each fee belongs to one route, as a data test
+      // Never missing in every route at once: no fee is used by every route, as a data test
       // checks. So this is never shown in the one-line bar.
       return lowerFirst(FEE_DEFAULTS.find((d) => d.fee.id === missing.id)?.label ?? missing.id);
   }

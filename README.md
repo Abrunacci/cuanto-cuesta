@@ -2,6 +2,9 @@
 
 Compare how many Argentine pesos reach your bank when you move USD out of Payoneer, route by route:
 
+- **Binance with a card + Bitso:** buy USDT on Binance with the Payoneer card, send them to Bitso
+  over Polygon, sell them for pesos and withdraw to the bank. The price to type is the one on
+  Binance's final payment screen.
 - **Binance P2P + Bitso:** sell USD for USDT on Binance P2P, send the USDT to Bitso over Polygon,
   sell them for pesos and withdraw to the bank. Paying a P2P order with Payoneer can get the
   Binance account blocked, so this route is marked as risky.

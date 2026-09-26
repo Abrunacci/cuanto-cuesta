@@ -77,6 +77,16 @@ class TestTheShippedConfig:
             upper_bound=False,
         )
 
+    def test_the_binance_card_fee_is_verified_by_an_observation(self) -> None:
+        # Binance's page says "up to around 2%"; the final payment screen showed 2 % exactly.
+        purchase = next(d for d in self.CATALOG.fees if d.id == "binance_card_purchase")
+        assert purchase.fee == PercentFee("binance_card_purchase", Percentage(Decimal(2)))
+        assert purchase.provenance == Verified(
+            "https://www.binance.com/en/blog/fiat/"
+            "can-you-buy-cryptocurrency-with-a-credit-card-421499824684903691",
+            date(2026, 9, 25),
+        )
+
     def test_the_p2p_premium_is_set_by_the_user(self) -> None:
         premium = next(d for d in self.CATALOG.fees if d.id == "p2p_premium")
         assert premium.provenance == UserDefined(

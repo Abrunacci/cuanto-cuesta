@@ -50,7 +50,7 @@ export function Results({
 }: ResultsProps) {
   const common = commonMissing(comparison);
   const listedOnce = new Set(common.map(missingKey));
-  // Common inputs are the amount and the prices at the top: every fee belongs to one route (a
+  // Common inputs are the amount and the prices at the top: no fee is used by every route (a
   // data test enforces it), so no route card needs opening from here.
   useLogFailures(comparison.failed);
   const routes = routesInOrder(comparison);

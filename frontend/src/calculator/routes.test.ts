@@ -104,7 +104,7 @@ describe("fees inside a step", () => {
         {
           label: "s",
           feeIds: fees.map((f) => f.id),
-          conversion: { rateKey: "p2p_usdt_usd", target: "USDT" },
+          conversion: { rateKey: "binance_p2p_usdt_usd", target: "USDT" },
         },
       ],
       warnings: [],
@@ -172,7 +172,11 @@ describe("fees that consume the whole amount after converting", () => {
       source: "USD",
       target: "USDT",
       steps: [
-        { label: "s", feeIds: ["f"], conversion: { rateKey: "p2p_usdt_usd", target: "USDT" } },
+        {
+          label: "s",
+          feeIds: ["f"],
+          conversion: { rateKey: "binance_p2p_usdt_usd", target: "USDT" },
+        },
       ],
       warnings: [],
       risk: null,
