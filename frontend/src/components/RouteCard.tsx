@@ -1,3 +1,5 @@
+import { useRef } from "react";
+
 import { feeDefault, feeLabel, rateField, type Route, type Step } from "../calculator/index.ts";
 import { byCard, cardOf, ownFieldsIn } from "../form/cards.ts";
 import { fieldId, type FormReading, type FormTexts } from "../form/form.ts";
@@ -170,6 +172,7 @@ function FeeInputs({
   readonly onMinimum: RouteCardProps["onMinimum"];
   readonly onResetFee: RouteCardProps["onResetFee"];
 }) {
+  const valueInput = useRef<HTMLInputElement>(null);
   const found = feeDefault(id);
   if (found === undefined) {
     return null;
@@ -190,6 +193,7 @@ function FeeInputs({
         }}
         problem={reading.problems.get(valueId) ?? null}
         echo={reading.echoes.get(valueId)}
+        inputRef={valueInput}
       >
         <details className="fee-details">
           <summary aria-label={`${feeStatusText(provenance, own)}. Detalles de ${label}`}>
@@ -206,7 +210,7 @@ function FeeInputs({
                 aria-label={`Volver al valor de referencia: ${label}`}
                 onClick={() => {
                   onResetFee(id);
-                  document.getElementById(valueId)?.focus();
+                  valueInput.current?.focus();
                 }}
               >
                 Volver al valor de referencia
