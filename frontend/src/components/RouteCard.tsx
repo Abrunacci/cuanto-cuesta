@@ -1,5 +1,7 @@
-import { FEE_DEFAULTS, RATE_FIELDS, type Route, type Step } from "../calculator/index.ts";
-import { cardOf } from "../form/cards.ts";
+import { useRef } from "react";
+
+import { feeDefault, feeLabel, rateField, type Route, type Step } from "../calculator/index.ts";
+import { byCard, cardOf, ownFieldCount } from "../form/cards.ts";
 import { fieldId, type FormReading, type FormTexts } from "../form/form.ts";
 import { lowerFirst } from "../text/case.ts";
 import { joinSpanish } from "../text/lists.ts";
@@ -48,7 +50,7 @@ export function RouteCard({
       <summary>
         <span className="route-card-title">{route.name}</span>
         <span className="route-card-hint">
-          Ajustar comisiones{ownCountText(route, texts.ownFees)}
+          Ajustar comisiones{ownCountText(route, reading.ownFees)}
         </span>
       </summary>
       {route.steps.map((step) => {
@@ -94,22 +96,10 @@ function SetElsewhere({
   readonly feeIds: readonly string[];
   readonly onGoToField: RouteCardProps["onGoToField"];
 }) {
-  const byCard = new Map<Route, string[]>();
-  for (const id of feeIds) {
-    const card = cardOf(id);
-    if (card !== undefined) {
-      byCard.set(card, [...(byCard.get(card) ?? []), id]);
-    }
-  }
-  return [...byCard].map(([card, ids]) => {
+  return byCard(feeIds).map(({ card, feeIds: ids }) => {
     const [first] = ids;
-    if (first === undefined) {
-      return null;
-    }
     const id = fieldId.fee(first);
-    const labels = ids.map((fee) =>
-      lowerFirst(FEE_DEFAULTS.find((d) => d.fee.id === fee)?.label ?? fee),
-    );
+    const labels = ids.map((fee) => lowerFirst(feeLabel(fee)));
     return (
       <p key={card.id} className="muted small">
         {ids.length === 1 ? "Esta comisión se ajusta en " : "Estas comisiones se ajustan en "}
@@ -146,7 +136,7 @@ function repeatsItsFee(step: Step, here: readonly string[]): boolean {
   ) {
     return false;
   }
-  const label = FEE_DEFAULTS.find((d) => d.fee.id === id)?.label;
+  const label = feeDefault(id)?.label;
   return label !== undefined && withoutFirstWord(label) === withoutFirstWord(step.label);
 }
 
@@ -155,9 +145,7 @@ function repeatsItsFee(step: Step, here: readonly string[]): boolean {
  * this card count: a shared fee counts in the card that holds it.
  */
 function ownCountText(route: Route, ownFees: ReadonlySet<string>): string {
-  const count = route.steps
-    .flatMap((step) => step.feeIds)
-    .filter((id) => ownFees.has(id) && cardOf(id)?.id === route.id).length;
+  const count = ownFieldCount(route, ownFees);
   return count === 0 ? "" : ` · ${String(count)} con tu valor`;
 }
 
@@ -166,7 +154,7 @@ function withoutFirstWord(text: string): string {
 }
 
 function rateLabel(key: string): string {
-  return lowerFirst(RATE_FIELDS.find((field) => field.key === key)?.label ?? key);
+  return lowerFirst(rateField(key)?.label ?? key);
 }
 
 function FeeInputs({
@@ -184,13 +172,14 @@ function FeeInputs({
   readonly onMinimum: RouteCardProps["onMinimum"];
   readonly onResetFee: RouteCardProps["onResetFee"];
 }) {
-  const feeDefault = FEE_DEFAULTS.find((d) => d.fee.id === id);
-  if (feeDefault === undefined) {
+  const valueInput = useRef<HTMLInputElement>(null);
+  const found = feeDefault(id);
+  if (found === undefined) {
     return null;
   }
-  const { fee, label, note, provenance } = feeDefault;
+  const { fee, label, note, provenance } = found;
   const valueId = fieldId.fee(id);
-  const own = texts.ownFees.has(id);
+  const own = reading.ownFees.has(id);
   const minimumId = fieldId.minimum(id);
   return (
     <div className="fee">
@@ -204,6 +193,7 @@ function FeeInputs({
         }}
         problem={reading.problems.get(valueId) ?? null}
         echo={reading.echoes.get(valueId)}
+        inputRef={valueInput}
       >
         <details className="fee-details">
           <summary aria-label={`${feeStatusText(provenance, own)}. Detalles de ${label}`}>
@@ -220,7 +210,7 @@ function FeeInputs({
                 aria-label={`Volver al valor de referencia: ${label}`}
                 onClick={() => {
                   onResetFee(id);
-                  document.getElementById(valueId)?.focus();
+                  valueInput.current?.focus();
                 }}
               >
                 Volver al valor de referencia

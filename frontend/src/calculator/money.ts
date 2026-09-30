@@ -66,11 +66,6 @@ export function zero(currency: Currency): Money {
   return money("0", currency);
 }
 
-export function add(a: Money, b: Money): Money {
-  requireSameCurrency(a, b);
-  return money(a.amount.plus(b.amount), a.currency);
-}
-
 export function subtract(a: Money, b: Money): Money {
   requireSameCurrency(a, b);
   return money(a.amount.minus(b.amount), a.currency);

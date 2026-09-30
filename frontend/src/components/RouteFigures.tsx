@@ -136,6 +136,9 @@ function ReviewLink({
             key: review.id,
             href: `#${target}`,
             text: "revisá",
+            // An aria-label, unlike the phone's bar, which builds its name from hidden text: this
+            // link is one word, so the label can say whose values it is about in full, and it
+            // still starts with the word seen.
             label: `Revisá los valores de ${review.name}`,
             onClick: () => {
               onGoToField(review.id, target);

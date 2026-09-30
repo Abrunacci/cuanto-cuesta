@@ -57,7 +57,7 @@ export function Results({
   const [firstRoute] = routes;
   return (
     <section className="results" aria-labelledby={RESULTS_TITLE_ID}>
-      <h2 id={RESULTS_TITLE_ID} tabIndex={-1}>
+      <h2 id={RESULTS_TITLE_ID} className="jump-target" tabIndex={-1}>
         Resultado
       </h2>
       <p className="summary" aria-live="polite" aria-atomic="true">
@@ -87,7 +87,7 @@ export function Results({
           <li key={entry.route.id}>
             {/* The label stays out of the heading, whose name is the route's. */}
             <div className="route-heading">
-              <h3 id={routeResultId(entry.route.id)} tabIndex={-1}>
+              <h3 id={routeResultId(entry.route.id)} className="jump-target" tabIndex={-1}>
                 {entry.route.name}
               </h3>
               {entry.route.risk !== null && (

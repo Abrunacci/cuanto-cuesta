@@ -46,7 +46,9 @@ export function RouteReview({ route, ownFees, open, onToggle, onGoToField }: Rou
         onToggle(event.currentTarget.open);
       }}
     >
-      <summary id={routeReviewId(route.id)}>{summary}</summary>
+      <summary id={routeReviewId(route.id)} className="jump-target">
+        {summary}
+      </summary>
       {toSet.map(({ fee, label }) => (
         <p key={fee.id}>
           <InPageAnchor link={link(fee.id, label)} />: está en {formatFeeValue(fee)}, poné tu valor.

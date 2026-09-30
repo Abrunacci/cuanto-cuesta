@@ -5,7 +5,8 @@
  */
 
 import {
-  FEE_DEFAULTS,
+  feeDefault,
+  isRecommended,
   RATE_FIELDS,
   type Ahead,
   type Behind,
@@ -30,7 +31,7 @@ export interface FeesToReview {
 export function feesToReview(route: Route, ownFees: ReadonlySet<string>): FeesToReview {
   const fees = route.steps
     .flatMap((step) => step.feeIds)
-    .map((id) => FEE_DEFAULTS.find((d) => d.fee.id === id))
+    .map((id) => feeDefault(id))
     .filter((d) => d !== undefined);
   const reference = fees.filter((d) => !ownFees.has(d.fee.id));
   return {
@@ -145,20 +146,8 @@ export function difference(
       return {
         kind: "compared",
         standing,
-        recommended: isRecommended(entry, ranking),
+        recommended: isRecommended(ranking, entry),
         review: differenceToReview(entry.route, standing, ownFees, warnings),
       };
   }
-}
-
-/**
- * The best route without risk, and any route without risk tied with it. When every route
- * computed is risky, none is.
- */
-function isRecommended(entry: CompleteRoute, ranking: Ranking): boolean {
-  return (
-    ranking.kind === "ranked" &&
-    entry.route.risk === null &&
-    (entry === ranking.best || entry.standing.kind === "tied")
-  );
 }

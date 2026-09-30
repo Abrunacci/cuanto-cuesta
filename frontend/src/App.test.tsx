@@ -108,8 +108,8 @@ describe("the calculator page", () => {
       within(inputs).getByLabelText(/^Binance con tarjeta \(USDT por USD\)/),
     ).toHaveAccessibleDescription(
       "En Binance, Comprar con tarjeta: el precio de la pantalla final de pago (1 USD ≈ … USDT), " +
-        "antes de confirmar. No lo que recibís dividido lo que pagás, que ya descuenta la " +
-        "comisión, ni el de la lista de métodos de pago, que es más alto que el real.",
+        "antes de confirmar. No uses lo que recibís dividido lo que pagás (ya descuenta la " +
+        "comisión) ni el de la lista de métodos de pago (es más alto que el real).",
     );
     expect(within(inputs).getByLabelText(/^Precio de venta en Bitso/)).toHaveAccessibleDescription(
       "En Bitso, cuántos pesos te dan por cada USDT que vendés.",
@@ -172,7 +172,20 @@ describe("the calculator page", () => {
     ]);
     // With no field of its own, a step keeps its title in view.
     expect(within(card).getByText("Retirar ARS al banco")).not.toHaveClass("visually-hidden");
-    // Each link says which fees it is for.
+    // Each link says which fees it is for, so the three can be told apart.
+    // The accessible names as Testing Library computes them, whatever they are built from.
+    const names: string[] = [];
+    within(card).getAllByRole("link", {
+      name: (name) => {
+        const match = name.startsWith("Binance con tarjeta + Bitso: ");
+        if (match) {
+          names.push(name);
+        }
+        return match;
+      },
+    });
+    expect(names).toHaveLength(3);
+    expect(new Set(names).size).toBe(3);
     await user.click(
       within(card).getByRole("link", {
         name: "Binance con tarjeta + Bitso: retiro de USDT de Binance por Polygon y depósito de USDT en Bitso",
@@ -388,6 +401,9 @@ describe("the calculator page", () => {
     }
     await user.click(own);
     expect(reviewLine("Dólar MEP")).toHaveFocus();
+    expect(scrolledToTop()).toEqual([
+      { element: reviewLine("Dólar MEP"), options: { block: "start" } },
+    ]);
     expect(
       within(results()).queryByRole("link", { name: "Revisá los valores de ARQ (ex DolarApp)" }),
     ).toBeNull();
@@ -1432,6 +1448,22 @@ describe("the calculator page", () => {
       expect(
         screen.getByRole("button", { name: "Restablecer valores de referencia" }),
       ).toBeVisible();
+    });
+
+    it("closes the question when another fee is set while it is open", async () => {
+      // The person confirmed a count that no longer holds, so the question goes away.
+      const { user, type, openCard } = setup();
+      await openCard("Binance P2P + Bitso");
+      await type(PREMIUM, "0,5");
+      await user.click(screen.getByRole("button", { name: "Restablecer valores de referencia" }));
+      expect(screen.getByText(/^¿Volver/)).toBeVisible();
+      await type(/^Comisión taker de Binance P2P/, "0,07");
+      expect(screen.queryByText(/^¿Volver/)).toBeNull();
+      expect(
+        screen.getByRole("button", { name: "Restablecer valores de referencia" }),
+      ).toBeVisible();
+      // Nothing was reset.
+      expect(screen.getByLabelText(PREMIUM)).toHaveValue("0,5");
     });
 
     it("does not bring back an old Listo after a fee is put back on its own", async () => {
