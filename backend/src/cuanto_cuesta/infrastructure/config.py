@@ -1,6 +1,6 @@
-"""Load ``fees.yaml`` into a ``Catalog``.
+"""Load ``fees.yaml`` into a ``Catalog`` and ``rates.yaml`` into a ``RateCatalog``.
 
-The file is checked against a pydantic schema; ``Catalog`` then checks the fees as a whole.
+Each file is checked against a pydantic schema; the catalog then checks its entries as a whole.
 Every failure surfaces as a ``ConfigError`` that names the file and the offending field.
 
 YAML floats are read as ``Decimal`` from their source text, so ``0.6`` is exactly 0.6.
@@ -30,7 +30,10 @@ from cuanto_cuesta.application import (
     Estimate,
     FeeDefault,
     InvalidCatalogError,
+    InvalidRateCatalogError,
     Provenance,
+    RateCatalog,
+    RateSpec,
     UserDefined,
     Verified,
 )
@@ -54,6 +57,14 @@ def load_catalog(fees_path: Path) -> Catalog:
         return Catalog(tuple(_fee_default(f) for f in fees.fees))
     except InvalidCatalogError as exc:
         raise ConfigError(f"{fees_path}: {exc}") from exc
+
+
+def load_rate_catalog(rates_path: Path) -> RateCatalog:
+    rates = _parse(rates_path, _RatesFile)
+    try:
+        return RateCatalog(tuple(spec.to_spec() for spec in rates.rates))
+    except InvalidRateCatalogError as exc:
+        raise ConfigError(f"{rates_path}: {exc}") from exc
 
 
 # --- YAML --------------------------------------------------------------------------------------
@@ -172,6 +183,29 @@ class _PercentFeeSpec(_FeeSpec):
 
 class _FeesFile(_Schema):
     fees: list[Annotated[_FixedFeeSpec | _PercentFeeSpec, Field(discriminator="kind")]]
+
+
+class _RateSpec(_Schema):
+    key: _Id
+    base: Currency
+    quote: Currency
+    min: Annotated[Decimal, Field(gt=0, allow_inf_nan=False)]
+    max: Annotated[Decimal, Field(gt=0, allow_inf_nan=False)]
+    estimated_final: StrictBool = False
+
+    def to_spec(self) -> RateSpec:
+        return RateSpec(
+            key=self.key,
+            base=self.base,
+            quote=self.quote,
+            minimum=self.min,
+            maximum=self.max,
+            estimated_final=self.estimated_final,
+        )
+
+
+class _RatesFile(_Schema):
+    rates: list[_RateSpec]
 
 
 def _fee_default(spec: _FixedFeeSpec | _PercentFeeSpec) -> FeeDefault:

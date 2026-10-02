@@ -2,6 +2,9 @@
  * The calculator bundles its own copy of the fee defaults. This test keeps that copy identical to
  * `backend/config/fees.yaml`, the researched source. The routes live only in the calculator.
  *
+ * It also keeps the rates the calculator asks for (their currencies and plausible ranges) equal to
+ * `backend/config/rates.yaml`, which the backend checks ingested prices against.
+ *
  * The YAML is read with the failsafe schema, so every scalar stays a string: numbers are compared
  * as decimals and never pass through a float.
  */
@@ -13,7 +16,9 @@ import { describe, expect, it } from "vitest";
 import { parse } from "yaml";
 
 import { FEE_DEFAULTS } from "../src/calculator/data/fees.ts";
+import { RATE_FIELDS } from "../src/calculator/data/routes.ts";
 import { Decimal } from "../src/calculator/money.ts";
+import { PRICE_CHECKS } from "../src/form/plausible.ts";
 
 type Yaml = string | Yaml[] | { [key: string]: Yaml };
 
@@ -112,6 +117,29 @@ const FEE_KEYS = [
   "note",
 ];
 
+const RATE_KEYS = ["key", "base", "quote", "min", "max", "estimated_final"];
+
+function yamlRate(entry: Record<string, Yaml>) {
+  return {
+    key: text(entry.key),
+    base: text(entry.base),
+    quote: text(entry.quote),
+    min: new Decimal(text(entry.min) ?? "NaN").toString(),
+    max: new Decimal(text(entry.max) ?? "NaN").toString(),
+  };
+}
+
+function bundledRate(field: (typeof RATE_FIELDS)[number]) {
+  const check = PRICE_CHECKS[field.key];
+  return {
+    key: field.key,
+    base: field.base,
+    quote: field.quote,
+    min: check?.min.toString() ?? null,
+    max: check?.max.toString() ?? null,
+  };
+}
+
 function unknownKeys(entries: Record<string, Yaml>[], known: readonly string[]): string[] {
   return entries.flatMap((entry) => Object.keys(entry).filter((key) => !known.includes(key)));
 }
@@ -123,9 +151,16 @@ describe("the bundled data mirrors the backend config", () => {
     const feesFile = load("fees.yaml");
     expect(unknownKeys([feesFile], ["fees"])).toEqual([]);
     expect(unknownKeys(list(feesFile.fees), FEE_KEYS)).toEqual([]);
+    const ratesFile = load("rates.yaml");
+    expect(unknownKeys([ratesFile], ["rates"])).toEqual([]);
+    expect(unknownKeys(list(ratesFile.rates), RATE_KEYS)).toEqual([]);
   });
 
   it("has the same fees as fees.yaml, in the same order", () => {
     expect(FEE_DEFAULTS.map(bundledFee)).toEqual(list(load("fees.yaml").fees).map(yamlFee));
+  });
+
+  it("asks for the same rates as rates.yaml, with the same currencies and ranges", () => {
+    expect(RATE_FIELDS.map(bundledRate)).toEqual(list(load("rates.yaml").rates).map(yamlRate));
   });
 });

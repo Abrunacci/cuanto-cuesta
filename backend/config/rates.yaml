@@ -1,0 +1,43 @@
+# The five prices the calculator asks for, and what data-pipeline sends for each one.
+#
+#   key              the rate's id, the same in the calculator and in the ingest contract
+#   base, quote      the price is one unit of base in quote; an ingested item must name the same
+#                    pair, so an inverted price is rejected instead of shown
+#   min, max         the range a price can plausibly be in. Sanity bounds, not market data: they
+#                    catch a number read a thousand times off. The calculator checks typed prices
+#                    against the same ranges (frontend/src/form/plausible.ts); a parity test keeps
+#                    them equal, so change both together
+#   estimated_final  the item also carries the price the operation's final payment screen is
+#                    expected to show (null when it could not be estimated)
+
+rates:
+  - key: mep
+    base: USD
+    quote: ARS
+    min: 500
+    max: 50000
+
+  - key: binance_p2p_usdt_usd
+    base: USDT
+    quote: USD
+    min: 0.5
+    max: 2
+
+  - key: bitso_usdt_ars
+    base: USDT
+    quote: ARS
+    min: 500
+    max: 50000
+
+  - key: arq_usd_ars
+    base: USD
+    quote: ARS
+    min: 500
+    max: 50000
+
+  - key: binance_card_usd_usdt
+    base: USD
+    quote: USDT
+    min: 0.5
+    max: 2
+    estimated_final: true
