@@ -6,7 +6,7 @@ import { formatMoney, formatMoneyWhole } from "../text/numbers.ts";
 import { fieldId, type FormReading } from "./form.ts";
 import { missingInputLabel, missingInputShortLabel } from "./messages.ts";
 import { commonMissing } from "./missing.ts";
-import { routeNeedsReview } from "./review.ts";
+import { routeNeedsReview, routeUsesEstimate } from "./review.ts";
 
 /** Whether the amount holds a value that cannot be used; every route needs it. */
 export function hasAmountProblem({ problems }: FormReading): boolean {
@@ -15,42 +15,58 @@ export function hasAmountProblem({ problems }: FormReading): boolean {
 
 const AMOUNT_PROBLEM = "Revisá el monto: tiene un valor que no se puede usar.";
 
-export function summaryText(comparison: Comparison, amountHasProblem: boolean): string {
+/**
+ * `estimated` holds the keys of the prices taken from an estimate (the card's, while its field is
+ * empty): a lead computed with one says so, since the figure is not the person's own yet.
+ */
+export function summaryText(
+  comparison: Comparison,
+  amountHasProblem: boolean,
+  estimated: ReadonlySet<string> = new Set(),
+): string {
   const { ranking } = comparison;
+  const mark = (entries: readonly CompleteRoute[]) => estimateMark(entries, estimated);
   switch (ranking.kind) {
     case "none":
       return pendingText(comparison, amountHasProblem);
     case "alone": {
       const { only } = ranking;
-      return `Por ahora solo se puede calcular ${only.route.name}${riskDetail(only)}: ${arrives(only)}.`;
+      return `Por ahora solo se puede calcular ${only.route.name}${riskDetail(only)}${mark([only])}: ${arrives(only)}.`;
     }
     case "ranked":
-      return [bestText(ranking), ...ranking.above.flatMap(riskyOverText)].join(" ");
+      return [bestText(ranking, estimated), ...ranking.above.flatMap(riskyOverText)].join(" ");
     case "unrivaled": {
       const { best } = ranking;
       return [
-        `Mejor ruta: ${best.route.name}, ${arrives(best)}.`,
+        `Mejor ruta: ${best.route.name}${mark([best])}, ${arrives(best)}.`,
         ...ranking.above.flatMap(riskyOverText),
       ].join(" ");
     }
     case "risky": {
       const { leader } = ranking;
-      return `Por ahora solo se pueden calcular rutas con riesgo: ${leader.route.name}, ${arrives(leader)}${riskDetail(leader)}.`;
+      return `Por ahora solo se pueden calcular rutas con riesgo: ${leader.route.name}${mark([leader])}, ${arrives(leader)}${riskDetail(leader)}.`;
     }
   }
 }
 
 /** The recommended route: the best without risk, or those tied with it. */
-function bestText(ranking: RankedRanking): string {
+function bestText(ranking: RankedRanking, estimated: ReadonlySet<string>): string {
   const { best } = ranking;
   switch (best.standing.kind) {
     case "ahead": {
       const { by, other } = best.standing;
-      return `Mejor ruta: ${best.route.name}, ${arrives(best)}: ${formatMoney(by.amount, by.currency)} más que ${other.name}.`;
+      return `Mejor ruta: ${best.route.name}${estimateMark([best], estimated)}, ${arrives(best)}: ${formatMoney(by.amount, by.currency)} más que ${other.name}.`;
     }
     case "tied":
-      return `Empatan ${joinSpanish(tiedNames(ranking))}: ${arrives(best)}.`;
+      return `Empatan ${joinSpanish(tiedNames(ranking))}${estimateMark(tiedEntries(ranking), estimated)}: ${arrives(best)}.`;
   }
+}
+
+/** ", con precio estimado" when any of these routes was computed with an estimated price. */
+function estimateMark(entries: readonly CompleteRoute[], estimated: ReadonlySet<string>): string {
+  return entries.some(({ route }) => routeUsesEstimate(route, estimated))
+    ? ", con precio estimado"
+    : "";
 }
 
 /** A risky route that delivers more than the recommended one, and what it risks. */
@@ -106,8 +122,12 @@ type RankedRanking = Extract<Ranking, { kind: "ranked" }>;
  * route tied with it is not among them: it is never recommended.
  */
 function tiedNames(ranking: RankedRanking): string[] {
+  return tiedEntries(ranking).map((r) => r.route.name);
+}
+
+function tiedEntries(ranking: RankedRanking): CompleteRoute[] {
   const tied = ranking.rest.filter((r) => r.standing.kind === "tied" && r.route.risk === null);
-  return [ranking.best, ...tied].map((r) => r.route.name);
+  return [ranking.best, ...tied];
 }
 
 /**
@@ -126,8 +146,10 @@ export type BarText =
       readonly amount: string;
       /** Whole units, for the one-line bar while the keyboard is open. */
       readonly amountWhole: string;
-      /** The result rests on an estimate, a value to set or an unusual price. */
+      /** The result rests on an estimated fee, a value to set or an unusual price. */
       readonly review: boolean;
+      /** Computed with an estimated price (the card's, while its field is empty). */
+      readonly estimated: boolean;
       /** What the route risks; only a risky route when no route without risk can be computed. */
       readonly risk: RouteRisk | null;
     }
@@ -153,6 +175,7 @@ export function barText(reading: FormReading, amountHasProblem: boolean): BarTex
       amount: formatMoney(final.amount, final.currency),
       amountWhole: formatMoneyWhole(final.amount, final.currency),
       review: routeNeedsReview(entry.route, reading.ownFees, reading.warnings),
+      estimated: lead.entries.some(({ route }) => routeUsesEstimate(route, reading.estimated)),
       risk: entry.route.risk,
     };
   }
@@ -182,6 +205,8 @@ export function barText(reading: FormReading, amountHasProblem: boolean): BarTex
 /** The route the bar shows, how it leads, and the name to show: the tied routes' together. */
 interface Lead {
   readonly entry: CompleteRoute;
+  /** Every route the bar names: the tied ones, or just `entry`. */
+  readonly entries: readonly CompleteRoute[];
   readonly kind: BarLead;
   readonly name: string;
 }
@@ -191,13 +216,13 @@ function leadOf(ranking: Ranking): Lead | null {
     case "none":
       return null;
     case "alone":
-      return { entry: ranking.only, kind: "alone", name: ranking.only.route.name };
+      return single(ranking.only, "alone");
     case "ranked":
       return rankedLead(ranking);
     case "unrivaled":
-      return { entry: ranking.best, kind: "best", name: ranking.best.route.name };
+      return single(ranking.best, "best");
     case "risky":
-      return { entry: ranking.leader, kind: "risky", name: ranking.leader.route.name };
+      return single(ranking.leader, "risky");
   }
 }
 
@@ -205,8 +230,17 @@ function rankedLead(ranking: RankedRanking): Lead {
   const { best } = ranking;
   switch (best.standing.kind) {
     case "ahead":
-      return { entry: best, kind: "best", name: best.route.name };
+      return single(best, "best");
     case "tied":
-      return { entry: best, kind: "tied", name: joinSpanish(tiedNames(ranking)) };
+      return {
+        entry: best,
+        entries: tiedEntries(ranking),
+        kind: "tied",
+        name: joinSpanish(tiedNames(ranking)),
+      };
   }
+}
+
+function single(entry: CompleteRoute, kind: BarLead): Lead {
+  return { entry, entries: [entry], kind, name: entry.route.name };
 }

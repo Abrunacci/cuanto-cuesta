@@ -170,6 +170,11 @@ html {
   white-space: nowrap;
 }
 
+.result-bar-estimate {
+  color: var(--estimate-text);
+  white-space: nowrap;
+}
+
 .result-bar-review {
   color: var(--unusual);
   font-size: 0.95rem;
@@ -199,7 +204,8 @@ html {
 }
 
 .result-bar-figure,
-.result-bar-line .result-bar-risk {
+.result-bar-line .result-bar-risk,
+.result-bar-line .result-bar-estimate {
   flex-shrink: 0;
 }
 

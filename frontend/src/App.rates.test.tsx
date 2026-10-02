@@ -116,6 +116,35 @@ describe("prices from the backend", () => {
     expect(within(route).queryByText("Precio estimado")).toBeNull();
   });
 
+  it("say in the summary and the bar when the best route uses the card's estimate", async () => {
+    const body = rates(FRESH);
+    // Bitso at 1.700 puts the card route ahead of every other.
+    for (const item of body.rates) {
+      if (item.key === "bitso_usdt_ars") {
+        item.price = "1700";
+      }
+    }
+    const user = userEvent.setup();
+    render(<App loadRates={() => Promise.resolve(body)} />);
+    await screen.findByDisplayValue("1.700");
+    await user.type(field(/^Monto en Payoneer/), "1000");
+    const results = screen.getByRole("region", { name: "Resultado" });
+    expect(plain(within(results).getByText(/^Mejor ruta:/).textContent)).toMatch(
+      /^Mejor ruta: Binance con tarjeta \+ Bitso, con precio estimado, llegan /,
+    );
+    const bar = within(screen.getByRole("complementary", { name: "Resumen del resultado" }));
+    expect(plain(bar.getByRole("link").textContent)).toContain(
+      "Mejor ruta: Binance con tarjeta + Bitso · precio estimado",
+    );
+    expect(bar.getByRole("link")).toHaveAccessibleName(
+      expect.stringContaining("Binance con tarjeta + Bitso · precio estimado.") as string,
+    );
+
+    await user.type(field(CARD), "0,9712");
+    expect(plain(within(results).getByText(/^Mejor ruta:/).textContent)).not.toContain("estimado");
+    expect(bar.getByRole("link").textContent).not.toContain("estimado");
+  });
+
   it("never replace what the person typed before they arrived", async () => {
     const user = userEvent.setup();
     let arrive: (body: unknown) => void = () => undefined;
@@ -148,6 +177,37 @@ describe("prices from the backend", () => {
     ).toBeInTheDocument();
     warn.mockRestore();
   });
+
+  it("leave the form as it was while the backend has no prices yet", async () => {
+    const user = userEvent.setup();
+    let answered = false;
+    render(
+      <App
+        loadRates={() => {
+          answered = true;
+          return Promise.resolve({ server_time: iso(SERVER_TIME), rates: [] });
+        }}
+      />,
+    );
+    await vi.waitFor(() => {
+      expect(answered).toBe(true);
+    });
+    for (const name of [/^Dólar MEP/, P2P, BITSO, /^Cotización de ARQ/, CARD]) {
+      expect(field(name).value).toBe("");
+      expect(notice(name)).toBeNull();
+    }
+    expect(
+      screen.getByText(/El monto queda guardado en este navegador; las cotizaciones no\./),
+    ).toBeInTheDocument();
+
+    await user.type(field(/^Monto en Payoneer/), "1000");
+    await user.type(field(/^Dólar MEP/), "1540");
+    const results = screen.getByRole("region", { name: "Resultado" });
+    expect(within(results).queryByText("Precio estimado")).toBeNull();
+    expect(
+      within(results).getByText(/^Por ahora solo se puede calcular Dólar MEP: llegan/),
+    ).toBeInTheDocument();
+  });
 });
 
 describe("the MEP after the close", () => {
@@ -161,7 +221,7 @@ describe("the MEP after the close", () => {
     }
     await renderWith(body);
     expect(notice(/^Dólar MEP/)).toBe(
-      "Cierre de hoy a las 16:58. El mercado abre el lunes a las 11.",
+      "Cierre de hoy a las 16:58. El mercado abre el lunes a las 10:45.",
     );
   });
 });

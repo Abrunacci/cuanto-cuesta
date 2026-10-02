@@ -31,8 +31,8 @@ A calculator that runs entirely in the browser; it never waits for the backend.
   has (`GET /api/rates`), and the person can change them. Under a price that may be old there is a
   warning with its age; under a fresh one, nothing. A price that arrives never replaces what the
   person typed, and if the backend does not answer the fields stay empty, as before.
-- Freshness: a crypto price is fresh for 30 minutes. The MEP is too during market hours (assumed
-  Monday to Friday, 11:00 to 17:00 in Buenos Aires, no holidays); outside them, the value read at
+- Freshness: a crypto price is fresh for 30 minutes. The MEP is too during market hours (Monday
+  to Friday, 10:45 to 17:00 in Buenos Aires, no holidays, as data-pipeline observed it); outside them, the value read at
   the last close stands until the market opens. Ages use the backend's clock (`server_time`).
 - The card price is never prefilled: while its field is empty, its route is computed with the
   estimated final price (`estimated_final`) and marked "Precio estimado".

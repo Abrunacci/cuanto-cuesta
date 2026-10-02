@@ -92,6 +92,11 @@ export function routeRateKeys(route: Route): ReadonlySet<string> {
   );
 }
 
+/** Whether a route converts with a price taken from an estimate (`estimated` holds their keys). */
+export function routeUsesEstimate(route: Route, estimated: ReadonlySet<string>): boolean {
+  return [...routeRateKeys(route)].some((key) => estimated.has(key));
+}
+
 /** Whether a route's result rests on something to check: an estimate, a 0 to set, an odd price. */
 export function routeNeedsReview(
   route: Route,

@@ -24,13 +24,20 @@ describe("freshness", () => {
 
   it("takes the MEP read at the close as valid until the market opens", () => {
     const observed = art(2, 16, 58);
-    for (const now of [art(2, 17), art(2, 23), art(3, 12), art(5, 10, 59)]) {
+    for (const now of [art(2, 17), art(2, 23), art(3, 12), art(5, 10, 44)]) {
       expect(freshness("mep", observed, now)).toEqual({
         kind: "closed",
         observedAt: observed,
-        opens: art(5, 11),
+        opens: art(5, 10, 45),
       });
     }
+  });
+
+  it("opens at 10:45: from then on the last close is just an old price", () => {
+    const observed = art(2, 16, 58);
+    expect(freshness("mep", observed, art(5, 10, 44)).kind).toBe("closed");
+    expect(freshness("mep", observed, art(5, 10, 45)).kind).toBe("stale");
+    expect(freshness("mep", art(5, 10, 50), art(5, 11)).kind).toBe("fresh");
   });
 
   it("measures the close in Buenos Aires, whatever the time zone of the screen", () => {
@@ -69,27 +76,27 @@ describe("ageText", () => {
 
 describe("closedText", () => {
   it("says the day and time of the reading, and when the market opens", () => {
-    expect(closedText(art(2, 17), art(5, 11), art(3, 10))).toBe(
-      "Cierre del viernes 2/10 a las 17:00. El mercado abre el lunes a las 11.",
+    expect(closedText(art(2, 17), art(5, 10, 45), art(3, 10))).toBe(
+      "Cierre del viernes 2/10 a las 17:00. El mercado abre el lunes a las 10:45.",
     );
   });
 
   it("takes the time from the reading, not from a fixed close", () => {
-    expect(closedText(art(2, 16, 52), art(5, 11), art(2, 18))).toBe(
-      "Cierre de hoy a las 16:52. El mercado abre el lunes a las 11.",
+    expect(closedText(art(2, 16, 52), art(5, 10, 45), art(2, 18))).toBe(
+      "Cierre de hoy a las 16:52. El mercado abre el lunes a las 10:45.",
     );
   });
 
   it("says tomorrow and today in Buenos Aires", () => {
-    expect(closedText(art(1, 17), art(2, 11), art(1, 22))).toBe(
-      "Cierre de hoy a las 17:00. El mercado abre mañana a las 11.",
+    expect(closedText(art(1, 17), art(2, 10, 45), art(1, 22))).toBe(
+      "Cierre de hoy a las 17:00. El mercado abre mañana a las 10:45.",
     );
     // 01:00 UTC on the 2nd is still the 1st in Buenos Aires.
-    expect(closedText(art(1, 17), art(2, 11), Date.UTC(2026, 9, 2, 1))).toBe(
-      "Cierre de hoy a las 17:00. El mercado abre mañana a las 11.",
+    expect(closedText(art(1, 17), art(2, 10, 45), Date.UTC(2026, 9, 2, 1))).toBe(
+      "Cierre de hoy a las 17:00. El mercado abre mañana a las 10:45.",
     );
-    expect(closedText(art(1, 17), art(2, 11), art(2, 8))).toBe(
-      "Cierre del jueves 1/10 a las 17:00. El mercado abre hoy a las 11.",
+    expect(closedText(art(1, 17), art(2, 10, 45), art(2, 8))).toBe(
+      "Cierre del jueves 1/10 a las 17:00. El mercado abre hoy a las 10:45.",
     );
   });
 });

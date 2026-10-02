@@ -2,13 +2,22 @@
  * Whether a prefilled price can be trusted as it is. Ages are measured on the backend's clock and
  * the MEP's market hours in Argentine time, never in the person's time zone.
  *
- * Assumption, until data-pipeline confirms it with its source: the MEP trades Monday to Friday,
- * 11:00 to 17:00 in Buenos Aires, with no holiday calendar.
+ * The MEP trades Monday to Friday, 10:45 to 17:00 in Buenos Aires, with no holiday calendar:
+ * data-pipeline saw it move only in that window over two months of readings, and its last move
+ * of the day lands between 16:48 and 17:01, inside the 30 minutes before the close that count as
+ * the close.
  */
 
 export const MARKET_TIME_ZONE = "America/Argentina/Buenos_Aires";
-const MARKET_OPEN_HOUR = 11;
-const MARKET_CLOSE_HOUR = 17;
+
+/** A time of day in Buenos Aires. */
+interface TimeOfDay {
+  readonly hour: number;
+  readonly minute: number;
+}
+
+const MARKET_OPEN: TimeOfDay = { hour: 10, minute: 45 };
+const MARKET_CLOSE: TimeOfDay = { hour: 17, minute: 0 };
 
 const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
@@ -85,17 +94,26 @@ function isWeekday(weekday: number): boolean {
 }
 
 function inSession(now: number): boolean {
-  const { weekday, hour } = marketTime(now);
-  return isWeekday(weekday) && hour >= MARKET_OPEN_HOUR && hour < MARKET_CLOSE_HOUR;
+  const time = marketTime(now);
+  const minutes = minutesOf(time);
+  return (
+    isWeekday(time.weekday) &&
+    minutes >= minutesOf(MARKET_OPEN) &&
+    minutes < minutesOf(MARKET_CLOSE)
+  );
+}
+
+function minutesOf({ hour, minute }: TimeOfDay): number {
+  return hour * 60 + minute;
 }
 
 /**
- * The instant at `hour`:00 in Buenos Aires, `daysAhead` calendar days from the day of `instant`
+ * The instant at `time` in Buenos Aires, `daysAhead` calendar days from the day of `instant`
  * there (negative goes back).
  */
-function atMarketHour(instant: number, daysAhead: number, hour: number): number {
+function atMarketTime(instant: number, daysAhead: number, time: TimeOfDay): number {
   const { year, month, day } = marketTime(instant);
-  const guess = Date.UTC(year, month - 1, day + daysAhead, hour);
+  const guess = Date.UTC(year, month - 1, day + daysAhead, time.hour, time.minute);
   // Shift the guess (read as UTC) by the zone's offset at that moment.
   const seen = marketTime(guess);
   const seenAsUtc = Date.UTC(seen.year, seen.month - 1, seen.day, seen.hour, seen.minute);
@@ -105,7 +123,7 @@ function atMarketHour(instant: number, daysAhead: number, hour: number): number 
 /** The close of the last session that ended at or before `now`. */
 function lastClose(now: number): number {
   for (let back = 0; back <= 7; back += 1) {
-    const close = atMarketHour(now, -back, MARKET_CLOSE_HOUR);
+    const close = atMarketTime(now, -back, MARKET_CLOSE);
     if (close <= now && isWeekday(marketTime(close).weekday)) {
       return close;
     }
@@ -116,7 +134,7 @@ function lastClose(now: number): number {
 /** The opening of the next session after `now`. */
 function nextOpen(now: number): number {
   for (let ahead = 0; ahead <= 7; ahead += 1) {
-    const open = atMarketHour(now, ahead, MARKET_OPEN_HOUR);
+    const open = atMarketTime(now, ahead, MARKET_OPEN);
     if (open > now && isWeekday(marketTime(open).weekday)) {
       return open;
     }
@@ -154,18 +172,23 @@ function ageWords(age: number): string {
 const WEEKDAYS = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
 
 /**
- * "Cierre del viernes 2/10 a las 17:00. El mercado abre el lunes a las 11.": the time is when the
+ * "Cierre del viernes 2/10 a las 17:00. El mercado abre el lunes a las 10:45.": the time is when the
  * price was read, in Buenos Aires; "de hoy", "mañana" and "hoy" are counted there too.
  */
 export function closedText(observedAt: number, opens: number, now: number): string {
   const read = marketTime(observedAt);
   const today = marketTime(now);
   const open = marketTime(opens);
-  const time = `${String(read.hour).padStart(2, "0")}:${String(read.minute).padStart(2, "0")}`;
+  const time = clockText(read);
   const day = sameDay(read, today)
     ? "de hoy"
     : `del ${weekdayName(read)} ${String(read.day)}/${String(read.month)}`;
-  return `Cierre ${day} a las ${time}. El mercado abre ${openDay(open, today)} a las ${String(MARKET_OPEN_HOUR)}.`;
+  return `Cierre ${day} a las ${time}. El mercado abre ${openDay(open, today)} a las ${clockText(MARKET_OPEN)}.`;
+}
+
+/** "17:00", "10:45". */
+function clockText({ hour, minute }: TimeOfDay): string {
+  return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
 }
 
 function openDay(open: MarketTime, today: MarketTime): string {
