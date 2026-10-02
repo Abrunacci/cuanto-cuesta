@@ -1,11 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
 
+import type { Texts } from "../i18n/index.ts";
+
 import { prefillTexts } from "../quotes/notices.ts";
 import { estimatedPrices, type RatesSnapshot } from "../quotes/quotes.ts";
 import {
   initialTexts,
   readForm,
+  recordIn,
   withFeeReset,
+  withNumbersIn,
   withPrefill,
   type FormReading,
   type FormTexts,
@@ -32,24 +36,33 @@ export interface Form {
 }
 
 /**
- * The form's texts and what they mean; everything is recomputed on every change. The form starts
- * as the person left it, and remembers every change. The latest prices, once they arrive, fill
- * the price fields still empty.
+ * The form's texts and what they mean, in the page's language `t`; everything is recomputed on
+ * every change. The form starts as the person left it, and remembers every change. The latest
+ * prices, once they arrive, fill the price fields still empty. When the language changes, every
+ * number typed is rewritten in the new one's style, so it keeps meaning the same.
  */
-export function useForm(rates: RatesSnapshot | null): Form {
-  const [texts, setTexts] = useState<FormTexts>(loadTexts);
+export function useForm(rates: RatesSnapshot | null, t: Texts): Form {
+  const [texts, setTexts] = useState<FormTexts>(() => loadTexts(t));
   const [prefilled, setPrefilled] = useState<Readonly<Record<string, string>>>({});
+  // Convert while rendering, like the prices below, so a field never shows the old style.
+  const [seenTexts, setSeenTexts] = useState(t);
+  if (t !== seenTexts) {
+    setSeenTexts(t);
+    setTexts((current) => withNumbersIn(current, seenTexts.numbers, t.numbers));
+    setPrefilled((current) => recordIn(current, seenTexts.numbers, t.numbers));
+  }
   const estimates = useMemo(() => estimatedPrices(rates), [rates]);
-  const reading = useMemo(() => readForm(texts, estimates), [texts, estimates]);
+  const reading = useMemo(() => readForm(t, texts, estimates), [t, texts, estimates]);
+  const { language } = t;
   useEffect(() => {
-    saveTexts(texts);
-  }, [texts]);
+    saveTexts(texts, language);
+  }, [texts, language]);
   // Prefill while rendering the prices that just arrived, so they never show empty for a frame.
   const [seenRates, setSeenRates] = useState(rates);
   if (rates !== seenRates) {
     setSeenRates(rates);
     if (rates !== null) {
-      const values = prefillTexts(rates);
+      const values = prefillTexts(t.numbers, rates);
       setTexts((current) => withPrefill(current, values));
       setPrefilled(values);
     }
@@ -81,10 +94,10 @@ export function useForm(rates: RatesSnapshot | null): Form {
       }));
     },
     resetFee: (id) => {
-      setTexts((current) => withFeeReset(current, id));
+      setTexts((current) => withFeeReset(t.numbers, current, id));
     },
     resetFees: () => {
-      const start = initialTexts();
+      const start = initialTexts(t.numbers);
       setTexts((current) => ({
         ...current,
         fees: start.fees,

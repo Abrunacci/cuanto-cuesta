@@ -97,17 +97,15 @@ describe("fees inside a step", () => {
   const run = (...fees: Fee[]) => {
     const route: Route = {
       id: "r",
-      name: "r",
       source: "USD",
       target: "USDT",
       steps: [
         {
-          label: "s",
+          id: "s",
           feeIds: fees.map((f) => f.id),
           conversion: { rateKey: "binance_p2p_usdt_usd", target: "USDT" },
         },
       ],
-      warnings: [],
       risk: null,
     };
     return runRoute(
@@ -147,14 +145,12 @@ describe("fees inside a step", () => {
     const fee = fixedFee("f", "20", "USD");
     const route: Route = {
       id: "r",
-      name: "r",
       source: "USD",
       target: "USD",
       steps: [
-        { label: "s", feeIds: ["f"], conversion: null },
-        { label: "t", feeIds: ["f"], conversion: null },
+        { id: "s", feeIds: ["f"], conversion: null },
+        { id: "t", feeIds: ["f"], conversion: null },
       ],
-      warnings: [],
       risk: null,
     };
     const result = runRoute(route, money("5.00", "USD"), new Map([["f", fee]]), new Map());
@@ -168,17 +164,15 @@ describe("fees that consume the whole amount after converting", () => {
     const fee = fixedFee("f", "1000", "USDT");
     const route: Route = {
       id: "r",
-      name: "r",
       source: "USD",
       target: "USDT",
       steps: [
         {
-          label: "s",
+          id: "s",
           feeIds: ["f"],
           conversion: { rateKey: "binance_p2p_usdt_usd", target: "USDT" },
         },
       ],
-      warnings: [],
       risk: null,
     };
     // 100.00 / 1.03 = 97.08 USDT, minus 1000 USDT
@@ -215,11 +209,9 @@ describe("invalid input", () => {
 describe("routeProblems", () => {
   const base: Route = {
     id: "r",
-    name: "r",
     source: "USD",
     target: "ARS",
     steps: [],
-    warnings: [],
     risk: null,
   };
 
@@ -235,8 +227,8 @@ describe("routeProblems", () => {
     const route: Route = {
       ...base,
       steps: [
-        { label: "idle", feeIds: [], conversion: null },
-        { label: "same", feeIds: [], conversion: { rateKey: "k", target: "USD" } },
+        { id: "idle", feeIds: [], conversion: null },
+        { id: "same", feeIds: [], conversion: { rateKey: "k", target: "USD" } },
       ],
     };
     expect(routeProblems(route)).toEqual([

@@ -11,6 +11,7 @@ import { missingInputLabel } from "../form/messages.ts";
 import { commonMissing, missingFieldId, missingKey } from "../form/missing.ts";
 import { difference, routeRateKeys, unusualPrices } from "../form/review.ts";
 import { summaryText } from "../form/summary.ts";
+import { riskTexts, routeName, routeWarnings, useTexts } from "../i18n/index.ts";
 import type { CardEstimate } from "../quotes/notices.ts";
 import { RESULTS_TITLE_ID, routeResultId } from "./ids.ts";
 import { LinkList } from "./LinkList.tsx";
@@ -55,6 +56,7 @@ export function Results({
   onReviewToggle,
   onGoToField,
 }: ResultsProps) {
+  const t = useTexts();
   const common = commonMissing(comparison);
   const listedOnce = new Set(common.map(missingKey));
   // Common inputs are the amount and the prices at the top: no fee is used by every route (a
@@ -65,21 +67,21 @@ export function Results({
   return (
     <section className="results" aria-labelledby={RESULTS_TITLE_ID}>
       <h2 id={RESULTS_TITLE_ID} className="jump-target" tabIndex={-1}>
-        Resultado
+        {t.results.title}
       </h2>
       <p className="summary" aria-live="polite" aria-atomic="true">
-        {summaryText(comparison, amountHasProblem, estimated)}
+        {summaryText(t, comparison, amountHasProblem, estimated)}
       </p>
       {common.length > 0 && firstRoute !== undefined && (
         <p className="missing">
-          Falta completar o corregir:{" "}
+          {t.results.missingTitle}{" "}
           <LinkList
             links={common.map((missing) => {
               const id = missingFieldId(missing, feeGaps);
               return {
                 key: missingKey(missing),
                 href: `#${id}`,
-                text: missingInputLabel(missing, feeGaps),
+                text: missingInputLabel(t, missing, feeGaps),
                 onClick: () => {
                   onGoToField(firstRoute.route.id, id);
                 },
@@ -95,10 +97,10 @@ export function Results({
             {/* The label stays out of the heading, whose name is the route's. */}
             <div className="route-heading">
               <h3 id={routeResultId(entry.route.id)} className="jump-target" tabIndex={-1}>
-                {entry.route.name}
+                {routeName(t, entry.route)}
               </h3>
               {entry.route.risk !== null && (
-                <span className="risk-badge">{entry.route.risk.label}</span>
+                <span className="risk-badge">{riskTexts(t, entry.route.risk).label}</span>
               )}
             </div>
             <RouteBody
@@ -119,13 +121,13 @@ export function Results({
               estimated.has(estimate.key) &&
               routeRateKeys(entry.route).has(estimate.key) && (
                 <p className="field-warning estimate-note">
-                  <span className="badge badge-estimate">Precio estimado</span>{" "}
+                  <span className="badge badge-estimate">{t.results.estimateBadge}</span>{" "}
                   {estimate.resultNote}
                 </p>
               )}
-            {entry.route.warnings.map((warning) => (
+            {routeWarnings(t, entry.route).map((warning) => (
               <p key={warning} className="warning">
-                <strong>Atención:</strong> <RichText text={warning} />
+                <strong>{t.results.attention}</strong> <RichText text={warning} />
               </p>
             ))}
           </li>
@@ -157,6 +159,7 @@ function RouteBody({
   readonly onReviewToggle: (open: boolean) => void;
   readonly onGoToField: ResultsProps["onGoToField"];
 }) {
+  const t = useTexts();
   switch (entry.status) {
     case "complete":
       return (
@@ -165,7 +168,7 @@ function RouteBody({
             result={entry.result}
             feeCost={entry.feeCost}
             difference={difference(entry, ranking, ownFees, warnings)}
-            unusualPrices={unusualPrices(entry.route, warnings)}
+            unusualPrices={unusualPrices(t, entry.route, warnings)}
             ownFees={ownFees}
             onGoToField={onGoToField}
           />
@@ -181,12 +184,7 @@ function RouteBody({
     case "incomplete":
       return <RouteMissing entry={entry} feeGaps={feeGaps} skip={skip} onGoToField={onGoToField} />;
     case "failed":
-      return (
-        <p className="missing">
-          No se puede calcular esta ruta: hay un problema con las cotizaciones o comisiones que usa.
-          No es un error en lo que cargaste.
-        </p>
-      );
+      return <p className="missing">{t.results.failedRoute}</p>;
   }
 }
 

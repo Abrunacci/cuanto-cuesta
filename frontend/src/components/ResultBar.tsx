@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
 
 import type { RouteRisk } from "../calculator/index.ts";
-import type { BarLead, BarText } from "../form/summary.ts";
+import type { BarText } from "../form/summary.ts";
+import { riskTexts, useTexts } from "../i18n/index.ts";
 
 interface ResultBarProps {
   readonly text: BarText;
@@ -19,12 +20,13 @@ interface ResultBarProps {
  * result sits in its own column.
  */
 export function ResultBar({ text, targetId, onOpen }: ResultBarProps) {
+  const t = useTexts();
   const keyboard = useKeyboard();
   const bar = useRef<HTMLAnchorElement>(null);
   useReserveHeight(bar);
   const compact = keyboard.open;
   return (
-    <aside aria-label="Resumen del resultado">
+    <aside aria-label={t.bar.name}>
       {/* No aria-label: the name is the visible text plus hidden punctuation and words, so what a
           person sees ("revisá") is also what voice control can say. Spaces between words go in
           text nodes between elements, which the layout ignores and the name keeps. */}
@@ -39,21 +41,11 @@ export function ResultBar({ text, targetId, onOpen }: ResultBarProps) {
         }}
       >
         {compact ? <CompactLine text={text} /> : <FullText text={text} />}{" "}
-        <span className={compact ? "visually-hidden" : "result-bar-more"}>Ver resultado</span>
+        <span className={compact ? "visually-hidden" : "result-bar-more"}>{t.bar.seeResult}</span>
       </a>
     </aside>
   );
 }
-
-const REVIEW_DETAIL = "los valores de esta ruta.";
-
-/** How the bar introduces the route it names, in full and in the one-line bar. */
-const LEADS: Readonly<Record<BarLead, { full: string; short: string }>> = {
-  best: { full: "Mejor ruta", short: "Mejor" },
-  tied: { full: "Empatan", short: "Empate" },
-  alone: { full: "Única ruta calculada", short: "Única" },
-  risky: { full: "Solo con riesgo", short: "Solo con riesgo" },
-};
 
 /**
  * After the route's name when it is risky: seen as "· riesgo", heard as the route's own label
@@ -67,17 +59,21 @@ function RiskMark({
   readonly risk: RouteRisk | null;
   readonly compact: boolean;
 }) {
+  const t = useTexts();
   if (risk === null) {
     return null;
   }
+  const { mark, label } = riskTexts(t, risk);
   // The space before it is a text node, which the one-line bar's layout ignores and the name
   // keeps; there the gap on screen is the no-break space.
   return (
     <>
       {" "}
       <span className="result-bar-risk">
-        <span aria-hidden="true">{compact ? "\u00a0" : ""}· riesgo</span>
-        <span className="visually-hidden">· {risk.label}</span>
+        <span aria-hidden="true">
+          {compact ? "\u00a0" : ""}· {mark}
+        </span>
+        <span className="visually-hidden">· {label}</span>
       </span>
     </>
   );
@@ -94,6 +90,7 @@ function EstimateMark({
   readonly estimated: boolean;
   readonly compact: boolean;
 }) {
+  const { bar } = useTexts();
   if (!estimated) {
     return null;
   }
@@ -101,32 +98,35 @@ function EstimateMark({
     <>
       {" "}
       <span className="result-bar-estimate">
-        <span aria-hidden="true">{compact ? "\u00a0· estimado" : "· precio estimado"}</span>
-        <span className="visually-hidden">· precio estimado</span>
+        <span aria-hidden="true">
+          {compact ? `\u00a0· ${bar.estimatedShort}` : `· ${bar.estimated}`}
+        </span>
+        <span className="visually-hidden">· {bar.estimated}</span>
       </span>
     </>
   );
 }
 
 function FullText({ text }: { readonly text: BarText }) {
+  const { bar } = useTexts();
   if (text.kind === "pending") {
     return <span className="result-bar-label">{text.text}</span>;
   }
   return (
     <>
       <span className="result-bar-label">
-        {LEADS[text.lead].full}: {text.route}
+        {bar.leads[text.lead].full}: {text.route}
         <RiskMark risk={text.risk} compact={false} />
         <EstimateMark estimated={text.estimated} compact={false} />
         <span className="visually-hidden">.</span>
       </span>{" "}
       <span className="result-bar-amount">
-        Llegan {text.amount}
+        {bar.arrives(text.amount)}
         {text.review ? (
           <>
             {" "}
             <span className="result-bar-review">
-              · revisá <span className="visually-hidden">{REVIEW_DETAIL}</span>
+              · {bar.review} <span className="visually-hidden">{bar.reviewDetail}</span>
             </span>
           </>
         ) : (
@@ -139,6 +139,7 @@ function FullText({ text }: { readonly text: BarText }) {
 
 /** One line: on a narrow phone the start is cut, never the amount or its alert. */
 function CompactLine({ text }: { readonly text: BarText }) {
+  const { bar } = useTexts();
   if (text.kind === "pending") {
     return (
       <span className="result-bar-line">
@@ -150,7 +151,7 @@ function CompactLine({ text }: { readonly text: BarText }) {
   return (
     <span className="result-bar-line">
       <span className="result-bar-route">
-        {LEADS[text.lead].short}: {text.route}
+        {bar.leads[text.lead].short}: {text.route}
       </span>
       <RiskMark risk={text.risk} compact />
       <EstimateMark estimated={text.estimated} compact />{" "}
@@ -163,7 +164,9 @@ function CompactLine({ text }: { readonly text: BarText }) {
               {" "}
               {"\u26a0\ufe0e"}
             </span>
-            <span className="visually-hidden">, revisá {REVIEW_DETAIL}</span>
+            <span className="visually-hidden">
+              , {bar.review} {bar.reviewDetail}
+            </span>
           </>
         ) : (
           <span className="visually-hidden">.</span>

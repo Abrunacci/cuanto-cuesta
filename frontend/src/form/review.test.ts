@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { FEE_DEFAULTS, ROUTES, routesInOrder, type CompleteRoute } from "../calculator/index.ts";
+import { es } from "../i18n/es.ts";
 import { initialTexts, readForm, type FormTexts } from "./form.ts";
 import { difference, feesToReview, reviewSummary } from "./review.ts";
 
@@ -55,7 +56,7 @@ describe("reviewSummary", () => {
 
   it("counts the values to set and the estimates, in the plural", () => {
     expect(
-      reviewSummary({
+      reviewSummary(es, {
         toSet: fees("p2p_premium", "p2p_premium"),
         estimated: fees("payoneer_p2p_transfer", "binance_p2p_taker"),
         own: [],
@@ -64,31 +65,35 @@ describe("reviewSummary", () => {
   });
 
   it("counts one of each in the singular, and leaves out what there is none of", () => {
-    expect(reviewSummary({ toSet: fees("p2p_premium"), estimated: [], own: [] })).toBe(
+    expect(reviewSummary(es, { toSet: fees("p2p_premium"), estimated: [], own: [] })).toBe(
       "Qué revisar: 1 valor para poner",
     );
-    expect(reviewSummary({ toSet: [], estimated: fees("binance_p2p_taker"), own: [] })).toBe(
+    expect(reviewSummary(es, { toSet: [], estimated: fees("binance_p2p_taker"), own: [] })).toBe(
       "Qué revisar: 1 comisión estimada",
     );
   });
 
   it("does not count the person's own values while there is something to review", () => {
     expect(
-      reviewSummary({ toSet: [], estimated: fees("binance_p2p_taker"), own: fees("bitso_taker") }),
+      reviewSummary(es, {
+        toSet: [],
+        estimated: fees("binance_p2p_taker"),
+        own: fees("bitso_taker"),
+      }),
     ).toBe("Qué revisar: 1 comisión estimada");
   });
 
   it("counts the person's own values when nothing is left to review", () => {
-    expect(reviewSummary({ toSet: [], estimated: [], own: fees("bitso_taker") })).toBe(
+    expect(reviewSummary(es, { toSet: [], estimated: [], own: fees("bitso_taker") })).toBe(
       "Con tu valor: 1 comisión",
     );
     expect(
-      reviewSummary({ toSet: [], estimated: [], own: fees("bitso_taker", "p2p_premium") }),
+      reviewSummary(es, { toSet: [], estimated: [], own: fees("bitso_taker", "p2p_premium") }),
     ).toBe("Con tu valor: 2 comisiones");
   });
 
   it("has no line for a route with nothing to review and no value of the person's", () => {
-    expect(reviewSummary({ toSet: [], estimated: [], own: [] })).toBeNull();
+    expect(reviewSummary(es, { toSet: [], estimated: [], own: [] })).toBeNull();
   });
 });
 
@@ -104,7 +109,12 @@ describe("difference", () => {
     new Set(routeIds.flatMap((id) => route(id).steps.flatMap((step) => step.feeIds)));
   /** Per route, in ranking order, the id of the route to review for its difference. */
   const toReview = (overrides: Partial<FormTexts>) => {
-    const reading = readForm({ ...initialTexts(), amount: "1000", prices: PRICES, ...overrides });
+    const reading = readForm(es, {
+      ...initialTexts(es.numbers),
+      amount: "1000",
+      prices: PRICES,
+      ...overrides,
+    });
     return routesInOrder(reading.comparison)
       .filter((r): r is CompleteRoute => r.status === "complete")
       .map((r) => {

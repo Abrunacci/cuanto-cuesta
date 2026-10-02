@@ -70,73 +70,67 @@ export const SAMPLE_PRICES: ReadonlyMap<string, PositivePrice> = new Map([
 
 export const BINANCE: Route = {
   id: "binance_p2p_bitso",
-  name: "Binance + Bitso",
   source: "USD",
   target: "ARS",
   steps: [
     {
-      label: "Sell USD on Binance P2P",
+      id: "p2p_sell",
       feeIds: ["payoneer_p2p_transfer", "p2p_premium", "binance_p2p_taker"],
       conversion: { rateKey: "binance_p2p_usdt_usd", target: "USDT" },
     },
     {
-      label: "Withdraw to Bitso over Polygon",
+      id: "usdt_to_bitso",
       feeIds: ["binance_withdrawal_polygon"],
       conversion: null,
     },
     {
-      label: "Sell USDT on Bitso",
+      id: "bitso_sell",
       feeIds: ["bitso_taker"],
       conversion: { rateKey: "bitso_usdt_ars", target: "ARS" },
     },
-    { label: "Withdraw to bank", feeIds: ["bitso_ars_withdrawal"], conversion: null },
+    { id: "ars_to_bank", feeIds: ["bitso_ars_withdrawal"], conversion: null },
   ],
-  warnings: [],
   risk: null,
 };
 
 export const ARQ: Route = {
   id: "arq",
-  name: "ARQ",
   source: "USD",
   target: "ARS",
   steps: [
     {
-      label: "Withdraw from Payoneer to ARQ",
+      id: "payoneer_to_arq",
       feeIds: ["payoneer_us_withdrawal"],
       conversion: null,
     },
-    { label: "ARQ receives ACH", feeIds: ["arq_ach_deposit"], conversion: null },
+    { id: "arq_ach", feeIds: ["arq_ach_deposit"], conversion: null },
     {
-      label: "Convert to ARS",
+      id: "arq_convert",
       feeIds: [],
       conversion: { rateKey: "arq_usd_ars", target: "ARS" },
     },
-    { label: "Withdraw to bank", feeIds: ["arq_ars_withdrawal"], conversion: null },
+    { id: "ars_to_bank", feeIds: ["arq_ars_withdrawal"], conversion: null },
   ],
-  warnings: [],
   risk: null,
 };
 
 export const MEP_ROUTE: Route = {
   id: "mep",
-  name: "Dólar MEP",
   source: "USD",
   target: "ARS",
   steps: [
     {
-      label: "Withdraw from Payoneer to a USD account",
+      id: "payoneer_to_bank",
       feeIds: ["payoneer_ar_withdrawal"],
       conversion: null,
     },
-    { label: "Bank credits the transfer", feeIds: ["bank_usd_credit"], conversion: null },
+    { id: "bank_credit", feeIds: ["bank_usd_credit"], conversion: null },
     {
-      label: "Sell through MEP",
+      id: "mep_bonds",
       feeIds: ["broker_buy", "broker_sell", "byma_buy", "byma_sell"],
       conversion: { rateKey: "mep", target: "ARS" },
     },
   ],
-  warnings: ["90-day cross restriction"],
   risk: null,
 };
 

@@ -91,8 +91,50 @@ html {
   grid-template-areas: "header" "inputs" "results" "fees";
 }
 
+/* The title and the language picker share the first row, so the picker adds no height; on a
+   screen too narrow for both, the picker goes under the title. */
 .layout-header {
   grid-area: header;
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: 1rem;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.layout-header .lead {
+  flex-basis: 100%;
+}
+
+.language-picker {
+  display: inline-flex;
+  margin-bottom: 0.25rem;
+  border: 1px solid var(--input-border);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.language-picker button {
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  padding: 0 0.75rem;
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--text);
+  background: var(--surface);
+  border: 0;
+  cursor: pointer;
+}
+
+.language-picker button[aria-pressed="true"] {
+  color: var(--surface);
+  background: var(--accent);
+}
+
+/* Inside the pill the outline would be cut by its rounded edge. */
+.language-picker button:focus-visible {
+  outline-offset: -4px;
 }
 
 .layout-inputs {
@@ -656,15 +698,25 @@ h3 {
   }
 
   .layout-header {
-    display: flex;
-    flex-wrap: wrap;
-    column-gap: 1rem;
+    flex-wrap: nowrap;
     align-items: baseline;
+    justify-content: flex-start;
   }
 
   .layout-header h1,
   .layout-header .lead {
     margin: 0;
+  }
+
+  .layout-header .lead {
+    flex-basis: auto;
+  }
+
+  /* After the lead, at the end of the row. */
+  .language-picker {
+    order: 1;
+    margin: 0 0 0 auto;
+    align-self: center;
   }
 
   .card,

@@ -3,8 +3,7 @@ import type { FeeGap } from "../form/form.ts";
 import { missingFieldId, missingKey } from "../form/missing.ts";
 import { missingInputLabel } from "../form/messages.ts";
 import { reviewOpensList, type Difference } from "../form/review.ts";
-import { joinSpanish } from "../text/lists.ts";
-import { formatMoney } from "../text/numbers.ts";
+import { routeName, useTexts } from "../i18n/index.ts";
 import { reviewTargetId } from "./ids.ts";
 import { InPageAnchor } from "./LinkList.tsx";
 
@@ -37,32 +36,32 @@ export function RouteFigures({
   ownFees,
   onGoToField,
 }: RouteFiguresProps) {
+  const t = useTexts();
+  const { results, numbers } = t;
   const { final } = result;
   const top = difference.kind === "compared" && difference.recommended;
   return (
     <>
       <dl className="figures">
         <div className="figure figure-main">
-          <dt>Llegan al banco</dt>
-          <dd>{formatMoney(final.amount, final.currency)}</dd>
+          <dt>{results.arrives}</dt>
+          <dd>{numbers.money(final.amount, final.currency)}</dd>
         </div>
         <div className="figure">
-          <dt>Comisiones</dt>
-          <dd>{formatMoney(feeCost.amount, feeCost.currency)}</dd>
+          <dt>{results.fees}</dt>
+          <dd>{numbers.money(feeCost.amount, feeCost.currency)}</dd>
         </div>
         <div className={top ? "figure figure-gain" : "figure"}>
-          <dt>Diferencia</dt>
+          <dt>{results.difference}</dt>
           <dd>
             <DifferenceText difference={difference} ownFees={ownFees} onGoToField={onGoToField} />
           </dd>
         </div>
       </dl>
       {unusualPrices.length > 0 && (
-        <p className="unusual">Calculado con un valor inusual: {joinSpanish(unusualPrices)}.</p>
+        <p className="unusual">{results.unusual(t.list(unusualPrices))}</p>
       )}
-      {result.exhausted && (
-        <p className="exhausted">Las comisiones se comen todo el monto en algún paso.</p>
-      )}
+      {result.exhausted && <p className="exhausted">{results.exhausted}</p>}
     </>
   );
 }
@@ -80,15 +79,18 @@ function DifferenceText({
   readonly ownFees: ReadonlySet<string>;
   readonly onGoToField: GoTo;
 }) {
+  const t = useTexts();
+  const { results } = t;
   switch (difference.kind) {
     case "alone":
-      return <span className="figure-detail">Todavía no hay otra ruta para comparar</span>;
+      return <span className="figure-detail">{results.aloneDifference}</span>;
     case "unrivaled":
-      return <span className="figure-detail">Única ruta sin riesgo</span>;
+      return <span className="figure-detail">{results.unrivaledDifference}</span>;
     case "compared":
       break;
   }
   const { standing, review } = difference;
+  const other = routeName(t, standing.other);
   const reviewLink = review !== null && (
     <ReviewLink review={review} ownFees={ownFees} onGoToField={onGoToField} />
   );
@@ -98,9 +100,9 @@ function DifferenceText({
     case "behind":
       return (
         <>
-          {formatMoney(standing.by.amount, standing.by.currency)}{" "}
+          {t.numbers.money(standing.by.amount, standing.by.currency)}{" "}
           <span className="figure-detail">
-            {standing.kind === "behind" ? "menos" : "más"} que {standing.other.name}
+            {standing.kind === "behind" ? results.less(other) : results.more(other)}
             {reviewLink}
           </span>
         </>
@@ -108,7 +110,7 @@ function DifferenceText({
     case "tied":
       return (
         <span className="figure-detail">
-          Igual que {standing.other.name}
+          {results.same(other)}
           {reviewLink}
         </span>
       );
@@ -125,6 +127,7 @@ function ReviewLink({
   readonly ownFees: ReadonlySet<string>;
   readonly onGoToField: GoTo;
 }) {
+  const t = useTexts();
   const target = reviewTargetId(review.id, reviewOpensList(review, ownFees));
   return (
     <>
@@ -135,11 +138,11 @@ function ReviewLink({
           link={{
             key: review.id,
             href: `#${target}`,
-            text: "revisá",
+            text: t.results.review,
             // An aria-label, unlike the phone's bar, which builds its name from hidden text: this
             // link is one word, so the label can say whose values it is about in full, and it
             // still starts with the word seen.
-            label: `Revisá los valores de ${review.name}`,
+            label: t.results.reviewLabel(routeName(t, review)),
             onClick: () => {
               onGoToField(review.id, target);
             },
@@ -160,13 +163,14 @@ interface RouteMissingProps {
 
 /** What a route still needs, each item a link to its field. */
 export function RouteMissing({ entry, feeGaps, skip, onGoToField }: RouteMissingProps) {
+  const t = useTexts();
   const missing = entry.missing.filter((m) => !skip.has(missingKey(m)));
   if (missing.length === 0) {
-    return <p className="missing">Se calcula cuando completes lo de arriba.</p>;
+    return <p className="missing">{t.results.routeMissingDone}</p>;
   }
   return (
     <div className="missing">
-      <p>Falta completar o corregir:</p>
+      <p>{t.results.missingTitle}</p>
       <ul>
         {missing.map((missing) => {
           const id = missingFieldId(missing, feeGaps);
@@ -176,7 +180,7 @@ export function RouteMissing({ entry, feeGaps, skip, onGoToField }: RouteMissing
                 link={{
                   key: id,
                   href: `#${id}`,
-                  text: missingInputLabel(missing, feeGaps),
+                  text: missingInputLabel(t, missing, feeGaps),
                   onClick: () => {
                     onGoToField(entry.route.id, id);
                   },

@@ -142,69 +142,45 @@ function nextOpen(now: number): number {
   return now;
 }
 
-/** No-break space: "3 h" and "05 min" never split across lines. */
-const NBSP = "\u00a0";
+/** An age as it is written: in days from one day on, else in hours and minutes. */
+export type AgeParts =
+  | { readonly kind: "days"; readonly days: number }
+  | { readonly kind: "time"; readonly hours: number; readonly minutes: number };
 
-/**
- * "45 min", "2 h 10 min", "3 h 05 min", "3 h"; from a day on, "1 día", "2 días". Each number
- * stays on the same line as its unit.
- */
-export function ageText(age: number): string {
-  return ageWords(age).replace(/(\d) /g, `$1${NBSP}`);
-}
-
-function ageWords(age: number): string {
+export function ageParts(age: number): AgeParts {
   if (age >= DAY) {
-    const days = Math.floor(age / DAY);
-    return days === 1 ? "1 día" : `${String(days)} días`;
+    return { kind: "days", days: Math.floor(age / DAY) };
   }
   const minutes = Math.floor(age / MINUTE);
-  if (minutes < 60) {
-    return `${String(minutes)} min`;
-  }
-  const hours = Math.floor(minutes / 60);
-  const rest = minutes % 60;
-  return rest === 0
-    ? `${String(hours)} h`
-    : `${String(hours)} h ${String(rest).padStart(2, "0")} min`;
+  return { kind: "time", hours: Math.floor(minutes / 60), minutes: minutes % 60 };
 }
 
-const WEEKDAYS = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
+/** What the screen says about the MEP outside market hours, with every day counted in Buenos Aires. */
+export interface ClosedNote {
+  /** When the price was read: the last close. */
+  readonly read: MarketTime;
+  readonly readToday: boolean;
+  /** When the market opens next. */
+  readonly opens: MarketTime;
+  readonly opensOn: "today" | "tomorrow" | "later";
+}
 
-/**
- * "Cierre del viernes 2/10 a las 17:00. El mercado abre el lunes a las 10:45.": the time is when the
- * price was read, in Buenos Aires; "de hoy", "mañana" and "hoy" are counted there too.
- */
-export function closedText(observedAt: number, opens: number, now: number): string {
+export function closedNote(observedAt: number, opens: number, now: number): ClosedNote {
   const read = marketTime(observedAt);
   const today = marketTime(now);
   const open = marketTime(opens);
-  const time = clockText(read);
-  const day = sameDay(read, today)
-    ? "de hoy"
-    : `del ${weekdayName(read)} ${String(read.day)}/${String(read.month)}`;
-  return `Cierre ${day} a las ${time}. El mercado abre ${openDay(open, today)} a las ${clockText(MARKET_OPEN)}.`;
+  return {
+    read,
+    readToday: sameDay(read, today),
+    opens: open,
+    opensOn: sameDay(open, today) ? "today" : daysBetween(today, open) === 1 ? "tomorrow" : "later",
+  };
 }
 
-/** "17:00", "10:45". */
-function clockText({ hour, minute }: TimeOfDay): string {
-  return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
-}
-
-function openDay(open: MarketTime, today: MarketTime): string {
-  if (sameDay(open, today)) {
-    return "hoy";
-  }
-  const days = Math.round(
-    (Date.UTC(open.year, open.month - 1, open.day) -
-      Date.UTC(today.year, today.month - 1, today.day)) /
-      DAY,
+function daysBetween(from: MarketTime, to: MarketTime): number {
+  return Math.round(
+    (Date.UTC(to.year, to.month - 1, to.day) - Date.UTC(from.year, from.month - 1, from.day)) / DAY,
   );
-  return days === 1 ? "mañana" : `el ${weekdayName(open)}`;
-}
-
-function weekdayName({ weekday }: MarketTime): string {
-  return WEEKDAYS[weekday] ?? "";
 }
 
 function sameDay(a: MarketTime, b: MarketTime): boolean {

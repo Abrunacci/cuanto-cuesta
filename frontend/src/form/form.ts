@@ -1,6 +1,7 @@
 /**
  * The form as data: the text in every field, and what that text means for the calculation.
- * `readForm` is pure, so the whole screen logic is tested without rendering anything.
+ * `readForm` is pure, so the whole screen logic is tested without rendering anything. Numbers are
+ * typed and messages written in the page's language (`Texts`).
  */
 
 import {
@@ -25,12 +26,12 @@ import {
   type PositiveAmount,
   type PositivePrice,
 } from "../calculator/index.ts";
-import { formatUnambiguous, parseNumber, toInputText } from "../text/numbers.ts";
+import type { Texts } from "../i18n/index.ts";
+import { convertTyped, type Numbers } from "../text/numbers.ts";
 import {
   didYouMean,
   unusualPriceMessage,
   inputProblemMessage,
-  NOT_A_NUMBER,
   valueProblemMessage,
 } from "./messages.ts";
 import { inRange, PRICE_CHECKS } from "./plausible.ts";
@@ -81,9 +82,9 @@ export const fieldId = {
 
 /**
  * Prices and the amount start empty (the latest prices are prefilled once they arrive, see
- * `withPrefill`); fees start at the researched value.
+ * `withPrefill`); fees start at the researched value, written as `numbers` types them.
  */
-export function initialTexts(): FormTexts {
+export function initialTexts({ toInput: toInputText }: Numbers): FormTexts {
   const fees: Record<string, string> = {};
   const minimums: Record<string, string> = {};
   for (const { fee } of FEE_DEFAULTS) {
@@ -106,6 +107,7 @@ export function initialTexts(): FormTexts {
  * estimated final price): what the person types always wins.
  */
 export function readForm(
+  t: Texts,
   texts: FormTexts,
   estimates: ReadonlyMap<string, PositivePrice> = new Map(),
 ): FormReading {
@@ -131,7 +133,7 @@ export function readForm(
     }
   };
 
-  const amount = valueOf(fieldId.amount, readAmount(texts.amount));
+  const amount = valueOf(fieldId.amount, readAmount(t, texts.amount));
 
   const prices = new Map<string, PositivePrice | null>();
   const estimated = new Set<string>();
@@ -143,14 +145,14 @@ export function readForm(
       prices.set(field.key, estimate);
       estimated.add(field.key);
     } else {
-      prices.set(field.key, valueOf(id, readPrice(field.key, text)));
+      prices.set(field.key, valueOf(id, readPrice(t, field.key, text)));
     }
   }
 
   const fees = new Map<string, Fee | null>();
   for (const feeDefault of FEE_DEFAULTS) {
     const { id } = feeDefault.fee;
-    const parts = readFee(feeDefault, texts);
+    const parts = readFee(t, feeDefault, texts);
     const value = valueOf(fieldId.fee(id), parts.value);
     const minimum = parts.minimum === null ? null : valueOf(fieldId.minimum(id), parts.minimum);
     const fee = parts.build(value, minimum);
@@ -195,13 +197,13 @@ interface Typed {
 type Check<T> = (typed: Typed) => FieldRead<T>;
 
 /** Parse a field's text and hand the number to `check`; empty and non-numeric text stop here. */
-function readField<T>(text: string, check: Check<T>): FieldRead<T> {
-  const parsed = parseNumber(text);
+function readField<T>(t: Texts, text: string, check: Check<T>): FieldRead<T> {
+  const parsed = t.numbers.parse(text);
   switch (parsed.kind) {
     case "empty":
       return { kind: "empty" };
     case "invalid":
-      return { kind: "problem", message: NOT_A_NUMBER };
+      return { kind: "problem", message: t.problems.notANumber };
     case "number":
       return check(parsed);
   }
@@ -209,13 +211,13 @@ function readField<T>(text: string, check: Check<T>): FieldRead<T> {
 
 const AMOUNT_DECIMALS = 2;
 
-function readAmount(text: string): FieldRead<PositiveAmount> {
-  return readField(text, ({ value, typedDecimals, alternative }) => {
+function readAmount(t: Texts, text: string): FieldRead<PositiveAmount> {
+  return readField(t, text, ({ value, typedDecimals, alternative }) => {
     if (typedDecimals > AMOUNT_DECIMALS) {
-      const tooMany = inputProblemMessage({ code: "too_many_decimals", max: AMOUNT_DECIMALS });
+      const tooMany = inputProblemMessage(t, { code: "too_many_decimals", max: AMOUNT_DECIMALS });
       // "1,000" typed for a thousand dollars: suggest the reading with a thousands separator.
       const message =
-        alternative?.gt(0) === true ? `${tooMany} ${didYouMean(alternative)}` : tooMany;
+        alternative?.gt(0) === true ? `${tooMany} ${didYouMean(t, alternative)}` : tooMany;
       return { kind: "problem", message };
     }
     const result = positiveAmount(value, "USD");
@@ -228,22 +230,22 @@ function readAmount(text: string): FieldRead<PositiveAmount> {
           echo: null,
           warning: null,
         }
-      : { kind: "problem", message: inputProblemMessage(result.problem) };
+      : { kind: "problem", message: inputProblemMessage(t, result.problem) };
   });
 }
 
-function readPrice(key: string, text: string): FieldRead<PositivePrice> {
+function readPrice(t: Texts, key: string, text: string): FieldRead<PositivePrice> {
   const check = PRICE_CHECKS[key];
-  return readField(text, ({ value, typedDecimals, alternative }) => {
+  return readField(t, text, ({ value, typedDecimals, alternative }) => {
     if (typedDecimals > MAX_PRICE_DECIMALS) {
       return {
         kind: "problem",
-        message: inputProblemMessage({ code: "too_many_decimals", max: MAX_PRICE_DECIMALS }),
+        message: inputProblemMessage(t, { code: "too_many_decimals", max: MAX_PRICE_DECIMALS }),
       };
     }
     const result = positivePrice(value);
     if (!result.ok) {
-      return { kind: "problem", message: inputProblemMessage(result.problem) };
+      return { kind: "problem", message: inputProblemMessage(t, result.problem) };
     }
     // No echo for prices: the two readings of "1.030" differ a thousandfold and the widest range
     // spans a hundredfold, so they are never both plausible; the implausible one gets a warning.
@@ -258,7 +260,7 @@ function readPrice(key: string, text: string): FieldRead<PositivePrice> {
       kind: "ok",
       value: result.value,
       echo: null,
-      warning: unusualPriceMessage(value, fix, check),
+      warning: unusualPriceMessage(t, key, value, fix, check),
     };
   });
 }
@@ -268,21 +270,21 @@ function readPrice(key: string, text: string): FieldRead<PositivePrice> {
  * so the person sees how it was read; above the cap, the message says what was read and suggests
  * the other reading when that one fits.
  */
-function readBounded(text: string, cap: Big, unit: string): FieldRead<Big> {
-  return readField(text, ({ value, alternative }) => {
-    const read = `Leímos ${formatUnambiguous(value)} ${unit}.`;
+function readBounded(t: Texts, text: string, cap: Big, unit: string): FieldRead<Big> {
+  return readField(t, text, ({ value, alternative }) => {
+    const read = t.problems.read(t.numbers.unambiguous(value), unit);
     const problem = valueProblem(value, cap);
     if (problem === null) {
       // Echo only when the other reading is a value this fee could also hold.
       const bothValid = alternative !== null && valueProblem(alternative, cap) === null;
       return { kind: "ok", value, echo: bothValid ? read : null, warning: null };
     }
-    const message = valueProblemMessage(problem, unit);
+    const message = valueProblemMessage(t, problem, unit);
     if (problem.code === "negative") {
       return { kind: "problem", message };
     }
     const fits = alternative !== null && valueProblem(alternative, cap) === null;
-    const fix = fits ? ` ${didYouMean(alternative)}` : "";
+    const fix = fits ? ` ${didYouMean(t, alternative)}` : "";
     return { kind: "problem", message: `${message} ${read}${fix}` };
   });
 }
@@ -294,19 +296,19 @@ interface FeeParts {
   readonly build: (value: Big | null, minimum: Big | null) => Fee | null;
 }
 
-function readFee({ fee }: FeeDefault, texts: FormTexts): FeeParts {
+function readFee(t: Texts, { fee }: FeeDefault, texts: FormTexts): FeeParts {
   const text = texts.fees[fee.id] ?? "";
   switch (fee.kind) {
     case "fixed": {
       const { currency } = fee.amount;
       return {
-        value: readBounded(text, maxFixed(currency), currency),
+        value: readBounded(t, text, maxFixed(currency), currency),
         minimum: null,
         build: (value) => (value === null ? null : fixedFee(fee.id, value, currency)),
       };
     }
     case "percent": {
-      const rate = readBounded(text, MAX_PERCENT, "%");
+      const rate = readBounded(t, text, MAX_PERCENT, "%");
       if (fee.minimum === null) {
         return {
           value: rate,
@@ -317,7 +319,7 @@ function readFee({ fee }: FeeDefault, texts: FormTexts): FeeParts {
       const { currency } = fee.minimum;
       return {
         value: rate,
-        minimum: readBounded(texts.minimums[fee.id] ?? "", maxFixed(currency), currency),
+        minimum: readBounded(t, texts.minimums[fee.id] ?? "", maxFixed(currency), currency),
         build: (value, minimum) =>
           value === null || minimum === null
             ? null
@@ -358,11 +360,11 @@ export function withPrefill(texts: FormTexts, values: Readonly<Record<string, st
  * that is not the person's own already holds its researched value: the texts come back as they
  * are, so nothing renders again.
  */
-export function withFeeReset(texts: FormTexts, id: string): FormTexts {
+export function withFeeReset(numbers: Numbers, texts: FormTexts, id: string): FormTexts {
   if (!texts.ownFees.has(id)) {
     return texts;
   }
-  const start = initialTexts();
+  const start = initialTexts(numbers);
   const ownFees = new Set(texts.ownFees);
   ownFees.delete(id);
   const value = start.fees[id];
@@ -373,4 +375,33 @@ export function withFeeReset(texts: FormTexts, id: string): FormTexts {
     minimums: minimum === undefined ? texts.minimums : { ...texts.minimums, [id]: minimum },
     ownFees,
   };
+}
+
+/**
+ * Every number the person typed, rewritten from the style of one language to the other's
+ * ("1.452,30" becomes "1,452.30"), so changing the page's language never changes what a field
+ * means. The texts come back as they are when both styles are the same.
+ */
+export function withNumbersIn(texts: FormTexts, from: Numbers, to: Numbers): FormTexts {
+  if (from.style === to.style) {
+    return texts;
+  }
+  return {
+    ...texts,
+    amount: convertTyped(texts.amount, from.style, to.style),
+    prices: recordIn(texts.prices, from, to),
+    fees: recordIn(texts.fees, from, to),
+    minimums: recordIn(texts.minimums, from, to),
+  };
+}
+
+/** Each text of `record` rewritten as `withNumbersIn` does. */
+export function recordIn(
+  record: Readonly<Record<string, string>>,
+  from: Numbers,
+  to: Numbers,
+): Readonly<Record<string, string>> {
+  return Object.fromEntries(
+    Object.entries(record).map(([key, text]) => [key, convertTyped(text, from.style, to.style)]),
+  );
 }

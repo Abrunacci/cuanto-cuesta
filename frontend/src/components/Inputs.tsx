@@ -2,6 +2,7 @@ import { RATE_FIELDS } from "../calculator/index.ts";
 import { fieldId, type FormReading, type FormTexts } from "../form/form.ts";
 import { fieldNotice, type CardEstimate, type FieldNotice } from "../quotes/notices.ts";
 import type { Rates } from "../quotes/useRates.ts";
+import { rateTexts, useTexts } from "../i18n/index.ts";
 import { NumberField } from "./NumberField.tsx";
 
 interface InputsProps {
@@ -27,6 +28,7 @@ export function Inputs({
   onAmount,
   onPrice,
 }: InputsProps) {
+  const t = useTexts();
   const notice = (key: string): FieldNotice | null => {
     const text = texts.prices[key] ?? "";
     if (estimate?.key === key) {
@@ -37,36 +39,33 @@ export function Inputs({
     if (rates === null || quote === undefined || prefilled[key] !== text) {
       return null;
     }
-    return fieldNotice(quote, rates.now);
+    return fieldNotice(t, quote, rates.now);
   };
   const anyPrefilled = Object.keys(prefilled).length > 0;
   return (
     <section className="card" aria-labelledby="inputs-title">
-      <h2 id="inputs-title">Tus datos</h2>
-      <p className="muted small">
-        {anyPrefilled
-          ? "Punto para miles y coma para decimales (1.536,16). El monto queda guardado en este navegador. Las cotizaciones vienen cargadas con el último precio que conseguimos; podés cambiarlas."
-          : "Punto para miles y coma para decimales (1.536,16). El monto queda guardado en este navegador; las cotizaciones no."}
-      </p>
+      <h2 id="inputs-title">{t.inputs.title}</h2>
+      <p className="muted small">{t.inputs.intro(anyPrefilled)}</p>
       <NumberField
         id={fieldId.amount}
-        label="Monto en Payoneer"
+        label={t.inputs.amountLabel}
         unit="USD"
         value={texts.amount}
         onChange={onAmount}
         problem={reading.problems.get(fieldId.amount) ?? null}
         echo={reading.echoes.get(fieldId.amount)}
-        help="Los dólares de tu cuenta de Payoneer que querés pasar a pesos."
+        help={t.inputs.amountHelp}
         helpWhileNeeded
-        placeholder="Ej.: 1.000"
+        placeholder={t.inputs.amountPlaceholder}
       />
       {RATE_FIELDS.map((field) => {
         const id = fieldId.price(field.key);
+        const words = rateTexts(t, field.key);
         return (
           <NumberField
             key={field.key}
             id={id}
-            label={field.label}
+            label={words.label}
             unit={field.quote}
             value={texts.prices[field.key] ?? ""}
             onChange={(text) => {
@@ -76,7 +75,7 @@ export function Inputs({
             warning={reading.warnings.get(id)}
             echo={reading.echoes.get(id)}
             notice={notice(field.key)}
-            help={field.help}
+            help={words.help}
             helpWhileNeeded
           />
         );

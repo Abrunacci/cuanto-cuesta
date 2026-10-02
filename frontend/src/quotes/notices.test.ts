@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { parseNumber } from "../text/numbers.ts";
+import { es } from "../i18n/es.ts";
+import { SPANISH_NUMBERS, numbersIn } from "../text/numbers.ts";
 import { cardEstimate, prefillTexts } from "./notices.ts";
 import { parseRates } from "./quotes.ts";
+
+const { parse: parseNumber } = numbersIn(SPANISH_NUMBERS);
 
 const NOW = Date.UTC(2026, 9, 2, 18);
 
@@ -33,7 +36,7 @@ describe("prefillTexts", () => {
   ])(
     "writes %s %s as the person would, and reads back the same",
     (key, base, quote, value, text) => {
-      const texts = prefillTexts(snapshot([price(key, base, quote, value)]));
+      const texts = prefillTexts(es.numbers, snapshot([price(key, base, quote, value)]));
       expect(texts[key]).toBe(text);
       const read = parseNumber(text);
       expect(read.kind === "number" && read.value.eq(value)).toBe(true);
@@ -42,6 +45,7 @@ describe("prefillTexts", () => {
 
   it("never prefills the card", () => {
     const texts = prefillTexts(
+      es.numbers,
       snapshot([
         { ...price("binance_card_usd_usdt", "USD", "USDT", "0.985"), estimated_final: "0.97" },
       ]),
@@ -53,6 +57,7 @@ describe("prefillTexts", () => {
 describe("cardEstimate", () => {
   it("says nothing of age while the estimate is fresh", () => {
     const estimate = cardEstimate(
+      es,
       snapshot([
         { ...price("binance_card_usd_usdt", "USD", "USDT", "0.985"), estimated_final: "0.9712" },
       ]),
@@ -69,6 +74,7 @@ describe("cardEstimate", () => {
   it("is absent without an estimate", () => {
     expect(
       cardEstimate(
+        es,
         snapshot([
           { ...price("binance_card_usd_usdt", "USD", "USDT", "0.985"), estimated_final: null },
         ]),

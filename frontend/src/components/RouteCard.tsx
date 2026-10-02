@@ -1,12 +1,19 @@
 import { useRef } from "react";
 
-import { feeDefault, feeLabel, rateField, type Route, type Step } from "../calculator/index.ts";
+import { feeDefault, type Route } from "../calculator/index.ts";
 import { byCard, cardOf, ownFieldCount } from "../form/cards.ts";
 import { fieldId, type FormReading, type FormTexts } from "../form/form.ts";
-import { lowerFirst } from "../text/case.ts";
-import { joinSpanish } from "../text/lists.ts";
-import { NumberField } from "./NumberField.tsx";
 import { feeStatusText, referenceValueText } from "../form/messages.ts";
+import {
+  feeInSentence,
+  feeTexts,
+  rateInSentence,
+  routeName,
+  stepLabel,
+  stepRepeatsItsFee,
+  useTexts,
+} from "../i18n/index.ts";
+import { NumberField } from "./NumberField.tsx";
 import { InPageAnchor } from "./LinkList.tsx";
 import { Provenance, StatusBadge } from "./Provenance.tsx";
 import { RichText } from "./RichText.tsx";
@@ -39,6 +46,7 @@ export function RouteCard({
   onResetFee,
   onGoToField,
 }: RouteCardProps) {
+  const t = useTexts();
   return (
     <details
       className="card route-card"
@@ -48,22 +56,23 @@ export function RouteCard({
       }}
     >
       <summary>
-        <span className="route-card-title">{route.name}</span>
+        <span className="route-card-title">{routeName(t, route)}</span>
         <span className="route-card-hint">
-          Ajustar comisiones{ownCountText(route, reading.ownFees)}
+          {t.cards.adjust}
+          {t.cards.ownCount(ownFieldCount(route, reading.ownFees))}
         </span>
       </summary>
       {route.steps.map((step) => {
         const here = step.feeIds.filter((id) => cardOf(id)?.id === route.id);
         const elsewhere = step.feeIds.filter((id) => cardOf(id)?.id !== route.id);
         return (
-          <fieldset key={step.label} className="step">
-            <legend className={repeatsItsFee(step, here) ? "visually-hidden" : undefined}>
-              {step.label}
+          <fieldset key={step.id} className="step">
+            <legend className={stepRepeatsItsFee(t, step, here) ? "visually-hidden" : undefined}>
+              {stepLabel(t, step.id)}
             </legend>
             {step.conversion !== null && (
               <p className="muted small">
-                Convierte con: {rateLabel(step.conversion.rateKey)}, que cargaste arriba.
+                {t.cards.convertsWith(rateInSentence(t, step.conversion.rateKey))}
               </p>
             )}
             {here.map((id) => (
@@ -96,20 +105,22 @@ function SetElsewhere({
   readonly feeIds: readonly string[];
   readonly onGoToField: RouteCardProps["onGoToField"];
 }) {
+  const t = useTexts();
   return byCard(feeIds).map(({ card, feeIds: ids }) => {
     const [first] = ids;
     const id = fieldId.fee(first);
-    const labels = ids.map((fee) => lowerFirst(feeLabel(fee)));
+    const labels = ids.map((fee) => feeInSentence(t, fee));
+    const name = routeName(t, card);
     return (
       <p key={card.id} className="muted small">
-        {ids.length === 1 ? "Esta comisión se ajusta en " : "Estas comisiones se ajustan en "}
+        {t.cards.setElsewhere(ids.length)}
         <InPageAnchor
           link={{
             key: id,
             href: `#${id}`,
-            text: card.name,
+            text: name,
             // Several steps link to the same card: the name says which fees each one is for.
-            label: `${card.name}: ${joinSpanish(labels)}`,
+            label: `${name}: ${t.list(labels)}`,
             onClick: () => {
               onGoToField(card.id, id);
             },
@@ -119,42 +130,6 @@ function SetElsewhere({
       </p>
     );
   });
-}
-
-/**
- * A step whose only content is one fee field named like the step ("Retirar de Payoneer a…" and
- * "Retiro de Payoneer a…"): its title would repeat the fee's, so it is only kept for screen
- * readers. `here` are the step's fees whose fields this card holds.
- */
-function repeatsItsFee(step: Step, here: readonly string[]): boolean {
-  const [id] = here;
-  if (
-    step.conversion !== null ||
-    step.feeIds.length !== 1 ||
-    here.length !== 1 ||
-    id === undefined
-  ) {
-    return false;
-  }
-  const label = feeDefault(id)?.label;
-  return label !== undefined && withoutFirstWord(label) === withoutFirstWord(step.label);
-}
-
-/**
- * " · 2 con tu valor", or nothing while the card holds only researched values. Only the fields in
- * this card count: a shared fee counts in the card that holds it.
- */
-function ownCountText(route: Route, ownFees: ReadonlySet<string>): string {
-  const count = ownFieldCount(route, ownFees);
-  return count === 0 ? "" : ` · ${String(count)} con tu valor`;
-}
-
-function withoutFirstWord(text: string): string {
-  return text.toLowerCase().split(" ").slice(1).join(" ");
-}
-
-function rateLabel(key: string): string {
-  return lowerFirst(rateField(key)?.label ?? key);
 }
 
 function FeeInputs({
@@ -172,12 +147,14 @@ function FeeInputs({
   readonly onMinimum: RouteCardProps["onMinimum"];
   readonly onResetFee: RouteCardProps["onResetFee"];
 }) {
+  const t = useTexts();
   const valueInput = useRef<HTMLInputElement>(null);
   const found = feeDefault(id);
   if (found === undefined) {
     return null;
   }
-  const { fee, label, note, provenance } = found;
+  const { fee, provenance } = found;
+  const { label, note } = feeTexts(t, id);
   const valueId = fieldId.fee(id);
   const own = reading.ownFees.has(id);
   const minimumId = fieldId.minimum(id);
@@ -196,24 +173,24 @@ function FeeInputs({
         inputRef={valueInput}
       >
         <details className="fee-details">
-          <summary aria-label={`${feeStatusText(provenance, own)}. Detalles de ${label}`}>
-            <StatusBadge provenance={provenance} own={own} /> Detalles
+          <summary aria-label={t.cards.detailsLabel(feeStatusText(t, provenance, own), label)}>
+            <StatusBadge provenance={provenance} own={own} /> {t.cards.details}
           </summary>
           {own && (
             <p className="provenance">
-              Pusiste tu valor. El de referencia es {referenceValueText(fee)}.{" "}
+              {t.cards.ownValue(referenceValueText(t, fee))}{" "}
               {/* A button: it changes the form. Focus goes to the field, which now holds the
                   reference value, since this button disappears with the mark. */}
               <button
                 type="button"
                 className="link-button"
-                aria-label={`Volver al valor de referencia: ${label}`}
+                aria-label={t.cards.backToReferenceLabel(label)}
                 onClick={() => {
                   onResetFee(id);
                   valueInput.current?.focus();
                 }}
               >
-                Volver al valor de referencia
+                {t.cards.backToReference}
               </button>
             </p>
           )}
@@ -228,7 +205,7 @@ function FeeInputs({
       {fee.kind === "percent" && fee.minimum !== null && (
         <NumberField
           id={minimumId}
-          label={`${label}: mínimo`}
+          label={t.cards.minimumLabel(label)}
           unit={fee.minimum.currency}
           value={texts.minimums[id] ?? ""}
           onChange={(text) => {
@@ -236,7 +213,7 @@ function FeeInputs({
           }}
           problem={reading.problems.get(minimumId) ?? null}
           echo={reading.echoes.get(minimumId)}
-          help="Se cobra este mínimo cuando el porcentaje da menos. Si no te lo cobran, poné 0."
+          help={t.cards.minimumHelp}
         />
       )}
     </div>

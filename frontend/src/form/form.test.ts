@@ -7,11 +7,14 @@ import {
   type Comparison,
   type PositivePrice,
 } from "../calculator/index.ts";
+import { en } from "../i18n/en.ts";
+import { es } from "../i18n/es.ts";
 import {
   fieldId,
   initialTexts,
   readForm,
   withFeeReset,
+  withNumbersIn,
   withPrefill,
   type FormTexts,
 } from "./form.ts";
@@ -25,7 +28,7 @@ const PRICES = {
 };
 
 function filled(overrides: Partial<FormTexts> = {}): FormTexts {
-  return { ...initialTexts(), amount: "1.000", prices: PRICES, ...overrides };
+  return { ...initialTexts(es.numbers), amount: "1.000", prices: PRICES, ...overrides };
 }
 
 function finals(comparison: Comparison) {
@@ -36,13 +39,13 @@ function finals(comparison: Comparison) {
 
 describe("initialTexts", () => {
   it("starts the amount and every price empty", () => {
-    const texts = initialTexts();
+    const texts = initialTexts(es.numbers);
     expect(texts.amount).toBe("");
     expect(Object.values(texts.prices)).toEqual(["", "", "", "", ""]);
   });
 
   it("starts every fee at its researched value, in Argentine notation", () => {
-    const texts = initialTexts();
+    const texts = initialTexts(es.numbers);
     expect(texts.fees.bitso_taker).toBe("0,6");
     expect(texts.fees.payoneer_p2p_transfer).toBe("4");
     expect(texts.fees.arq_usd_usdc_conversion).toBe("0");
@@ -52,7 +55,7 @@ describe("initialTexts", () => {
 
 describe("readForm", () => {
   it("computes nothing until the amount and prices are typed", () => {
-    const { comparison, problems, echoes } = readForm(initialTexts());
+    const { comparison, problems, echoes } = readForm(es, initialTexts(es.numbers));
     expect(routesInOrder(comparison).every((r) => r.status === "incomplete")).toBe(true);
     expect(problems.size).toBe(0);
     expect(echoes.size).toBe(0);
@@ -60,7 +63,7 @@ describe("readForm", () => {
 
   it("computes the four routes with the researched fees", () => {
     // Same values as the calculator's end-to-end test for 1000 USD.
-    expect(finals(readForm(filled()).comparison)).toEqual([
+    expect(finals(readForm(es, filled()).comparison)).toEqual([
       ["binance_p2p_bitso", "1534005.69"],
       ["arq", "1524869.44"],
       ["mep", "1503624.13"],
@@ -70,19 +73,19 @@ describe("readForm", () => {
 
   it("uses an edited fee", () => {
     // Without ARQ's 3 USD: 960.00 x 1593.385 = 1529649.60
-    const texts = filled({ fees: { ...initialTexts().fees, arq_ach_deposit: "0" } });
-    expect(finals(readForm(texts).comparison)).toContainEqual(["arq", "1529649.60"]);
+    const texts = filled({ fees: { ...initialTexts(es.numbers).fees, arq_ach_deposit: "0" } });
+    expect(finals(readForm(es, texts).comparison)).toContainEqual(["arq", "1529649.60"]);
   });
 
   it("uses an edited minimum", () => {
     // 100 USD: 4 % is 4.00, so with no minimum ARQ gets 96.00 - 3.00 = 93.00 x 1593.385
     const texts = filled({ amount: "100", minimums: { payoneer_us_withdrawal: "0" } });
-    expect(finals(readForm(texts).comparison)).toContainEqual(["arq", "148184.80"]);
+    expect(finals(readForm(es, texts).comparison)).toContainEqual(["arq", "148184.80"]);
   });
 
   it("leaves a route incomplete when one of its fees is emptied", () => {
-    const texts = filled({ fees: { ...initialTexts().fees, bitso_taker: "" } });
-    const binance = routesInOrder(readForm(texts).comparison).find(
+    const texts = filled({ fees: { ...initialTexts(es.numbers).fees, bitso_taker: "" } });
+    const binance = routesInOrder(readForm(es, texts).comparison).find(
       (r) => r.route.id === "binance_p2p_bitso",
     );
     expect(binance?.status === "incomplete" && binance.missing).toEqual([
@@ -91,7 +94,7 @@ describe("readForm", () => {
   });
 
   it("explains a value that is not a number and does not use it", () => {
-    const { comparison, problems } = readForm(filled({ amount: "mil" }));
+    const { comparison, problems } = readForm(es, filled({ amount: "mil" }));
     expect(problems.get(fieldId.amount)).toBe("Escribí un número, por ejemplo 1.234,56.");
     expect(routesInOrder(comparison).every((r) => r.status === "incomplete")).toBe(true);
   });
@@ -107,15 +110,15 @@ describe("readForm", () => {
       "Tiene que ser mayor que 0.",
     ],
   ])("explains an invalid %s", (_what, overrides, id, message) => {
-    expect(readForm(filled(overrides)).problems.get(id)).toBe(message);
+    expect(readForm(es, filled(overrides)).problems.get(id)).toBe(message);
   });
 
   it("explains fees outside the caps, with their unit", () => {
     const texts = filled({
-      fees: { ...initialTexts().fees, bitso_taker: "25", arq_ach_deposit: "-1" },
+      fees: { ...initialTexts(es.numbers).fees, bitso_taker: "25", arq_ach_deposit: "-1" },
       minimums: { payoneer_us_withdrawal: "150" },
     });
-    const { problems } = readForm(texts);
+    const { problems } = readForm(es, texts);
     expect(problems.get(fieldId.fee("bitso_taker"))).toBe("Como máximo 20 %. Leímos 25,00 %.");
     expect(problems.get(fieldId.fee("arq_ach_deposit"))).toBe("No puede ser negativo.");
     expect(problems.get(fieldId.minimum("payoneer_us_withdrawal"))).toBe(
@@ -126,7 +129,7 @@ describe("readForm", () => {
 
 describe("numbers read a thousand times off", () => {
   const priceOf = (texts: FormTexts, key: string) => {
-    const reading = readForm(texts);
+    const reading = readForm(es, texts);
     const id = fieldId.price(key);
     return {
       problem: reading.problems.get(id),
@@ -166,18 +169,19 @@ describe("numbers read a thousand times off", () => {
   });
 
   it("rejects an amount with English thousands instead of reading it as 1 USD", () => {
-    expect(readForm(filled({ amount: "1,000" })).problems.get(fieldId.amount)).toBe(
+    expect(readForm(es, filled({ amount: "1,000" })).problems.get(fieldId.amount)).toBe(
       "Usá como mucho 2 decimales. ¿Quisiste poner 1.000?",
     );
   });
 
   it("says how a value was read only when both readings are possible", () => {
     // "1.000" as an amount and "1.540" as a MEP have only one plausible reading.
-    const plain = readForm(filled({ amount: "1.000", prices: { ...PRICES, mep: "1.540" } }));
+    const plain = readForm(es, filled({ amount: "1.000", prices: { ...PRICES, mep: "1.540" } }));
     expect(plain.echoes.size).toBe(0);
     // "1.500" for a peso fee may mean 1500 or 1,5: both are valid fees.
     const fee = readForm(
-      filled({ fees: { ...initialTexts().fees, bitso_ars_withdrawal: "1.500" } }),
+      es,
+      filled({ fees: { ...initialTexts(es.numbers).fees, bitso_ars_withdrawal: "1.500" } }),
     );
     expect(fee.echoes.get(fieldId.fee("bitso_ars_withdrawal"))).toBe("Leímos 1.500,00 ARS.");
   });
@@ -216,11 +220,11 @@ describe("numbers read a thousand times off", () => {
 
 describe("invalid fees are never read as zero", () => {
   const route = (texts: FormTexts, id: string) =>
-    routesInOrder(readForm(texts).comparison).find((r) => r.route.id === id);
+    routesInOrder(readForm(es, texts).comparison).find((r) => r.route.id === id);
 
   it("leaves the route incomplete when a fee is not a number", () => {
-    const texts = filled({ fees: { ...initialTexts().fees, arq_ach_deposit: "abc" } });
-    expect(readForm(texts).problems.get(fieldId.fee("arq_ach_deposit"))).toBe(
+    const texts = filled({ fees: { ...initialTexts(es.numbers).fees, arq_ach_deposit: "abc" } });
+    expect(readForm(es, texts).problems.get(fieldId.fee("arq_ach_deposit"))).toBe(
       "Escribí un número, por ejemplo 1.234,56.",
     );
     expect(route(texts, "arq")?.status).toBe("incomplete");
@@ -228,24 +232,26 @@ describe("invalid fees are never read as zero", () => {
 
   it("says it is the minimum that is missing", () => {
     const texts = filled({ minimums: { payoneer_us_withdrawal: "" } });
-    expect(readForm(texts).feeGaps.get("payoneer_us_withdrawal")).toBe("minimum");
+    expect(readForm(es, texts).feeGaps.get("payoneer_us_withdrawal")).toBe("minimum");
     expect(route(texts, "arq")?.status).toBe("incomplete");
   });
 
   it("tells a missing value from a missing minimum", () => {
     const both = filled({
-      fees: { ...initialTexts().fees, payoneer_us_withdrawal: "" },
+      fees: { ...initialTexts(es.numbers).fees, payoneer_us_withdrawal: "" },
       minimums: { payoneer_us_withdrawal: "x" },
     });
-    expect(readForm(both).feeGaps.get("payoneer_us_withdrawal")).toBe("both");
-    const value = filled({ fees: { ...initialTexts().fees, payoneer_us_withdrawal: "" } });
-    expect(readForm(value).feeGaps.get("payoneer_us_withdrawal")).toBe("value");
+    expect(readForm(es, both).feeGaps.get("payoneer_us_withdrawal")).toBe("both");
+    const value = filled({
+      fees: { ...initialTexts(es.numbers).fees, payoneer_us_withdrawal: "" },
+    });
+    expect(readForm(es, value).feeGaps.get("payoneer_us_withdrawal")).toBe("value");
   });
 });
 
 describe("fees typed with a leading zero or in an ambiguous way", () => {
   const withFee = (id: string, text: string) =>
-    readForm(filled({ fees: { ...initialTexts().fees, [id]: text } }));
+    readForm(es, filled({ fees: { ...initialTexts(es.numbers).fees, [id]: text } }));
 
   it("reads 0.015 % as 0,015 %, not as 15 %", () => {
     // BYMA and broker fees are 0.01 to 0.05 %; typed with a phone's dot they must stay small.
@@ -259,7 +265,7 @@ describe("fees typed with a leading zero or in an ambiguous way", () => {
 
   it("does not echo a fee whose other reading is above its cap", () => {
     // "1,500" as a USD minimum is 1,5; read as 1500 it would be above the 100 USD cap.
-    const reading = readForm(filled({ minimums: { payoneer_us_withdrawal: "1,500" } }));
+    const reading = readForm(es, filled({ minimums: { payoneer_us_withdrawal: "1,500" } }));
     expect(reading.echoes.get(fieldId.minimum("payoneer_us_withdrawal"))).toBeUndefined();
   });
 
@@ -278,16 +284,18 @@ describe("fees typed with a leading zero or in an ambiguous way", () => {
 
 describe("withFeeReset", () => {
   const edited = filled({
-    fees: { ...initialTexts().fees, payoneer_us_withdrawal: "3", bitso_taker: "0,5" },
+    fees: { ...initialTexts(es.numbers).fees, payoneer_us_withdrawal: "3", bitso_taker: "0,5" },
     minimums: { payoneer_us_withdrawal: "0" },
     ownFees: new Set(["payoneer_us_withdrawal", "bitso_taker"]),
   });
 
   it("puts one fee back to its researched value, minimum included, and no longer own", () => {
-    const back = withFeeReset(edited, "payoneer_us_withdrawal");
-    expect(back.fees.payoneer_us_withdrawal).toBe(initialTexts().fees.payoneer_us_withdrawal);
+    const back = withFeeReset(es.numbers, edited, "payoneer_us_withdrawal");
+    expect(back.fees.payoneer_us_withdrawal).toBe(
+      initialTexts(es.numbers).fees.payoneer_us_withdrawal,
+    );
     expect(back.minimums.payoneer_us_withdrawal).toBe(
-      initialTexts().minimums.payoneer_us_withdrawal,
+      initialTexts(es.numbers).minimums.payoneer_us_withdrawal,
     );
     expect(back.ownFees).toEqual(new Set(["bitso_taker"]));
     // The other fee the person set stays theirs.
@@ -295,17 +303,17 @@ describe("withFeeReset", () => {
   });
 
   it("leaves the texts as they are for a fee that is not the person's own", () => {
-    expect(withFeeReset(edited, "arq_ach_deposit")).toBe(edited);
+    expect(withFeeReset(es.numbers, edited, "arq_ach_deposit")).toBe(edited);
   });
 
   it("leaves the texts as they are for an id that is no fee", () => {
-    expect(withFeeReset(edited, "no_such_fee")).toBe(edited);
+    expect(withFeeReset(es.numbers, edited, "no_such_fee")).toBe(edited);
   });
 });
 
 describe("withPrefill", () => {
   it("fills only the empty prices", () => {
-    const start = initialTexts();
+    const start = initialTexts(es.numbers);
     const texts = { ...start, prices: { ...start.prices, bitso_usdt_ars: "1500", mep: "  " } };
     const filled = withPrefill(texts, {
       bitso_usdt_ars: "1452,3",
@@ -320,7 +328,7 @@ describe("withPrefill", () => {
   });
 
   it("ignores keys the form does not have, and changes nothing when nothing fits", () => {
-    const texts = initialTexts();
+    const texts = initialTexts(es.numbers);
     expect(withPrefill(texts, { blue: "1600" })).toBe(texts);
   });
 });
@@ -337,16 +345,46 @@ describe("readForm with estimates", () => {
   const estimates = new Map<string, PositivePrice>([[card, estimate("0.9712")]]);
 
   it("uses the estimate while the price is empty", () => {
-    const reading = readForm(initialTexts(), estimates);
+    const reading = readForm(es, initialTexts(es.numbers), estimates);
     expect([...reading.estimated]).toEqual([card]);
     expect(reading.problems.has(fieldId.price(card))).toBe(false);
   });
 
   it("uses what the person typed, even when it cannot be used", () => {
-    const start = initialTexts();
+    const start = initialTexts(es.numbers);
     for (const text of ["0,95", "abc"]) {
-      const reading = readForm({ ...start, prices: { ...start.prices, [card]: text } }, estimates);
+      const reading = readForm(
+        es,
+        { ...start, prices: { ...start.prices, [card]: text } },
+        estimates,
+      );
       expect(reading.estimated.size).toBe(0);
     }
+  });
+});
+
+describe("withNumbersIn", () => {
+  it("rewrites every number typed, so it means the same in the other language", () => {
+    const spanish = {
+      ...initialTexts(es.numbers),
+      amount: "1.452,30",
+      prices: { ...PRICES },
+      fees: { ...initialTexts(es.numbers).fees, bitso_taker: "0,5" },
+      ownFees: new Set(["bitso_taker"]),
+    };
+    const english = withNumbersIn(spanish, es.numbers, en.numbers);
+    expect(english.amount).toBe("1,452.30");
+    expect(english.prices.mep).toBe("1,536.16");
+    expect(english.fees.bitso_taker).toBe("0.5");
+    expect(english.ownFees).toEqual(new Set(["bitso_taker"]));
+    // What the English form reads is what the Spanish one read.
+    const results = (t: typeof es, texts: FormTexts) =>
+      routesInOrder(readForm(t, texts).comparison).map((r) =>
+        r.status === "complete" ? r.result.final.amount.toFixed(2) : r.status,
+      );
+    expect(results(es, spanish)).toContain("2232986.05");
+    expect(results(en, english)).toEqual(results(es, spanish));
+    expect(english.minimums).toEqual(initialTexts(en.numbers).minimums);
+    expect(withNumbersIn(english, en.numbers, es.numbers)).toEqual(spanish);
   });
 });

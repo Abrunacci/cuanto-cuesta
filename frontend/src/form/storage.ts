@@ -3,20 +3,25 @@
  * kept: a price from another day misleads, so they start empty on every visit and the latest ones
  * are prefilled with their age.
  *
- * The stored text carries a format version. Texts are restored as typed and then read like
- * anything typed, so a wrong one shows its problem; what does not fit the format (another
- * version, a fee that no longer exists, a value that is not text or is longer than a field
- * allows) is dropped.
+ * The stored text carries a format version and the language its numbers were typed in (Spanish
+ * when it has none: it was stored before the page had another). Texts are restored as typed,
+ * converted to the page's language, and then read like anything typed, so a wrong one shows its
+ * problem; what does not fit the format (another version, a fee that no longer exists, a value
+ * that is not text or is longer than a field allows) is dropped.
  */
 
 import { feeDefault } from "../calculator/index.ts";
-import { initialTexts, MAX_FIELD_LENGTH, type FormTexts } from "./form.ts";
+import { textsFor, type Texts } from "../i18n/index.ts";
+import { isLanguage, type Language } from "../i18n/language.ts";
+import { initialTexts, MAX_FIELD_LENGTH, withNumbersIn, type FormTexts } from "./form.ts";
 
 export const STORAGE_KEY = "cuanto-cuesta:form";
 export const FORMAT_VERSION = 1;
 
 interface Stored {
   readonly version: typeof FORMAT_VERSION;
+  /** How the numbers below are written. */
+  readonly language: Language;
   readonly amount: string;
   /** Only the fees the person set, by fee id. */
   readonly fees: Readonly<Record<string, string>>;
@@ -25,7 +30,7 @@ interface Stored {
 }
 
 /** The text to store, or null when there is nothing worth remembering. */
-export function toStored(texts: FormTexts): string | null {
+export function toStored(texts: FormTexts, language: Language): string | null {
   if (texts.amount === "" && texts.ownFees.size === 0) {
     return null;
   }
@@ -38,17 +43,28 @@ export function toStored(texts: FormTexts): string | null {
       minimums[id] = minimum;
     }
   }
-  const stored: Stored = { version: FORMAT_VERSION, amount: texts.amount, fees, minimums };
+  const stored: Stored = {
+    version: FORMAT_VERSION,
+    language,
+    amount: texts.amount,
+    fees,
+    minimums,
+  };
   return JSON.stringify(stored);
 }
 
-/** The form as it was left, from the stored text; the starting form when it cannot be used. */
-export function fromStored(text: string | null): FormTexts {
-  const start = initialTexts();
+/**
+ * The form as it was left, from the stored text, with its numbers as `t`'s language writes them;
+ * the starting form when it cannot be used.
+ */
+export function fromStored(t: Texts, text: string | null): FormTexts {
   const stored = parse(text);
   if (stored === null) {
-    return start;
+    return initialTexts(t.numbers);
   }
+  // Read in the language it was typed in, then converted, fees' starting values included.
+  const typedIn = textsFor(stored.language).numbers;
+  const start = initialTexts(typedIn);
   const fees = { ...start.fees };
   const minimums = { ...start.minimums };
   const ownFees = new Set<string>();
@@ -64,13 +80,14 @@ export function fromStored(text: string | null): FormTexts {
       minimums[id] = minimum;
     }
   }
-  return {
+  const restored = {
     ...start,
     amount: isFieldText(stored.amount) ? stored.amount : "",
     fees,
     minimums,
     ownFees,
   };
+  return withNumbersIn(restored, typedIn, t.numbers);
 }
 
 function parse(text: string | null): Stored | null {
@@ -88,12 +105,14 @@ function parse(text: string | null): Stored | null {
     value.version !== FORMAT_VERSION ||
     typeof value.amount !== "string" ||
     !isRecord(value.fees) ||
-    !isRecord(value.minimums)
+    !isRecord(value.minimums) ||
+    !(value.language === undefined || isLanguage(value.language))
   ) {
     return null;
   }
   return {
     version: FORMAT_VERSION,
+    language: value.language ?? "es",
     amount: value.amount,
     fees: textsOf(value.fees),
     minimums: textsOf(value.minimums),
@@ -122,11 +141,11 @@ function isFieldText(value: string | undefined): value is string {
  * The form as remembered, or a first visit's. Reading `localStorage` itself throws when the
  * person blocked site data, so the whole read is guarded.
  */
-export function loadTexts(): FormTexts {
+export function loadTexts(t: Texts): FormTexts {
   try {
-    return fromStored(window.localStorage.getItem(STORAGE_KEY));
+    return fromStored(t, window.localStorage.getItem(STORAGE_KEY));
   } catch {
-    return initialTexts();
+    return initialTexts(t.numbers);
   }
 }
 
@@ -134,8 +153,8 @@ export function loadTexts(): FormTexts {
  * Remember the form; if the browser refuses (blocked site data, full storage, a private mode that
  * refuses writes), the page keeps working without remembering.
  */
-export function saveTexts(texts: FormTexts): void {
-  const text = toStored(texts);
+export function saveTexts(texts: FormTexts, language: Language): void {
+  const text = toStored(texts, language);
   try {
     if (text === null) {
       window.localStorage.removeItem(STORAGE_KEY);

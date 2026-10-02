@@ -83,9 +83,10 @@ module-level instances or singletons: the DB engine and the rate catalog live in
 - The calculation (`src/calculator/`) is plain TypeScript with no React, so it can be tested on
   its own. Components render and collect input; they do not compute. In the calculation every
   condition is an explicit boolean (`strict-boolean-expressions`).
-- The calculator bundles its own copy of the fee defaults (`src/calculator/data/fees.ts`).
-  `tests/config-parity.test.ts` keeps it identical to `backend/config/fees.yaml`: change both
-  together. The routes are defined only in `src/calculator/data/routes.ts`.
+- The calculator bundles its own copy of the fee defaults (`src/calculator/data/fees.ts`, with
+  their Spanish labels and notes in `src/i18n/es.ts`). `tests/config-parity.test.ts` keeps it
+  identical to `backend/config/fees.yaml`: change both together. The routes are defined only in
+  `src/calculator/data/routes.ts`.
 - Test the calculation with unit tests and the screen with Testing Library, through what the
   person sees and does (labels, roles, text), not component internals.
 - The page must work on a phone: mobile-first layout, real `<label>`s, keyboard and screen-reader
@@ -120,8 +121,17 @@ module-level instances or singletons: the DB engine and the rate catalog live in
 ## Language
 
 - Code, comments, commits, PR descriptions and the README are in English.
-- Text shown on screen is in Spanish: fee labels and notes in `fees.yaml`, route names, step
-  labels and warnings in the calculator's route data, and the frontend copy. The API returns error
+- The page is in Spanish by default and in English too. Every text shown on screen lives in one
+  file per language, `frontend/src/i18n/es.ts` and `en.ts`, both with the `Texts` shape of
+  `texts.ts`, so the build fails when a language misses a text. Routes, steps, prices and fees are
+  data with ids; their names, labels, notes and warnings are in those files, by id, and
+  `i18n.test.ts` checks both name every one. No i18n library: `textsFor(language)` picks the file
+  and components read it with `useTexts()`.
+- Add a text to `texts.ts` and to both languages in the same change. A text that depends on values
+  is a function that takes them already formatted (`t.numbers` formats numbers and money in the
+  page's language). Proper names (Payoneer, Binance, Bitso, ARQ, MEP) and the product's name stay
+  as they are; the content is about Argentina in both languages.
+- Fee labels and notes in `fees.yaml` are in Spanish, as `es.ts` shows them. The API returns error
   codes, not sentences, and the frontend writes the message.
 
 ## Types

@@ -1,8 +1,7 @@
 import type { Route } from "../calculator/index.ts";
 import { fieldId } from "../form/form.ts";
 import { feesToReview, reviewSummary } from "../form/review.ts";
-import { lowerFirst } from "../text/case.ts";
-import { formatFeeValue } from "../text/numbers.ts";
+import { feeInSentence, feeTexts, useTexts } from "../i18n/index.ts";
 import { routeReviewId } from "./ids.ts";
 import { InPageAnchor, LinkList, type InPageLink } from "./LinkList.tsx";
 
@@ -22,8 +21,9 @@ interface RouteReviewProps {
  * line still counts what there is to check.
  */
 export function RouteReview({ route, ownFees, open, onToggle, onGoToField }: RouteReviewProps) {
+  const t = useTexts();
   const review = feesToReview(route, ownFees);
-  const summary = reviewSummary(review);
+  const summary = reviewSummary(t, review);
   if (summary === null) {
     return null;
   }
@@ -36,8 +36,9 @@ export function RouteReview({ route, ownFees, open, onToggle, onGoToField }: Rou
       onGoToField(route.id, fieldId.fee(id));
     },
   });
-  const links = estimated.map(({ fee, label }) => link(fee.id, lowerFirst(label)));
-  const ownLinks = own.map(({ fee, label }) => link(fee.id, lowerFirst(label)));
+  const links = estimated.map(({ fee }) => link(fee.id, feeInSentence(t, fee.id)));
+  const ownLinks = own.map(({ fee }) => link(fee.id, feeInSentence(t, fee.id)));
+  const estimatedText = t.review.estimated(links.length);
   return (
     <details
       className="review"
@@ -49,24 +50,22 @@ export function RouteReview({ route, ownFees, open, onToggle, onGoToField }: Rou
       <summary id={routeReviewId(route.id)} className="jump-target">
         {summary}
       </summary>
-      {toSet.map(({ fee, label }) => (
+      {toSet.map(({ fee }) => (
         <p key={fee.id}>
-          <InPageAnchor link={link(fee.id, label)} />: está en {formatFeeValue(fee)}, poné tu valor.
+          <InPageAnchor link={link(fee.id, feeTexts(t, fee.id).label)} />
+          {t.review.toSet(t.numbers.feeValue(fee))}
         </p>
       ))}
-      {links.length === 1 && (
+      {links.length > 0 && (
         <p>
-          Incluye una comisión estimada: <LinkList links={links} />. Revisala si sabés la tuya.
-        </p>
-      )}
-      {links.length > 1 && (
-        <p>
-          Incluye comisiones estimadas: <LinkList links={links} />. Revisalas si sabés las tuyas.
+          {estimatedText.before}
+          <LinkList links={links} />
+          {estimatedText.after}
         </p>
       )}
       {ownLinks.length > 0 && (
         <p className="muted">
-          Con tu valor: <LinkList links={ownLinks} />.
+          {t.review.own} <LinkList links={ownLinks} />.
         </p>
       )}
     </details>

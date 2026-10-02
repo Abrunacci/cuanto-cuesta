@@ -113,42 +113,10 @@ describe("the bundled routes and fees", () => {
     expect(withSpread.final.amount.toFixed(2)).toBe("1428300.00");
   });
 
-  it("give every price a short label", () => {
-    expect(RATE_FIELDS.filter((field) => field.shortLabel.trim() === "").map((f) => f.key)).toEqual(
-      [],
-    );
-  });
-
-  it('say "riesgo" in every risk label, the word the phone\'s bar shows', () => {
-    const risks = ROUTES.flatMap((r) => (r.risk === null ? [] : [r.risk.label]));
-    expect(risks.filter((label) => !/\briesgo\b/i.test(label))).toEqual([]);
-  });
-
-  it("mark Binance P2P + Bitso as the one risky route, with what it risks", () => {
+  it("mark Binance P2P + Bitso as the one risky route, with the risk of a blocked account", () => {
     expect(ROUTES.filter((r) => r.risk !== null).map((r) => [r.id, r.risk])).toEqual([
-      [
-        "binance_p2p_bitso",
-        {
-          label: "Riesgo de bloqueo",
-          detail: "con riesgo de bloqueo de tu cuenta de Binance",
-        },
-      ],
+      ["binance_p2p_bitso", "account_block"],
     ]);
-  });
-
-  it("warn on the P2P route that paying with Payoneer can get the Binance account blocked", () => {
-    // Payoneer is not a payment method in Binance's USD P2P ads: the warning must not suggest
-    // there are ads that accept it.
-    expect(ROUTES.find((r) => r.id === "binance_p2p_bitso")?.warnings).toEqual([
-      "Pagar P2P con Payoneer puede hacer que Binance bloquee tu cuenta. El precio P2P es el de la oferta genérica USDT/USD.",
-    ]);
-  });
-
-  it("warn on the MEP route with a link to the BCRA rules", () => {
-    const [warning] = ROUTES.find((r) => r.id === "mep")?.warnings ?? [];
-    expect(warning).toBe(
-      "[Verificá las restricciones sobre el dólar MEP](https://www.bcra.gob.ar/Pdfs/comytexord/A8481.pdf)",
-    );
   });
 });
 

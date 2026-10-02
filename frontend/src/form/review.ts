@@ -17,8 +17,7 @@ import {
   type Route,
   type Tied,
 } from "../calculator/index.ts";
-import { lowerFirst } from "../text/case.ts";
-import { joinSpanish } from "../text/lists.ts";
+import { rateInSentence, type Texts } from "../i18n/index.ts";
 import { fieldId } from "./form.ts";
 
 export interface FeesToReview {
@@ -46,18 +45,16 @@ export function feesToReview(route: Route, ownFees: ReadonlySet<string>): FeesTo
  * counted, so a 0 left to set is seen without opening it; or, with nothing to check, how many
  * fees hold the person's value. Null when the route has none of either.
  */
-export function reviewSummary(review: FeesToReview): string | null {
+export function reviewSummary(t: Texts, review: FeesToReview): string | null {
   const { toSet, estimated, own } = review;
   if (!hasFeesToCheck(review)) {
-    return own.length > 0 ? `Con tu valor: ${count(own.length, "comisión", "comisiones")}` : null;
+    return own.length > 0 ? t.review.ownFees(own.length) : null;
   }
   const parts = [
-    ...(toSet.length > 0 ? [count(toSet.length, "valor para poner", "valores para poner")] : []),
-    ...(estimated.length > 0
-      ? [count(estimated.length, "comisión estimada", "comisiones estimadas")]
-      : []),
+    ...(toSet.length > 0 ? [t.review.valuesToSet(toSet.length)] : []),
+    ...(estimated.length > 0 ? [t.review.estimatedFees(estimated.length)] : []),
   ];
-  return `Qué revisar: ${joinSpanish(parts)}`;
+  return t.review.whatToCheck(t.list(parts));
 }
 
 /** Whether any fee holds a value to set or an estimate; the person's own values do not count. */
@@ -73,16 +70,21 @@ export function reviewOpensList(route: Route, ownFees: ReadonlySet<string>): boo
   return hasFeesToCheck(feesToReview(route, ownFees));
 }
 
-function count(n: number, one: string, many: string): string {
-  return `${String(n)} ${n === 1 ? one : many}`;
-}
-
-/** Labels of the unusual prices a route's result depends on: the rates it converts with. */
-export function unusualPrices(route: Route, warnings: ReadonlyMap<string, string>): string[] {
+/** Keys of the unusual prices a route's result depends on: the rates it converts with. */
+export function unusualPriceKeys(route: Route, warnings: ReadonlyMap<string, string>): string[] {
   const keys = routeRateKeys(route);
   return RATE_FIELDS.filter(
     (field) => keys.has(field.key) && warnings.has(fieldId.price(field.key)),
-  ).map((field) => lowerFirst(field.label));
+  ).map((field) => field.key);
+}
+
+/** Names of the unusual prices a route's result depends on, as they read inside a sentence. */
+export function unusualPrices(
+  t: Texts,
+  route: Route,
+  warnings: ReadonlyMap<string, string>,
+): string[] {
+  return unusualPriceKeys(route, warnings).map((key) => rateInSentence(t, key));
 }
 
 /** The keys of the prices a route converts with. */
@@ -103,7 +105,9 @@ export function routeNeedsReview(
   ownFees: ReadonlySet<string>,
   warnings: ReadonlyMap<string, string>,
 ): boolean {
-  return hasFeesToCheck(feesToReview(route, ownFees)) || unusualPrices(route, warnings).length > 0;
+  return (
+    hasFeesToCheck(feesToReview(route, ownFees)) || unusualPriceKeys(route, warnings).length > 0
+  );
 }
 
 /**

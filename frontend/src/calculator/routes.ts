@@ -27,34 +27,28 @@ export interface Conversion {
   readonly target: Currency;
 }
 
+/**
+ * Routes and steps carry ids, never text: what the screen calls them is in each language's texts
+ * (`src/i18n`), by id.
+ */
 export interface Step {
-  readonly label: string;
+  /** Unique within its route; a step shared by two routes has the same id in both. */
+  readonly id: string;
   readonly feeIds: readonly string[];
   readonly conversion: Conversion | null;
 }
 
 export interface Route {
   readonly id: string;
-  readonly name: string;
   readonly source: Currency;
   readonly target: Currency;
   readonly steps: readonly Step[];
-  readonly warnings: readonly string[];
   /** A route that can cost the person more than money is never recommended; null for most. */
   readonly risk: RouteRisk | null;
 }
 
-/** What a risky route can cost the person, shown on screen in Spanish. */
-export interface RouteRisk {
-  /**
-   * A few words next to the route's name: "Riesgo de bloqueo". It holds the word "riesgo": the
-   * phone's bar shows only that word and has the label read out, and what is seen must be in
-   * what is heard (a data test checks).
-   */
-  readonly label: string;
-  /** Said after what the route delivers: "con riesgo de bloqueo de tu cuenta de Binance". */
-  readonly detail: string;
-}
+/** What a risky route can cost the person: Binance blocking their account. */
+export type RouteRisk = "account_block";
 
 export interface ChargedFee {
   readonly fee: Fee;
@@ -94,11 +88,11 @@ export function routeProblems(route: Route): string[] {
   let currency = route.source;
   for (const step of route.steps) {
     if (step.conversion === null && step.feeIds.length === 0) {
-      problems.push(`Route ${route.id}: step ${step.label} neither charges fees nor converts`);
+      problems.push(`Route ${route.id}: step ${step.id} neither charges fees nor converts`);
     }
     if (step.conversion !== null) {
       if (step.conversion.target === currency) {
-        problems.push(`Route ${route.id}: step ${step.label} converts ${currency} to itself`);
+        problems.push(`Route ${route.id}: step ${step.id} converts ${currency} to itself`);
       }
       currency = step.conversion.target;
     }
@@ -161,7 +155,7 @@ function runStep(
       case "percent":
         if (fee.minimum !== null && fee.minimum.currency !== amountIn.currency) {
           throw new CurrencyMismatchError(
-            `Step ${step.label}: fee ${fee.id} has its minimum in ${fee.minimum.currency}, ` +
+            `Step ${step.id}: fee ${fee.id} has its minimum in ${fee.minimum.currency}, ` +
               `expected ${amountIn.currency}`,
           );
         }
@@ -174,7 +168,7 @@ function runStep(
           after.push(fee);
         } else {
           throw new CurrencyMismatchError(
-            `Step ${step.label}: fee ${fee.id} is in ${fee.amount.currency}, ` +
+            `Step ${step.id}: fee ${fee.id} is in ${fee.amount.currency}, ` +
               `expected ${amountIn.currency} or ${target}`,
           );
         }
