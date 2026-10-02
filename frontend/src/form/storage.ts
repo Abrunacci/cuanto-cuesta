@@ -1,6 +1,7 @@
 /**
  * What the form remembers between visits: the amount and the fees the person set. Prices are not
- * kept: a price from another day misleads, so they start empty on every visit.
+ * kept: a price from another day misleads, so they start empty on every visit and the latest ones
+ * are prefilled with their age.
  *
  * The stored text carries a format version. Texts are restored as typed and then read like
  * anything typed, so a wrong one shows its problem; what does not fit the format (another
