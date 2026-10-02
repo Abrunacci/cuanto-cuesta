@@ -25,7 +25,7 @@ route. The screen is in Spanish.
 
 Online at <https://cuanto-cuesta.abrunacci.dev>.
 
-Stage 1: a calculator that runs entirely in the browser, with no backend.
+A calculator that runs entirely in the browser; it never waits for the backend.
 
 - The person types the amount and the day's prices. Prices start empty on every visit, because an
   old price misleads.
@@ -38,9 +38,11 @@ Stage 1: a calculator that runs entirely in the browser, with no backend.
 - Money never goes through floating point: amounts are decimals (`big.js`). Fees round up and
   what is credited rounds down, to the cent.
 
-The Python backend in `backend/` holds the researched fee data (`backend/config/fees.yaml`), with
-the code that loads and checks it. Scheduled jobs and an API that build on it come in later
-stages; the calculation itself lives only in the frontend.
+The Python backend in `backend/` holds the researched fee data (`backend/config/fees.yaml`) and
+an API (FastAPI and PostgreSQL) that stores the day's prices: a separate data pipeline sends them
+to `POST /api/ingest`, and `GET /api/rates` returns the current one for each rate. The calculator
+does not read them yet; preloading the prices is the next step. The calculation itself lives
+only in the frontend. The API contract is in [backend/README.md](backend/README.md).
 
 ## Running it locally
 
@@ -68,46 +70,87 @@ because the site is served from the root of its own subdomain: see [Deploying](#
 
 ### The backend
 
+You also need Docker, for PostgreSQL (`compose.yaml` runs only the database, the same version as
+production). The first time, from the repository root:
+
+```sh
+cp .env.example .env      # local passwords and ingest token; change them
+docker compose up -d --wait
+```
+
+Then, from `backend/`, with the variables of `.env` in the shell:
+
 ```sh
 cd backend
 uv sync
+set -a; . ../.env; set +a
+uv run alembic upgrade head     # as the owner (MIGRATION_DATABASE_URL)
+uv run uvicorn cuanto_cuesta.api.app:create_app --factory --reload   # http://localhost:8000
+```
+
+The checks, which CI also runs. With the variables of `.env` in the shell, the integration tests
+run against the local PostgreSQL in a database of their own (`cuanto_cuesta_test`); without them
+they are skipped:
+
+```sh
 uv run pytest
 uv run mypy
 uv run ruff check . && uv run ruff format --check .
 ```
 
+To send prices by hand, the way the data pipeline does (in production `/api/ingest` is only
+reachable on the server's internal network, so this is how to try it):
+
+```sh
+curl -s http://localhost:8000/api/ingest \
+  -H "Authorization: Bearer $INGEST_TOKEN" -H 'Content-Type: application/json' \
+  -d '{"batch_id": "'"$(python3 -c 'import uuid; print(uuid.uuid4())')"'",
+       "rates": [{"key": "mep", "base": "USD", "quote": "ARS", "price": "1540.50",
+                  "source": "manual", "source_url": null,
+                  "observed_at": "'"$(date -u +%Y-%m-%dT%H:%M:%SZ)"'"}]}'
+curl -s http://localhost:8000/api/rates
+```
+
 ## Deploying
 
-The frontend is published to <https://cuanto-cuesta.abrunacci.dev> by the
-[Deploy workflow](.github/workflows/deploy.yml). The server side (the restricted deploy key,
-`deploy.sh`, releases and rollback) lives in the infra repository: see "Deploying a project" in
-its `ansible/README.md`.
+The [Deploy workflow](.github/workflows/deploy.yml) publishes the backend image to
+`ghcr.io/abrunacci/cuanto-cuesta-backend` and deploys it, then the site, to
+<https://cuanto-cuesta.abrunacci.dev>. The server side (the restricted deploy key, `deploy.sh`
+and `deploy-backend`, releases and rollback) lives in the infra repository: see "Deploying a
+project" and "Deploying a backend" in its `ansible/README.md`.
 
 **Before the workflow first reaches `main`**, the repository needs the `production` environment
 exactly as that section describes: required reviewers, deployments from `main` only, and the
 `DEPLOY_SSH_KEY` and `DEPLOY_KNOWN_HOSTS` secrets. A job that names a missing environment makes
 GitHub create it without any protection.
 
-1. **A push to `main`** (a merged pull request) starts the workflow when it changes something the
-   build depends on: `frontend/`, `backend/config/` (the fee data the frontend's bundled copy must
-   match, checked by its tests) or the workflow itself. Other changes, such as the README or the
-   Python code, do not deploy; CI still checks them. The workflow can also be started by hand:
-   **Actions → Deploy → Run workflow**, on `main`. Use that to publish `main` after a rejected or
-   failed deploy when the next pushes do not touch those paths.
-2. **Check and build** runs the same frontend checks as CI (`npm run check`: typecheck, lint,
-   format, tests) and `npm run build`. If anything fails, nothing is deployed.
+1. **CI passes on `main`** (a merged pull request) and the workflow starts, for the commit CI
+   tested. It can also be started by hand: **Actions → Deploy → Run workflow**, on `main`, to
+   redeploy `main` without a merge.
+2. **Build the site** runs `npm run build` (CI already ran every check on that commit), and
+   **Publish the backend image** builds `backend/Dockerfile` and pushes it, tagged with the commit,
+   keeping the 6 newest versions. If either fails, nothing is deployed.
 3. **Deploy to production** waits for approval: the `production` environment requires a reviewer.
    The run shows **Review deployments**; approve it there, or reject it to skip this deploy. Only
    `main` can use the environment and its secrets. Deploys run one at a time, and a run waiting
    for approval holds the queue: reject the ones you will not approve. The build is kept for 7
    days, so an approval can come later than the push; within those days, **Re-run failed jobs**
    can retry just the deploy.
-4. **The deploy** sends `frontend/dist` to the server over SSH, checking the server's host key
-   against the pinned `known_hosts` line. The server checks the archive and switches to the new
-   release atomically; if it rejects the upload, the job fails and what was published stays
-   published.
-5. **The published site is checked**: the job fails unless the site serves exactly this build's
-   files: its `index.html` and the assets it loads.
+4. **The backend** is deployed by digest, only while the repository variable `DEPLOY_BACKEND` is
+   `true` (**Settings → Secrets and variables → Actions → Variables**); until infra runs the
+   backend, leave it unset and the site deploys alone. The server dumps the database, runs
+   `alembic upgrade head` as the database owner, switches the container and puts the previous one
+   back if `/api/health` does not answer; a failed backend deploy stops the job before the site.
+5. **The site** goes to the server over SSH, checking the server's host key against the pinned
+   `known_hosts` line. The server checks the archive and switches to the new release atomically;
+   if it rejects the upload, the job fails and what was published stays published.
+6. **The published site is checked**: the job fails unless the site serves exactly this build's
+   files: its `index.html` and the assets it loads. With the backend deployed, it also checks that
+   `/api/health` answers and that `/api/ingest` does not answer from the public proxy.
+
+The backend reads `DATABASE_URL` and `INGEST_TOKEN` (and `INGEST_TOKEN_NEXT` while rotating the
+token); the migrations read `MIGRATION_DATABASE_URL` and `APP_DB_USER`. Infra generates them all
+on the server; none of them is in this repository.
 
 Each release on the server is named after its UTC time and commit
 (`20260925T141500Z-3f9c2ab1d4e0`), and the job's log shows it
@@ -115,17 +158,18 @@ Each release on the server is named after its UTC time and commit
 
 ### Going back
 
-- **Redeploy an earlier commit from GitHub.** Open that commit's run under **Actions → Deploy**
-  (or, if it has none because it did not change the site, the run of the last commit before it
-  that deployed), choose **Re-run all jobs**, and approve the deploy. It rebuilds that commit and
-  publishes it as a new release. GitHub keeps runs re-runnable for 30 days; for an older commit,
-  revert to it in a pull request instead.
+- **Redeploy an earlier commit from GitHub.** Open that commit's run under **Actions → Deploy**,
+  choose **Re-run all jobs**, and approve the deploy. It rebuilds that commit and publishes it as
+  a new release. Migrations are never undone: an earlier backend runs on the migrated schema.
+  GitHub keeps runs re-runnable for 30 days; for an older commit, revert to it in a pull request
+  instead.
 - **Switch back on the server, without rebuilding.** The server keeps the last releases, and the
   admin can publish an earlier one with `site-rollback`, instantly and without a CI run. See the
   deploy notes in the
   [infra repository's README](https://github.com/Abrunacci/infra/blob/main/ansible/README.md#design-notes).
-  The next deploy publishes its own release as usual, so fix `main` (or reject that deploy) before
-  the next push if the problem is in the code.
+  The backend's equivalent is `backend-rollback`, also for the admin. The next deploy publishes
+  its own release as usual, so fix `main` (or reject that deploy) before the next push if the
+  problem is in the code.
 
 ## Contributing
 

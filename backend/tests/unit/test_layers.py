@@ -48,3 +48,15 @@ def test_layer_imports_only_stdlib_and_inner_layers(
         )
     }
     assert offending == set()
+
+
+def test_nothing_imports_the_api() -> None:
+    """``api`` is the composition root: it imports the other layers, never the other way round."""
+    offending = {
+        f"{path.relative_to(PACKAGE_DIR)}: {module}"
+        for path in PACKAGE_DIR.rglob("*.py")
+        if "api" not in path.relative_to(PACKAGE_DIR).parts
+        for module in _imported_modules(path)
+        if module.startswith("cuanto_cuesta.api")
+    }
+    assert offending == set()

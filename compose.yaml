@@ -1,0 +1,29 @@
+# Local development: only Postgres. The backend runs with uv and the frontend with npm
+# (README, "Running locally"). Same version as production and CI.
+name: cuanto-cuesta
+
+services:
+  db:
+    image: postgres:17.11-trixie
+    environment:
+      # The owner: creates the schema and runs the migrations, as infra's owner role does.
+      POSTGRES_DB: cuanto_cuesta
+      POSTGRES_USER: cuanto_cuesta
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?copy .env.example to .env}
+      # The role the app logs in as; backend/docker/initdb creates it on a fresh volume.
+      APP_DB_USER: cuanto_cuesta_app
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD:?copy .env.example to .env}
+    ports:
+      # Loopback only, and 5433 by default: 5432 is often taken by another Postgres.
+      - "127.0.0.1:${DB_PORT:-5433}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backend/docker/initdb:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  postgres_data:

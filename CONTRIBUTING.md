@@ -3,21 +3,23 @@
 These are the conventions for code and reviews in this repo. They are settled; a PR that changes
 one should say so in its description.
 
-The app is built in three stages:
+The app is built in small steps that each work end to end:
 
 1. A calculator that runs in the browser (`frontend/`). Everything is entered by hand, except the
-   fee defaults, which ship with the page. There is no backend.
-2. Scheduled jobs that fetch fee defaults and the MEP rate.
-3. Storing those values so the frontend can preload them.
+   fee defaults, which ship with the page.
+2. The day's prices are fetched by a separate data pipeline (another repository), which sends
+   them to this backend's `POST /api/ingest`; the backend keeps the current one per rate and
+   serves them at `GET /api/rates`. This repository owns that contract (`backend/README.md`).
+3. The calculator preloads those prices, marking the ones that may be old.
 
-Stage 1 is in progress. The calculation lives only in `frontend/src/calculator/`. `backend/`
-holds what stages 2 and 3 build on: the researched fee defaults (`config/fees.yaml`), their
-loader and checks, and the value types they use. The rules below for the API and Postgres apply
-when those parts are added.
+Steps 1 and 2 are done. The calculation lives only in `frontend/src/calculator/`. The fees stay
+hand-researched in `backend/config/fees.yaml` with the frontend's copy; the backend does not
+serve them.
 
 ## Before a PR
 
-From `backend/`:
+From `backend/`, with PostgreSQL running and the variables of `.env` in the shell (README,
+"Running it locally"), so the integration tests run instead of being skipped:
 
 ```sh
 uv run pytest
@@ -38,19 +40,37 @@ All of them must pass; CI runs the same commands.
 
 Layers under `backend/src/cuanto_cuesta/`:
 
-- `domain/`: money, percentages and fees. It uses the standard library only (an import test
-  enforces this) and does no I/O.
-- `application/`: use cases, the fee catalog and its caps. It defines `Protocol`s only for things
-  that vary at runtime (`QuoteProvider`, `QuoteRepository`).
-- `infrastructure/`: implements those protocols (HTTP quote providers, Postgres). It also loads
-  `fees.yaml` into the fee catalog, and reads settings.
-- `api/`: FastAPI. It translates HTTP and is the composition root: its `lifespan` and dependency
-  wiring are the only code outside `infrastructure/` that imports it.
+- `domain/`: money, percentages, fees and quotes (with how a newly observed quote relates to the
+  current one). It uses the standard library only (an import test enforces this) and does no I/O.
+- `application/`: use cases and catalogs: the fee catalog and its caps, the rate catalog, and
+  ingesting and reading quotes. It defines `Protocol`s only for things that vary at runtime
+  (`QuoteStore`).
+- `infrastructure/`: implements those protocols (`SqlQuoteStore`, over Postgres), loads
+  `fees.yaml` and `rates.yaml` into their catalogs, and reads settings from the environment.
+- `api/`: FastAPI. It translates HTTP (`wire.py`: the contract's JSON in and out) and is the
+  composition root: `create_app` and its `lifespan` are the only code outside `infrastructure/`
+  that imports it.
 
 Dependencies point inwards: `application → domain` and `infrastructure → application, domain`;
-`api` may import all three, and nothing imports `api`. There are no module-level instances or
-singletons: the DB engine and the HTTP client live in the FastAPI `lifespan` and are injected
-with `Depends`.
+`api` may import all three, and nothing imports `api` (a test enforces both). There are no
+module-level instances or singletons: the DB engine and the rate catalog live in the FastAPI
+`lifespan` and are injected with `Depends`, and uvicorn builds the app with `--factory`.
+
+## Postgres
+
+- SQLAlchemy Core with psycopg 3, no ORM. `infrastructure/db.py` describes the tables; Alembic
+  migrations in `backend/migrations/` create them. Write each migration by hand and keep it
+  working with the previous release: infra runs it before switching containers, and a release
+  that fails its health check is rolled back while the schema stays migrated. Add before
+  removing.
+- Two roles, as infra creates them: the owner (`MIGRATION_DATABASE_URL`) runs the migrations,
+  and the app connects as a role that owns nothing (`DATABASE_URL`, named in `APP_DB_USER`).
+  The first migration grants that role `SELECT, INSERT, UPDATE` on every table, present and
+  future; nothing grants it `DELETE` or schema changes. With a single role, `DATABASE_URL` runs
+  the migrations too.
+- A request is one transaction. Ingests take a transaction-level advisory lock, so each one
+  compares with what the previous one stored.
+- Local and CI run the production version, `postgres:17.11-trixie`.
 
 ## Frontend
 
@@ -119,8 +139,8 @@ with `Depends`.
 
 ## Fees
 
-- The researched defaults live in `backend/config/fees.yaml`, versioned in git; in stage 1 the
-  frontend bundles them. Where the values fetched in stage 2 are stored is decided in that stage.
+- The researched defaults live in `backend/config/fees.yaml`, versioned in git, and the frontend
+  bundles them. They are researched by hand; the backend does not ingest or serve them.
 - Every fee in `fees.yaml` has `source_url`, `verified_at` and
   `status: verified | pending | user_defined`. These are metadata for the app, not fields of the
   domain types.
@@ -143,12 +163,25 @@ with `Depends`.
   one TypeScript data module (`src/calculator/data/routes.ts`). A route whose data is wrong is
   shown as not computable, and the others are still compared.
 
+## Rates
+
+- The five rates the calculator asks for live in `backend/config/rates.yaml`: each key's currency
+  pair, the range its price can plausibly be in and whether it carries `estimated_final`. The
+  backend rejects an ingested price outside that range; the calculator warns about a typed one
+  with the same ranges (`src/form/plausible.ts`), and `tests/config-parity.test.ts` keeps the two
+  equal.
+- The backend never computes with a quote: it validates and stores it. The API returns quotes as
+  decimal strings with their `observed_at`; deciding whether one is fresh is the calculator's.
+
 ## Deploy
 
-- Stage 1 ships the static files that `npm run build` writes to `frontend/dist/` to
-  https://cuanto-cuesta.abrunacci.dev, through `.github/workflows/deploy.yml` (see README →
+- `.github/workflows/deploy.yml` runs after CI passes on `main`: it publishes the backend image
+  (`backend/Dockerfile`) to GHCR, deploys it by digest, then ships the static files that
+  `npm run build` writes to `frontend/dist/` to https://cuanto-cuesta.abrunacci.dev (see README →
   Deploying). The site is served from the root of its own subdomain, so asset paths are absolute
   (`base: "/"`).
+- The image runs one uvicorn process on port 8000, as a non-root user; infra's proxy sends
+  `/api/*` to it, except `/api/ingest`, which is only reachable on the internal network.
 
 ## Tests
 
@@ -156,8 +189,9 @@ with `Depends`.
 - Domain tests are unit tests with fixed inputs and hand-checked expected values. When the
   arithmetic is not obvious, show it in a comment.
 - Cover the edges of the change: zero, bounds, rounding and invalid input.
-- Test quote providers against recorded responses in `backend/tests/providers/fixtures`, never
-  against the network. Integration tests run against a real Postgres in Docker.
+- Integration tests (`backend/tests/integration`) run the API against a real Postgres, in a
+  database of their own, migrated as the owner and used as the app's role, so a missing grant
+  fails there. They skip locally without the database variables and fail in CI.
 - Test behaviour, not implementation. A test that would still pass with the code wrong is a bug.
 
 ## Git
