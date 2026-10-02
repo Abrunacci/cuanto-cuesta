@@ -1,7 +1,20 @@
 import { describe, expect, it } from "vitest";
 
-import { routesInOrder, type Comparison } from "../calculator/index.ts";
-import { fieldId, initialTexts, readForm, withFeeReset, type FormTexts } from "./form.ts";
+import {
+  Decimal,
+  positivePrice,
+  routesInOrder,
+  type Comparison,
+  type PositivePrice,
+} from "../calculator/index.ts";
+import {
+  fieldId,
+  initialTexts,
+  readForm,
+  withFeeReset,
+  withPrefill,
+  type FormTexts,
+} from "./form.ts";
 
 const PRICES = {
   mep: "1.536,16",
@@ -287,5 +300,53 @@ describe("withFeeReset", () => {
 
   it("leaves the texts as they are for an id that is no fee", () => {
     expect(withFeeReset(edited, "no_such_fee")).toBe(edited);
+  });
+});
+
+describe("withPrefill", () => {
+  it("fills only the empty prices", () => {
+    const start = initialTexts();
+    const texts = { ...start, prices: { ...start.prices, bitso_usdt_ars: "1500", mep: "  " } };
+    const filled = withPrefill(texts, {
+      bitso_usdt_ars: "1452,3",
+      mep: "1540",
+      arq_usd_ars: "1530",
+    });
+    expect(filled.prices).toMatchObject({
+      bitso_usdt_ars: "1500",
+      mep: "1540",
+      arq_usd_ars: "1530",
+    });
+  });
+
+  it("ignores keys the form does not have, and changes nothing when nothing fits", () => {
+    const texts = initialTexts();
+    expect(withPrefill(texts, { blue: "1600" })).toBe(texts);
+  });
+});
+
+describe("readForm with estimates", () => {
+  const card = "binance_card_usd_usdt";
+  const estimate = (text: string) => {
+    const result = positivePrice(new Decimal(text));
+    if (!result.ok) {
+      throw new Error(text);
+    }
+    return result.value;
+  };
+  const estimates = new Map<string, PositivePrice>([[card, estimate("0.9712")]]);
+
+  it("uses the estimate while the price is empty", () => {
+    const reading = readForm(initialTexts(), estimates);
+    expect([...reading.estimated]).toEqual([card]);
+    expect(reading.problems.has(fieldId.price(card))).toBe(false);
+  });
+
+  it("uses what the person typed, even when it cannot be used", () => {
+    const start = initialTexts();
+    for (const text of ["0,95", "abc"]) {
+      const reading = readForm({ ...start, prices: { ...start.prices, [card]: text } }, estimates);
+      expect(reading.estimated.size).toBe(0);
+    }
   });
 });

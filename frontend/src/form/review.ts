@@ -79,12 +79,17 @@ function count(n: number, one: string, many: string): string {
 
 /** Labels of the unusual prices a route's result depends on: the rates it converts with. */
 export function unusualPrices(route: Route, warnings: ReadonlyMap<string, string>): string[] {
-  const keys = new Set(
-    route.steps.flatMap((step) => (step.conversion !== null ? [step.conversion.rateKey] : [])),
-  );
+  const keys = routeRateKeys(route);
   return RATE_FIELDS.filter(
     (field) => keys.has(field.key) && warnings.has(fieldId.price(field.key)),
   ).map((field) => lowerFirst(field.label));
+}
+
+/** The keys of the prices a route converts with. */
+export function routeRateKeys(route: Route): ReadonlySet<string> {
+  return new Set(
+    route.steps.flatMap((step) => (step.conversion !== null ? [step.conversion.rateKey] : [])),
+  );
 }
 
 /** Whether a route's result rests on something to check: an estimate, a 0 to set, an odd price. */

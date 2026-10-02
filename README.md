@@ -27,8 +27,15 @@ Online at <https://cuanto-cuesta.abrunacci.dev>.
 
 A calculator that runs entirely in the browser; it never waits for the backend.
 
-- The person types the amount and the day's prices. Prices start empty on every visit, because an
-  old price misleads.
+- The person types the amount. The day's prices come prefilled with the latest ones the backend
+  has (`GET /api/rates`), and the person can change them. Under a price that may be old there is a
+  warning with its age; under a fresh one, nothing. A price that arrives never replaces what the
+  person typed, and if the backend does not answer the fields stay empty, as before.
+- Freshness: a crypto price is fresh for 30 minutes. The MEP is too during market hours (assumed
+  Monday to Friday, 11:00 to 17:00 in Buenos Aires, no holidays); outside them, the value read at
+  the last close stands until the market opens. Ages use the backend's clock (`server_time`).
+- The card price is never prefilled: while its field is empty, its route is computed with the
+  estimated final price (`estimated_final`) and marked "Precio estimado".
 - Every fee comes prefilled and can be edited. Most start at a researched value (some are
   estimates or upper bounds), with its source and the date it was checked. The P2P premium starts
   at 0, because only the person knows what they pay over the P2P price. A fee the person edits is
@@ -40,9 +47,8 @@ A calculator that runs entirely in the browser; it never waits for the backend.
 
 The Python backend in `backend/` holds the researched fee data (`backend/config/fees.yaml`) and
 an API (FastAPI and PostgreSQL) that stores the day's prices: a separate data pipeline sends them
-to `POST /api/ingest`, and `GET /api/rates` returns the current one for each rate. The calculator
-does not read them yet; preloading the prices is the next step. The calculation itself lives
-only in the frontend. The API contract is in [backend/README.md](backend/README.md).
+to `POST /api/ingest`, and `GET /api/rates` returns the current one for each rate, which the
+calculator prefills. The calculation itself lives only in the frontend. The API contract is in [backend/README.md](backend/README.md).
 
 ## Running it locally
 
@@ -55,6 +61,9 @@ cd frontend
 npm install
 npm run dev       # http://localhost:5173
 ```
+
+The dev server forwards `/api` to the backend on `localhost:8000`. Without the backend running,
+the price fields simply start empty.
 
 Other commands, from `frontend/`:
 

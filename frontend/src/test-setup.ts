@@ -1,10 +1,13 @@
 import "@testing-library/jest-dom/vitest";
 import { cleanup } from "@testing-library/react";
-import { afterEach } from "vitest";
+import { afterEach, vi } from "vitest";
 
 import { scrollIntoView } from "./test-scroll.ts";
 
 Element.prototype.scrollIntoView = scrollIntoView;
+
+// No backend in tests: the latest prices never arrive unless a test passes its own `loadRates`.
+vi.stubGlobal("fetch", () => new Promise<never>(() => undefined));
 
 afterEach(() => {
   cleanup();

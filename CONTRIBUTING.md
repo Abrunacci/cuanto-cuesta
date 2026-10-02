@@ -12,7 +12,7 @@ The app is built in small steps that each work end to end:
    serves them at `GET /api/rates`. This repository owns that contract (`backend/README.md`).
 3. The calculator preloads those prices, marking the ones that may be old.
 
-Steps 1 and 2 are done. The calculation lives only in `frontend/src/calculator/`. The fees stay
+All three are done. The calculation lives only in `frontend/src/calculator/`. The fees stay
 hand-researched in `backend/config/fees.yaml` with the frontend's copy; the backend does not
 serve them.
 

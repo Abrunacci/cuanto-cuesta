@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 
 import { MAX_FIELD_LENGTH } from "../form/form.ts";
+import type { FieldNotice } from "../quotes/notices.ts";
 
 interface NumberFieldProps {
   readonly id: string;
@@ -15,6 +16,11 @@ interface NumberFieldProps {
   readonly warning?: string | undefined;
   /** How an ambiguous value was read, e.g. "Leímos 1.030,00 ARS por USD." */
   readonly echo?: string | undefined;
+  /**
+   * About a value the field did not get from the person (a prefilled price, an estimate): shown
+   * from the start, unlike a warning, since there is nothing to wait for the person to finish.
+   */
+  readonly notice?: FieldNotice | null | undefined;
   /** Short help, part of the field's description. */
   readonly help?: string | undefined;
   /**
@@ -38,6 +44,7 @@ export function NumberField({
   problem,
   warning,
   echo,
+  notice,
   help,
   helpWhileNeeded = false,
   children,
@@ -98,12 +105,14 @@ export function NumberField({
     problem: `${id}-problem`,
     warning: `${id}-warning`,
     echo: `${id}-echo`,
+    notice: `${id}-notice`,
     help: `${id}-help`,
   };
   const describedBy = [
     shownProblem !== null ? ids.problem : null,
     shownWarning !== null ? ids.warning : null,
     echo !== undefined ? ids.echo : null,
+    notice != null ? ids.notice : null,
     help !== undefined ? ids.help : null,
   ]
     .filter((part) => part !== null)
@@ -152,6 +161,11 @@ export function NumberField({
       {echo !== undefined && (
         <p id={ids.echo} className="field-echo">
           {echo}
+        </p>
+      )}
+      {notice != null && (
+        <p id={ids.notice} className={notice.kind === "warning" ? "field-warning" : "field-echo"}>
+          {notice.text}
         </p>
       )}
       {help !== undefined && (

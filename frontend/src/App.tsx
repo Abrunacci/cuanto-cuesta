@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { flushSync } from "react-dom";
 
 import { ROUTES } from "./calculator/index.ts";
@@ -13,10 +13,24 @@ import { fieldId } from "./form/form.ts";
 import { reviewOpensList } from "./form/review.ts";
 import { barText, hasAmountProblem } from "./form/summary.ts";
 import { useForm } from "./form/useForm.ts";
+import { cardEstimate } from "./quotes/notices.ts";
+import { fetchRates, useRates, type LoadRates } from "./quotes/useRates.ts";
 
-export function App() {
-  const form = useForm();
+interface AppProps {
+  /** Where the latest prices come from; the backend unless a test says otherwise. */
+  readonly loadRates?: LoadRates;
+}
+
+export function App({ loadRates = fetchRates }: AppProps) {
+  const rates = useRates(loadRates);
+  const snapshot = rates?.snapshot ?? null;
+  const form = useForm(snapshot);
   const { texts, reading } = form;
+  const now = rates?.now ?? null;
+  const estimate = useMemo(
+    () => (snapshot === null || now === null ? null : cardEstimate(snapshot, now)),
+    [snapshot, now],
+  );
   const [openRoutes, setOpenRoutes] = useState<ReadonlySet<string>>(new Set());
   const [openReviews, setOpenReviews] = useState<ReadonlySet<string>>(new Set());
   const amountHasProblem = hasAmountProblem(reading);
@@ -73,6 +87,9 @@ export function App() {
           <Inputs
             texts={texts}
             reading={reading}
+            rates={rates}
+            prefilled={form.prefilled}
+            estimate={estimate}
             onAmount={form.setAmount}
             onPrice={form.setPrice}
           />
@@ -85,6 +102,8 @@ export function App() {
             amountHasProblem={amountHasProblem}
             warnings={reading.warnings}
             ownFees={reading.ownFees}
+            estimate={estimate}
+            estimated={reading.estimated}
             openReviews={openReviews}
             onReviewToggle={setReviewOpen}
             onGoToField={goToField}

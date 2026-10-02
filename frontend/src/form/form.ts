@@ -65,6 +65,8 @@ export interface FormReading {
   readonly feeGaps: ReadonlyMap<string, FeeGap>;
   /** Ids of the fees the person set; the rest are at their researched value. */
   readonly ownFees: ReadonlySet<string>;
+  /** Keys of the prices left empty that the comparison takes from an estimate. */
+  readonly estimated: ReadonlySet<string>;
 }
 
 /** Longer than any number anyone types; fields stop there, and storage drops anything longer. */
@@ -77,7 +79,10 @@ export const fieldId = {
   minimum: (id: string) => `fee-${id}-minimum`,
 };
 
-/** Prices and the amount start empty (an old price misleads); fees start at the researched value. */
+/**
+ * Prices and the amount start empty (the latest prices are prefilled once they arrive, see
+ * `withPrefill`); fees start at the researched value.
+ */
 export function initialTexts(): FormTexts {
   const fees: Record<string, string> = {};
   const minimums: Record<string, string> = {};
@@ -96,7 +101,14 @@ export function initialTexts(): FormTexts {
   };
 }
 
-export function readForm(texts: FormTexts): FormReading {
+/**
+ * What the form means. A price left empty is taken from `estimates` when it has one (the card's
+ * estimated final price): what the person types always wins.
+ */
+export function readForm(
+  texts: FormTexts,
+  estimates: ReadonlyMap<string, PositivePrice> = new Map(),
+): FormReading {
   const problems = new Map<string, string>();
   const echoes = new Map<string, string>();
   const warnings = new Map<string, string>();
@@ -122,9 +134,17 @@ export function readForm(texts: FormTexts): FormReading {
   const amount = valueOf(fieldId.amount, readAmount(texts.amount));
 
   const prices = new Map<string, PositivePrice | null>();
+  const estimated = new Set<string>();
   for (const field of RATE_FIELDS) {
     const id = fieldId.price(field.key);
-    prices.set(field.key, valueOf(id, readPrice(field.key, texts.prices[field.key] ?? "")));
+    const text = texts.prices[field.key] ?? "";
+    const estimate = estimates.get(field.key);
+    if (estimate !== undefined && text.trim() === "") {
+      prices.set(field.key, estimate);
+      estimated.add(field.key);
+    } else {
+      prices.set(field.key, valueOf(id, readPrice(field.key, text)));
+    }
   }
 
   const fees = new Map<string, Fee | null>();
@@ -151,7 +171,7 @@ export function readForm(texts: FormTexts): FormReading {
     prices,
     fees,
   });
-  return { comparison, problems, echoes, warnings, feeGaps, ownFees: texts.ownFees };
+  return { comparison, problems, echoes, warnings, feeGaps, ownFees: texts.ownFees, estimated };
 }
 
 type FieldRead<T> =
@@ -315,6 +335,22 @@ function feeGap(valueMissing: boolean, minimumMissing: boolean): FeeGap | null {
     return "value";
   }
   return minimumMissing ? "minimum" : null;
+}
+
+/**
+ * The latest prices in the fields still empty: a price that arrives never replaces what the
+ * person typed. The texts come back as they are when nothing changes.
+ */
+export function withPrefill(texts: FormTexts, values: Readonly<Record<string, string>>): FormTexts {
+  const prices = { ...texts.prices };
+  let changed = false;
+  for (const [key, value] of Object.entries(values)) {
+    if (key in prices && (prices[key] ?? "").trim() === "") {
+      prices[key] = value;
+      changed = true;
+    }
+  }
+  return changed ? { ...texts, prices } : texts;
 }
 
 /**

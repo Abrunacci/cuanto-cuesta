@@ -327,6 +327,11 @@ h3 {
   color: var(--unusual);
 }
 
+/* A route computed with the card's estimate: the mark, then why and how to get the exact value. */
+.field-warning.estimate-note {
+  margin: 0 0 0.75rem;
+}
+
 .field-echo {
   margin: 0.25rem 0 0;
   font-size: 0.875rem;

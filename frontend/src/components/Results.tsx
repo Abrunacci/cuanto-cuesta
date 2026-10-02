@@ -9,8 +9,9 @@ import {
 import type { FeeGap } from "../form/form.ts";
 import { missingInputLabel } from "../form/messages.ts";
 import { commonMissing, missingFieldId, missingKey } from "../form/missing.ts";
-import { difference, unusualPrices } from "../form/review.ts";
+import { difference, routeRateKeys, unusualPrices } from "../form/review.ts";
 import { summaryText } from "../form/summary.ts";
+import type { CardEstimate } from "../quotes/notices.ts";
 import { RESULTS_TITLE_ID, routeResultId } from "./ids.ts";
 import { LinkList } from "./LinkList.tsx";
 import { RichText } from "./RichText.tsx";
@@ -26,6 +27,10 @@ interface ResultsProps {
   readonly warnings: ReadonlyMap<string, string>;
   /** Ids of the fees the person set. */
   readonly ownFees: ReadonlySet<string>;
+  /** The card's estimate, and whether the comparison is using it (its field is empty). */
+  readonly estimate: CardEstimate | null;
+  /** Keys of the prices taken from an estimate. */
+  readonly estimated: ReadonlySet<string>;
   /** Ids of the routes whose review list is open. */
   readonly openReviews: ReadonlySet<string>;
   readonly onReviewToggle: (routeId: string, open: boolean) => void;
@@ -44,6 +49,8 @@ export function Results({
   amountHasProblem,
   warnings,
   ownFees,
+  estimate,
+  estimated,
   openReviews,
   onReviewToggle,
   onGoToField,
@@ -107,6 +114,15 @@ export function Results({
               }}
               onGoToField={onGoToField}
             />
+            {entry.status === "complete" &&
+              estimate !== null &&
+              estimated.has(estimate.key) &&
+              routeRateKeys(entry.route).has(estimate.key) && (
+                <p className="field-warning estimate-note">
+                  <span className="badge badge-estimate">Precio estimado</span>{" "}
+                  {estimate.resultNote}
+                </p>
+              )}
             {entry.route.warnings.map((warning) => (
               <p key={warning} className="warning">
                 <strong>Atención:</strong> <RichText text={warning} />
