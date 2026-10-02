@@ -16,6 +16,29 @@ jobs:
   backend:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    # The same Postgres as production and compose.yaml. The integration tests (tests/integration)
+    # run against it and fail, rather than skip, when it is missing.
+    services:
+      db:
+        image: postgres:17.11-trixie
+        env:
+          POSTGRES_DB: cuanto_cuesta
+          POSTGRES_USER: cuanto_cuesta
+          POSTGRES_PASSWORD: cuanto_cuesta
+        ports:
+          - 5432:5432
+        # Without this the first connection races the server's own startup.
+        options: >-
+          --health-cmd "pg_isready -U cuanto_cuesta -d cuanto_cuesta"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    # Two roles, as infra sets them up: the owner migrates, the app connects as a role that owns
+    # nothing. These passwords only exist in this throwaway container.
+    env:
+      MIGRATION_DATABASE_URL: postgresql://cuanto_cuesta:cuanto_cuesta@localhost:5432/cuanto_cuesta
+      DATABASE_URL: postgresql://cuanto_cuesta_app:cuanto_cuesta_app@localhost:5432/cuanto_cuesta
+      APP_DB_USER: cuanto_cuesta_app
     defaults:
       run:
         working-directory: backend
@@ -28,10 +51,28 @@ jobs:
           enable-cache: true
           cache-dependency-glob: backend/uv.lock
       - run: uv sync --locked
+      # Infra's part: the app's login role exists before the migrations grant it anything.
+      - name: Create the app's login role
+        env:
+          PGPASSWORD: cuanto_cuesta
+        run: >-
+          psql -h localhost -U cuanto_cuesta -d cuanto_cuesta -v ON_ERROR_STOP=1
+          -c "CREATE ROLE cuanto_cuesta_app LOGIN NOSUPERUSER PASSWORD 'cuanto_cuesta_app'"
       - run: uv run pytest
       - run: uv run mypy
       - run: uv run ruff check .
       - run: uv run ruff format --check .
+
+  # The production image builds (deploy.yml publishes it on main). Nothing is pushed here.
+  backend-image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Build
+        run: docker build --tag cuanto-cuesta-backend:ci backend
 
   frontend:
     runs-on: ubuntu-latest

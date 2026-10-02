@@ -1,33 +1,68 @@
 name: Deploy
 
-# Publishes the frontend to https://cuanto-cuesta.abrunacci.dev on every push
-# to main that can change the site, or by hand. The server side (deploy user,
-# one key per project, deploy.sh) lives in the infra repository: see
-# "Deploying a project" in its ansible/README.md.
+# Publishes the backend image and deploys it, then the site, to
+# https://cuanto-cuesta.abrunacci.dev. The same scheme as EPB Stock's publish-image.yml; the
+# server side (the restricted deploy key, deploy.sh and deploy-backend, releases and rollbacks)
+# lives in the infra repository: see "Deploying a project" and "Deploying a backend" in its
+# ansible/README.md.
+#
+# What starts a run:
+#
+# - workflow_run of CI: when CI finishes on a push to main (every merge). It only goes on if CI
+#   passed, and never for a pull request: workflow_run fires when CI fails too, so the jobs check
+#   it. A workflow_run always runs this file as it is on main.
+# - workflow_dispatch: by hand, from main only. Redeploys main without a merge.
+#
+# The backend is deployed only while the repository variable DEPLOY_BACKEND is "true": until
+# infra runs the backend, the image is published but not deployed, and the site deploys as
+# before.
 on:
-  push:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
     branches: [main]
-    # What the build reads: the frontend, the fee config its tests keep in
-    # parity (tests/config-parity.test.ts) and this file. CI (ci.yml) has no
-    # filter and still checks every pull request and every push.
-    paths:
-      - "frontend/**"
-      - "backend/config/**"
-      - ".github/workflows/deploy.yml"
   workflow_dispatch:
 
 # Nothing by default; each job asks for what it needs.
 permissions: {}
 
-# One deploy at a time. A newer run waits instead of cancelling one that is
-# uploading.
+# One deploy at a time, never cancelled halfway: a newer run waits. If several are waiting,
+# GitHub keeps only the newest, which is the one that matters.
 concurrency:
   group: deploy-production
   cancel-in-progress: false
 
+env:
+  # Lowercase, as infra's projects.yml names it.
+  IMAGE: ghcr.io/abrunacci/cuanto-cuesta-backend
+  # Tagged versions kept in GHCR. The server keeps the last 5 releases plus the one before the
+  # latest deploy, so fewer than 6 could leave it unable to roll back to one.
+  KEEP_VERSIONS: 6
+
 jobs:
+  # The commit CI tested, not the tip of main when this run starts: if another merge landed in
+  # between, what is deployed is still what passed CI.
+  commit:
+    name: Pick the commit
+    if: >-
+      (github.event_name == 'workflow_run'
+        && github.event.workflow_run.conclusion == 'success'
+        && github.event.workflow_run.event == 'push')
+      || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    permissions: {}
+    outputs:
+      sha: ${{ steps.sha.outputs.sha }}
+    steps:
+      - id: sha
+        env:
+          SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+        run: echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+
   build:
-    name: Check and build
+    name: Build the site
+    needs: commit
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
@@ -38,54 +73,123 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: ${{ needs.commit.outputs.sha }}
           persist-credentials: false
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version-file: frontend/.nvmrc
           cache: npm
           cache-dependency-path: frontend/package-lock.json
-      # Same checks as the frontend job in ci.yml: nothing that fails there
-      # can be deployed.
+      # CI already ran every check on this commit; only the build is left.
       - run: npm ci
-      - run: npm run check
       - run: npm run build
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: dist
           path: frontend/dist/
           if-no-files-found: error
-          # Hidden files are uploaded too, so the server's rules decide: it
-          # accepts .well-known/ and rejects any other hidden file, loudly,
-          # instead of the artifact dropping them silently.
+          # Hidden files are uploaded too, so the server's rules decide: it accepts .well-known/
+          # and rejects any other hidden file, loudly, instead of the artifact dropping them.
           include-hidden-files: true
           # Long enough for an approval that comes days later.
           retention-days: 7
           # A re-run (redeploying an earlier commit) replaces its own artifact.
           overwrite: true
 
+  publish:
+    name: Publish the backend image
+    needs: commit
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      # What the deploy sends: the digest, not a tag (a tag moves).
+      digest: ${{ steps.build.outputs.digest }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.commit.outputs.sha }}
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      # provenance and sbom off: with them the image is pushed as an index with untagged
+      # manifests, which the cleanup below would delete, breaking the image. This way it is one
+      # manifest, linux/amd64.
+      - name: Build and push
+        id: build
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: backend
+          platforms: linux/amd64
+          push: true
+          provenance: false
+          sbom: false
+          tags: |
+            ${{ env.IMAGE }}:${{ needs.commit.outputs.sha }}
+            ${{ env.IMAGE }}:latest
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ needs.commit.outputs.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Summary
+        env:
+          SHA: ${{ needs.commit.outputs.sha }}
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          {
+            echo "### Published"
+            echo
+            echo "- Image: \`$IMAGE:$SHA\`"
+            echo "- Digest: \`$DIGEST\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+      # Cleanup in two steps. First the untagged versions: they lost every tag when the same
+      # commit was published again. Then, of what is left, only the newest KEEP_VERSIONS.
+      - name: Delete untagged versions
+        uses: actions/delete-package-versions@e5bc658cc4c965c472efe991f8beea3981499c55 # v5.0.0
+        with:
+          package-name: cuanto-cuesta-backend
+          package-type: container
+          min-versions-to-keep: 0
+          delete-only-untagged-versions: "true"
+      - name: Keep only the latest versions
+        uses: actions/delete-package-versions@e5bc658cc4c965c472efe991f8beea3981499c55 # v5.0.0
+        with:
+          package-name: cuanto-cuesta-backend
+          package-type: container
+          min-versions-to-keep: ${{ env.KEEP_VERSIONS }}
+
   deploy:
     name: Deploy to production
-    needs: build
-    # The production environment only accepts main; this makes the intent
-    # explicit and skips the approval request for anything else.
-    if: github.ref == 'refs/heads/main'
+    needs: [commit, build, publish]
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
-    # Required reviewers approve each run before this job starts, and only
-    # this job sees the environment's secrets.
+    # The server runs the migration (up to 10 minutes), pulls the image and checks its health.
+    timeout-minutes: 20
+    # Required reviewers approve each run before this job starts, and only this job sees the
+    # environment's secrets.
     environment:
       name: production
       url: https://cuanto-cuesta.abrunacci.dev
     permissions: {}
     env:
       SITE_URL: https://cuanto-cuesta.abrunacci.dev/
+      SERVER: deploy@server.abrunacci.dev
+      SHA: ${{ needs.commit.outputs.sha }}
+      DIGEST: ${{ needs.publish.outputs.digest }}
+      DEPLOY_BACKEND: ${{ vars.DEPLOY_BACKEND }}
     steps:
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: dist
           path: dist
 
-      - name: Deploy
+      - name: Write the deploy key
         shell: bash
         env:
           DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
@@ -96,35 +200,59 @@ jobs:
             echo "::error::DEPLOY_SSH_KEY or DEPLOY_KNOWN_HOSTS is missing in the production environment."
             exit 1
           fi
-          ssh_dir="$RUNNER_TEMP/deploy-ssh"
-          # The key exists only while this step runs, readable only by us.
-          trap 'rm -rf "$ssh_dir"' EXIT
+          case "$DIGEST" in
+            sha256:????????????????????????????????????????????????????????????????) ;;
+            *) echo "::error::The publish job gave no image digest ('$DIGEST')."; exit 1 ;;
+          esac
           umask 077
-          mkdir "$ssh_dir"
-          printf '%s\n' "$DEPLOY_SSH_KEY" > "$ssh_dir/key"
-          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > "$ssh_dir/known_hosts"
-          # Out of the environment of tar and ssh.
-          unset DEPLOY_SSH_KEY DEPLOY_KNOWN_HOSTS
-          # The server's identity is always checked against the pinned line.
+          mkdir -p "$RUNNER_TEMP/deploy-ssh"
+          printf '%s\n' "$DEPLOY_SSH_KEY" > "$RUNNER_TEMP/deploy-ssh/key"
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > "$RUNNER_TEMP/deploy-ssh/known_hosts"
+
+      # First the backend, by digest: the server dumps the database, runs the migration, switches
+      # the container and puts the previous one back if /api/health does not answer. A failure
+      # stops the job before the site is touched. stdin closed: deploy-backend reads nothing.
+      - name: Deploy the backend
+        if: env.DEPLOY_BACKEND == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -i "$RUNNER_TEMP/deploy-ssh/key" \
+            -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$RUNNER_TEMP/deploy-ssh/known_hosts" \
+            -o GlobalKnownHostsFile=/dev/null \
+            -o BatchMode=yes \
+            -o ConnectTimeout=15 \
+            "$SERVER" deploy-backend "$SHA" "$DIGEST" "$GITHUB_RUN_ID" </dev/null
+
+      - name: Skip the backend
+        if: env.DEPLOY_BACKEND != 'true'
+        run: echo "::notice::Backend not deployed; set the repository variable DEPLOY_BACKEND to true once infra runs it."
+
+      # The server checks the archive and switches to the new release atomically; if it rejects
+      # the upload, the job fails and what was published stays published.
+      - name: Deploy the site
+        shell: bash
+        run: |
+          set -euo pipefail
           tar -C dist -cz . \
-            | ssh -i "$ssh_dir/key" \
+            | ssh -i "$RUNNER_TEMP/deploy-ssh/key" \
                 -o IdentitiesOnly=yes \
                 -o StrictHostKeyChecking=yes \
-                -o UserKnownHostsFile="$ssh_dir/known_hosts" \
+                -o UserKnownHostsFile="$RUNNER_TEMP/deploy-ssh/known_hosts" \
                 -o GlobalKnownHostsFile=/dev/null \
                 -o BatchMode=yes \
                 -o ConnectTimeout=15 \
-                deploy@server.abrunacci.dev deploy "$GITHUB_SHA" "$GITHUB_RUN_ID"
+                "$SERVER" deploy "$SHA" "$GITHUB_RUN_ID"
 
-      # Also removes the key if the step above was killed before its trap ran.
-      - name: Remove the SSH key
+      # Also when a step above failed or was cancelled.
+      - name: Remove the deploy key
         if: always()
-        shell: bash
         run: rm -rf "$RUNNER_TEMP/deploy-ssh"
 
-      # The site must serve exactly this build: its index.html and every asset
-      # that index.html references. current switches atomically, so a few
-      # retries only cover the network.
+      # The site must serve exactly this build: its index.html and every asset that index.html
+      # references. current switches atomically, so a few retries only cover the network.
       - name: Check the published site
         shell: bash
         run: |
@@ -132,7 +260,6 @@ jobs:
           for _ in 1 2 3 4 5; do
             rm -f served.html
             if curl -fsS --max-time 10 -o served.html "$SITE_URL" && cmp -s served.html dist/index.html; then
-              # The assets index.html loads must be served byte for byte too.
               while read -r asset; do
                 if ! curl -fsS --max-time 10 "${SITE_URL%/}$asset" | cmp -s - "dist$asset"; then
                   echo "::error::${SITE_URL%/}$asset is not served as built."
@@ -152,3 +279,18 @@ jobs:
             echo "::error::$SITE_URL serves something other than this build's index.html."
           fi
           exit 1
+
+      # The public side of the backend: the proxy reaches it, and /api/ingest is not exposed.
+      - name: Check the published API
+        if: env.DEPLOY_BACKEND == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsS --max-time 10 "${SITE_URL}api/health"
+          echo
+          status=$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 -X POST "${SITE_URL}api/ingest")
+          if [[ "$status" == 401 ]]; then
+            echo "::error::${SITE_URL}api/ingest answers from the public proxy; it must only be reachable on the internal network."
+            exit 1
+          fi
+          echo "/api/ingest is not served publicly ($status)."

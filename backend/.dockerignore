@@ -1,0 +1,11 @@
+# Only what the image needs: pyproject.toml, uv.lock, README.md, src/, config/, alembic.ini and
+# migrations/.
+*
+!pyproject.toml
+!uv.lock
+!README.md
+!src/
+!config/
+!alembic.ini
+!migrations/
+**/__pycache__
