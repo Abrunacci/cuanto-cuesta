@@ -167,3 +167,6 @@ with `Depends`.
 - Keep commits small, with an imperative subject that says what changed.
 - Review your own diff against `main` (`git diff main...HEAD`) before opening a PR.
 - Commits have a single author and no `Co-Authored-By` trailers.
+  CI enforces it with the **Check commit metadata** step (an action from the infra repository,
+  pinned to a commit): every commit of a pull request must be authored by the maintainer, with no
+  co-author or attribution line. Commits made with GitHub's "Update branch" button pass too.
