@@ -221,7 +221,7 @@ describe("the MEP after the close", () => {
     }
     await renderWith(body);
     expect(notice(/^Dólar MEP/)).toBe(
-      "Cierre de hoy a las 16:58. El mercado abre el lunes a las 11.",
+      "Cierre de hoy a las 16:58. El mercado abre el lunes a las 10:45.",
     );
   });
 });
