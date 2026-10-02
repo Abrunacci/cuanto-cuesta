@@ -6,11 +6,9 @@ import { byCard, cardOf, ownFieldCount } from "./cards.ts";
 /** A route whose one step charges these fees. */
 const route = (id: string, feeIds: string[]): Route => ({
   id,
-  name: id,
   source: "USD",
   target: "ARS",
-  steps: [{ label: "s", feeIds, conversion: { rateKey: "mep", target: "ARS" } }],
-  warnings: [],
+  steps: [{ id: "s", feeIds, conversion: { rateKey: "mep", target: "ARS" } }],
   risk: null,
 });
 

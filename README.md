@@ -19,7 +19,8 @@ the best route is the best one without risk, compared with the runner-up without
 other route is compared with it; a risky route that leaves more says how much more. When every
 route computed is risky, none is recommended and they are compared with the one that leaves most.
 Each route needs only the prices it converts with, so the MEP price is needed only for the MEP
-route. The screen is in Spanish.
+route. The screen is in Spanish, or in English when the browser is (or with `?lang=en`); an ES/EN
+selector changes it and is remembered, and numbers are read and written in each language's format.
 
 ## Status
 

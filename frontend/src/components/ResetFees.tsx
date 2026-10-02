@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 
+import { useTexts } from "../i18n/index.ts";
+
 interface ResetFeesProps {
   /** How many fees hold the person's own value. */
   readonly ownCount: number;
@@ -14,6 +16,7 @@ type Step = "idle" | "confirm" | "done";
  * lands on the question, back on the button after cancelling, and on the result after resetting.
  */
 export function ResetFees({ ownCount, onReset }: ResetFeesProps) {
+  const { reset } = useTexts();
   const [step, setStep] = useState<Step>("idle");
   // The count also changes without this component: a fee edited, or put back on its own from its
   // Detalles. A question or a "Listo" from before would then be stale, so it goes back to idle;
@@ -48,19 +51,15 @@ export function ResetFees({ ownCount, onReset }: ResetFeesProps) {
   if (ownCount === 0) {
     return step === "done" ? (
       <p ref={done} className="muted small" role="status" tabIndex={-1}>
-        Listo: las comisiones volvieron a los valores de referencia.
+        {reset.done}
       </p>
     ) : null;
   }
   if (step === "confirm") {
-    const fees =
-      ownCount === 1
-        ? "la comisión con tu valor"
-        : `las ${String(ownCount)} comisiones con tu valor`;
     return (
       <div className="reset-confirm" role="group" aria-labelledby="reset-question">
         <p id="reset-question" ref={question} tabIndex={-1}>
-          ¿Volver {fees} a los valores de referencia? Lo que pusiste se borra.
+          {reset.question(ownCount)}
         </p>
         <div className="reset-actions">
           <button
@@ -71,7 +70,7 @@ export function ResetFees({ ownCount, onReset }: ResetFeesProps) {
               go("done");
             }}
           >
-            Sí, restablecer
+            {reset.confirm}
           </button>
           <button
             type="button"
@@ -80,7 +79,7 @@ export function ResetFees({ ownCount, onReset }: ResetFeesProps) {
               go("idle");
             }}
           >
-            Cancelar
+            {reset.cancel}
           </button>
         </div>
       </div>
@@ -95,7 +94,7 @@ export function ResetFees({ ownCount, onReset }: ResetFeesProps) {
         go("confirm");
       }}
     >
-      Restablecer valores de referencia
+      {reset.button}
     </button>
   );
 }

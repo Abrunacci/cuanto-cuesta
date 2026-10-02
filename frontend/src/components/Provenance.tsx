@@ -1,5 +1,6 @@
 import type { Provenance as FeeProvenance } from "../calculator/index.ts";
 import { feeStatusText } from "../form/messages.ts";
+import { useTexts } from "../i18n/index.ts";
 import { ExternalLink } from "./ExternalLink.tsx";
 
 const BADGE_CLASS: Record<FeeProvenance["kind"], string> = {
@@ -16,9 +17,10 @@ interface StatusBadgeProps {
 
 /** Whose value a fee holds, and for a reference value how far to trust it, as a short badge. */
 export function StatusBadge({ provenance, own }: StatusBadgeProps) {
+  const t = useTexts();
   return (
     <span className={own ? "badge badge-own" : BADGE_CLASS[provenance.kind]}>
-      {feeStatusText(provenance, own)}
+      {feeStatusText(t, provenance, own)}
     </span>
   );
 }
@@ -31,43 +33,35 @@ interface ProvenanceProps {
 
 /** When the reference value was checked and where it comes from. */
 export function Provenance({ provenance, feeLabel }: ProvenanceProps) {
+  const { provenance: words } = useTexts();
   switch (provenance.kind) {
     case "verified":
       return (
         <p className="provenance">
-          Verificado el {formatDate(provenance.verifiedAt)} ·{" "}
-          <ExternalLink href={provenance.sourceUrl} label={`Fuente de ${feeLabel}`}>
-            Fuente
+          {words.verified(words.date(provenance.verifiedAt))} ·{" "}
+          <ExternalLink href={provenance.sourceUrl} label={words.sourceOf(feeLabel)}>
+            {words.source}
           </ExternalLink>
         </p>
       );
     case "estimate":
       return (
         <p className="provenance">
-          {provenance.upperBound ? "La fuente da un tope: es el valor máximo. " : ""}Revisado el{" "}
-          {formatDate(provenance.verifiedAt)} ·{" "}
-          <ExternalLink href={provenance.sourceUrl} label={`Fuente de ${feeLabel}`}>
-            Fuente
+          {provenance.upperBound ? words.upperBound : ""}
+          {words.reviewed(words.date(provenance.verifiedAt))} ·{" "}
+          <ExternalLink href={provenance.sourceUrl} label={words.sourceOf(feeLabel)}>
+            {words.source}
           </ExternalLink>
         </p>
       );
     case "user_defined":
       return (
         <p className="provenance">
-          Revisado el {formatDate(provenance.checkedAt)} ·{" "}
-          <ExternalLink
-            href={provenance.referenceUrl}
-            label={`Precio de referencia de ${feeLabel}`}
-          >
-            Precio de referencia
+          {words.reviewed(words.date(provenance.checkedAt))} ·{" "}
+          <ExternalLink href={provenance.referenceUrl} label={words.referenceOf(feeLabel)}>
+            {words.reference}
           </ExternalLink>
         </p>
       );
   }
-}
-
-/** "2026-09-23" as "23/09/2026". */
-function formatDate(isoDate: string): string {
-  const [year, month, day] = isoDate.split("-");
-  return `${day ?? ""}/${month ?? ""}/${year ?? ""}`;
 }

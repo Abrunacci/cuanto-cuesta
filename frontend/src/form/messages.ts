@@ -1,4 +1,4 @@
-/** What each problem code means on screen, in Spanish. */
+/** What each problem code means on screen, in the page's language. */
 
 import type {
   Big,
@@ -8,32 +8,28 @@ import type {
   Provenance,
   ValueProblem,
 } from "../calculator/index.ts";
+import { feeInSentence, rateInSentence, rateTexts, type Texts } from "../i18n/index.ts";
 import type { FeeGap } from "./form.ts";
 import { inRange, type PriceCheck } from "./plausible.ts";
-import { feeLabel, rateField } from "../calculator/index.ts";
-import { lowerFirst } from "../text/case.ts";
-import { formatExact, formatFeeValue, formatNumber, formatUnambiguous } from "../text/numbers.ts";
 
-export const NOT_A_NUMBER = "Escribí un número, por ejemplo 1.234,56.";
-
-export function inputProblemMessage(problem: InputProblem): string {
+export function inputProblemMessage(t: Texts, problem: InputProblem): string {
   switch (problem.code) {
     case "not_positive":
-      return "Tiene que ser mayor que 0.";
+      return t.problems.notPositive;
     case "too_many_decimals":
-      return `Usá como mucho ${String(problem.max)} decimales.`;
+      return t.problems.tooManyDecimals(problem.max);
     case "too_large":
-      return `No puede ser más de ${formatNumber(problem.max, 0)}.`;
+      return t.problems.tooLarge(t.numbers.format(problem.max, 0));
   }
 }
 
 /** `unit` is "%" for a percentage or a currency code for an amount. */
-export function valueProblemMessage(problem: ValueProblem, unit: string): string {
+export function valueProblemMessage(t: Texts, problem: ValueProblem, unit: string): string {
   switch (problem.code) {
     case "negative":
-      return "No puede ser negativo.";
+      return t.problems.negative;
     case "above_cap":
-      return `Como máximo ${formatCap(problem.cap)} ${unit}.`;
+      return t.problems.aboveCap(formatCap(t, problem.cap), unit);
   }
 }
 
@@ -43,84 +39,96 @@ export function valueProblemMessage(problem: ValueProblem, unit: string): string
  * did not type.
  */
 export function unusualPriceMessage(
+  t: Texts,
+  key: string,
   value: Big,
   alternative: Big | null,
   check: PriceCheck,
 ): string {
-  const read = `Valor inusual: leímos ${formatUnambiguous(value)} ${check.unit} y lo común está entre ${formatExact(check.min)} y ${formatExact(check.max)}. Revisalo.`;
+  const { numbers } = t;
+  const read = t.problems.unusualPrice(
+    numbers.unambiguous(value),
+    rateTexts(t, key).unit,
+    numbers.exact(check.min),
+    numbers.exact(check.max),
+  );
   return alternative !== null && inRange(alternative, check)
-    ? `${read} ${didYouMean(alternative)}`
+    ? `${read} ${didYouMean(t, alternative)}`
     : read;
 }
 
-export function didYouMean(value: Big): string {
-  return `¿Quisiste poner ${formatExact(value)}?`;
+export function didYouMean(t: Texts, value: Big): string {
+  return t.problems.didYouMean(t.numbers.exact(value));
 }
 
 /** What a route is missing, as it reads inside a list ("monto en USD", "dólar MEP (compra)"). */
 export function missingInputLabel(
+  t: Texts,
   missing: MissingInput,
   feeGaps: ReadonlyMap<string, FeeGap>,
 ): string {
   switch (missing.kind) {
     case "amount":
-      return "monto en USD";
+      return t.missing.amount;
     case "rate":
-      return lowerFirst(rateField(missing.key)?.label ?? missing.key);
+      return rateInSentence(t, missing.key);
     case "fee": {
-      const label = lowerFirst(feeLabel(missing.id));
+      const label = feeInSentence(t, missing.id);
       switch (feeGaps.get(missing.id) ?? "value") {
         case "value":
           return label;
         case "minimum":
-          return `el mínimo de ${label}`;
+          return t.missing.feeMinimum(label);
         case "both":
-          return `${label} y su mínimo`;
+          return t.missing.feeAndMinimum(label);
       }
     }
   }
 }
 
 /** A few words for what is missing, where there is room for little: "monto", "MEP". */
-export function missingInputShortLabel(missing: MissingInput): string {
+export function missingInputShortLabel(t: Texts, missing: MissingInput): string {
   switch (missing.kind) {
     case "amount":
-      return "monto";
+      return t.missing.amountShort;
     case "rate":
-      return rateField(missing.key)?.shortLabel ?? missing.key;
+      return rateTexts(t, missing.key).shortLabel;
     case "fee":
       // Never missing in every route at once: no fee is used by every route, as a data test
       // checks. So this is never shown in the one-line bar.
-      return lowerFirst(feeLabel(missing.id));
+      return feeInSentence(t, missing.id);
   }
 }
 
-function formatCap(cap: Big): string {
-  return formatNumber(cap, cap.eq(cap.round(0)) ? 0 : 2);
+function formatCap(t: Texts, cap: Big): string {
+  return t.numbers.format(cap, cap.eq(cap.round(0)) ? 0 : 2);
 }
 
 /** A fee's status in words, as its badge shows it. */
-export function statusText(provenance: Provenance): string {
+export function statusText(t: Texts, provenance: Provenance): string {
   switch (provenance.kind) {
     case "verified":
-      return "Verificado";
+      return t.feeStatus.verified;
     case "estimate":
-      return "Estimado";
+      return t.feeStatus.estimate;
     case "user_defined":
-      return "Lo definís vos";
+      return t.feeStatus.userDefined;
   }
 }
 
 /** A fee's badge: the person's own value, or how far to trust the researched one. */
-export function feeStatusText(provenance: Provenance, own: boolean): string {
-  return own ? "Tu valor" : statusText(provenance);
+export function feeStatusText(t: Texts, provenance: Provenance, own: boolean): string {
+  return own ? t.feeStatus.own : statusText(t, provenance);
 }
 
 /** The researched value of a fee, minimum included: "1 %, mínimo 5 USD". */
-export function referenceValueText(fee: Fee): string {
-  const value = formatFeeValue(fee);
+export function referenceValueText(t: Texts, fee: Fee): string {
+  const value = t.numbers.feeValue(fee);
   if (fee.kind === "fixed" || fee.minimum === null) {
-    return value;
+    return t.referenceValue(value, null);
   }
-  return `${value}, mínimo ${formatExact(fee.minimum.amount)}\u00a0${fee.minimum.currency}`;
+  return t.referenceValue(
+    value,
+    `${t.numbers.exact(fee.minimum.amount)}\u00a0${fee.minimum.currency}`,
+  );
 }

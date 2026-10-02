@@ -189,13 +189,9 @@ describe("ordering", () => {
   it("breaks ties by route id", () => {
     const route = (id: string) => ({
       id,
-      name: id,
       source: "USD" as const,
       target: "ARS" as const,
-      steps: [
-        { label: "s", feeIds: ["f"], conversion: { rateKey: "mep", target: "ARS" as const } },
-      ],
-      warnings: [],
+      steps: [{ id: "s", feeIds: ["f"], conversion: { rateKey: "mep", target: "ARS" as const } }],
       risk: null,
     });
     const comparison = compareRoutes(
@@ -265,13 +261,9 @@ describe("how each route stands against the others", () => {
   it("ties every route that delivers as much as the best, not only the runner-up", () => {
     const route = (id: string, fee: string) => ({
       id,
-      name: id,
       source: "USD" as const,
       target: "ARS" as const,
-      steps: [
-        { label: "s", feeIds: [fee], conversion: { rateKey: "mep", target: "ARS" as const } },
-      ],
-      warnings: [],
+      steps: [{ id: "s", feeIds: [fee], conversion: { rateKey: "mep", target: "ARS" as const } }],
       risk: null,
     });
     const comparison = compareRoutes(
@@ -296,13 +288,9 @@ describe("how each route stands against the others", () => {
     // 999 x 1536.16 = 1534623.84, 1536.16 less.
     const route = (id: string, fee: string) => ({
       id,
-      name: id,
       source: "USD" as const,
       target: "ARS" as const,
-      steps: [
-        { label: "s", feeIds: [fee], conversion: { rateKey: "mep", target: "ARS" as const } },
-      ],
-      warnings: [],
+      steps: [{ id: "s", feeIds: [fee], conversion: { rateKey: "mep", target: "ARS" as const } }],
       risk: null,
     });
     const comparison = compareRoutes(
@@ -324,7 +312,7 @@ describe("how each route stands against the others", () => {
 
 describe("routes with a risk", () => {
   // Sample amounts: ARQ 1524869.44, Binance 1518602.26, MEP 1503624.13.
-  const RISK = { label: "Riesgo", detail: "con riesgo" };
+  const RISK = "account_block" as const;
   const risky = (...ids: string[]) =>
     SAMPLE_ROUTES.map((route) => (ids.includes(route.id) ? { ...route, risk: RISK } : route));
   const standings = (comparison: ReturnType<typeof compareRoutes>) =>
@@ -435,13 +423,9 @@ describe("routes with a risk", () => {
     // fees too, ties with them: it comes first by id, but b stays the best.
     const route = (id: string, fee: string, risk: boolean) => ({
       id,
-      name: id,
       source: "USD" as const,
       target: "ARS" as const,
-      steps: [
-        { label: "s", feeIds: [fee], conversion: { rateKey: "mep", target: "ARS" as const } },
-      ],
-      warnings: [],
+      steps: [{ id: "s", feeIds: [fee], conversion: { rateKey: "mep", target: "ARS" as const } }],
       risk: risk ? RISK : null,
     });
     const comparison = compareRoutes(
@@ -483,13 +467,11 @@ describe("routes with a risk", () => {
   it("ties the leader when every route computed is risky and two deliver the same", () => {
     const route = (id: string) => ({
       id,
-      name: id,
       source: "USD" as const,
       target: "ARS" as const,
       steps: [
-        { label: "s", feeIds: ["zero"], conversion: { rateKey: "mep", target: "ARS" as const } },
+        { id: "s", feeIds: ["zero"], conversion: { rateKey: "mep", target: "ARS" as const } },
       ],
-      warnings: [],
       risk: RISK,
     });
     const comparison = compareRoutes(
@@ -509,13 +491,11 @@ describe("routes with a risk", () => {
     // a, b and c deliver 1000 x 1536.16; a and c are risky, so b is the best.
     const route = (id: string, risk: boolean) => ({
       id,
-      name: id,
       source: "USD" as const,
       target: "ARS" as const,
       steps: [
-        { label: "s", feeIds: ["zero"], conversion: { rateKey: "mep", target: "ARS" as const } },
+        { id: "s", feeIds: ["zero"], conversion: { rateKey: "mep", target: "ARS" as const } },
       ],
-      warnings: [],
       risk: risk ? RISK : null,
     });
     const comparison = compareRoutes(
@@ -554,11 +534,9 @@ describe("routes whose own data is wrong", () => {
 
   const usd = {
     id: "usd",
-    name: "usd",
     source: "USD" as const,
     target: "USD" as const,
-    steps: [{ label: "s", feeIds: ["arq_ach_deposit"], conversion: null }],
-    warnings: [],
+    steps: [{ id: "s", feeIds: ["arq_ach_deposit"], conversion: null }],
     risk: null,
   };
 

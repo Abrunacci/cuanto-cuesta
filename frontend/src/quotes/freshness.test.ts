@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vitest";
 
-import { ageText, closedText, freshness } from "./freshness.ts";
+import { en } from "../i18n/en.ts";
+import { es } from "../i18n/es.ts";
+import { closedNote, freshness } from "./freshness.ts";
+
+const ageText = (age: number) => es.quotes.age(age);
+const closedText = (observedAt: number, opens: number, now: number) =>
+  es.quotes.closed(closedNote(observedAt, opens, now));
+const closedEnglish = (observedAt: number, opens: number, now: number) =>
+  en.quotes.closed(closedNote(observedAt, opens, now)).replace(/\u00a0/g, " ");
 
 /** An instant given in Buenos Aires time (UTC-3). 2026-10-02 is a Friday. */
 const art = (day: number, hour: number, minute = 0) => Date.UTC(2026, 9, day, hour + 3, minute);
@@ -97,6 +105,29 @@ describe("closedText", () => {
     );
     expect(closedText(art(1, 17), art(2, 10, 45), art(2, 8))).toBe(
       "Cierre del jueves 1/10 a las 17:00. El mercado abre hoy a las 10:45.",
+    );
+  });
+});
+
+describe("in English", () => {
+  it.each([
+    [45 * MINUTE, "45 min"],
+    [130 * MINUTE, "2 h 10 min"],
+    [24 * 60 * MINUTE, "1 day"],
+    [50 * 60 * MINUTE, "2 days"],
+  ])("%d ms reads %s", (age, text) => {
+    expect(en.quotes.age(age).replace(/\u00a0/g, " ")).toBe(text);
+  });
+
+  it("says the close on a 12-hour clock, in Buenos Aires time", () => {
+    expect(closedEnglish(art(2, 17), art(5, 10, 45), art(3, 10))).toBe(
+      "Close on Friday, Oct 2 at 5:00 PM (Buenos Aires time). The market opens on Monday at 10:45 AM.",
+    );
+    expect(closedEnglish(art(1, 17), art(2, 10, 45), art(1, 22))).toBe(
+      "Close today at 5:00 PM (Buenos Aires time). The market opens tomorrow at 10:45 AM.",
+    );
+    expect(closedEnglish(art(1, 17), art(2, 10, 45), art(2, 8))).toBe(
+      "Close on Thursday, Oct 1 at 5:00 PM (Buenos Aires time). The market opens today at 10:45 AM.",
     );
   });
 });

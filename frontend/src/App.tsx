@@ -1,8 +1,9 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { flushSync } from "react-dom";
 
 import { ROUTES } from "./calculator/index.ts";
 import { Inputs } from "./components/Inputs.tsx";
+import { LanguagePicker } from "./components/LanguagePicker.tsx";
 import { ResetFees } from "./components/ResetFees.tsx";
 import { ResultBar } from "./components/ResultBar.tsx";
 import { Results } from "./components/Results.tsx";
@@ -13,6 +14,8 @@ import { fieldId } from "./form/form.ts";
 import { reviewOpensList } from "./form/review.ts";
 import { barText, hasAmountProblem } from "./form/summary.ts";
 import { useForm } from "./form/useForm.ts";
+import { textsFor, TextsContext } from "./i18n/index.ts";
+import { useLanguage } from "./i18n/useLanguage.ts";
 import { cardEstimate } from "./quotes/notices.ts";
 import { fetchRates, useRates, type LoadRates } from "./quotes/useRates.ts";
 
@@ -22,19 +25,24 @@ interface AppProps {
 }
 
 export function App({ loadRates = fetchRates }: AppProps) {
+  const [language, setLanguage] = useLanguage();
+  const t = textsFor(language);
   const rates = useRates(loadRates);
   const snapshot = rates?.snapshot ?? null;
-  const form = useForm(snapshot);
+  const form = useForm(snapshot, t);
   const { texts, reading } = form;
   const now = rates?.now ?? null;
   const estimate = useMemo(
-    () => (snapshot === null || now === null ? null : cardEstimate(snapshot, now)),
-    [snapshot, now],
+    () => (snapshot === null || now === null ? null : cardEstimate(t, snapshot, now)),
+    [t, snapshot, now],
   );
+  useEffect(() => {
+    document.querySelector('meta[name="description"]')?.setAttribute("content", t.page.description);
+  }, [t]);
   const [openRoutes, setOpenRoutes] = useState<ReadonlySet<string>>(new Set());
   const [openReviews, setOpenReviews] = useState<ReadonlySet<string>>(new Set());
   const amountHasProblem = hasAmountProblem(reading);
-  const bar = barText(reading, amountHasProblem);
+  const bar = barText(t, reading, amountHasProblem);
   const barRoute =
     bar.kind === "best" && (bar.review || bar.estimated)
       ? ROUTES.find((r) => r.id === bar.routeId)
@@ -76,13 +84,13 @@ export function App({ loadRates = fetchRates }: AppProps) {
   };
 
   return (
-    <>
+    <TextsContext value={t}>
       <main className="page layout">
         <header className="layout-header">
+          {/* The site's name, the same in every language. */}
           <h1>¿Cuánto cuesta?</h1>
-          <p className="lead">
-            Compará cuántos pesos te llegan al banco al bajar tus dólares de Payoneer.
-          </p>
+          <LanguagePicker language={language} onChange={setLanguage} />
+          <p className="lead">{t.page.lead}</p>
         </header>
 
         <div className="layout-inputs">
@@ -114,12 +122,9 @@ export function App({ loadRates = fetchRates }: AppProps) {
 
         <section className="layout-fees" aria-labelledby="fees-title">
           <h2 id="fees-title" className="section-title">
-            Comisiones de cada ruta
+            {t.page.feesTitle}
           </h2>
-          <p className="muted small">
-            Vienen cargadas con los valores investigados. Abrí una ruta para ajustarlas: lo que
-            pongas queda guardado en este navegador.
-          </p>
+          <p className="muted small">{t.page.feesIntro}</p>
           <ResetFees ownCount={reading.ownFees.size} onReset={form.resetFees} />
           {ROUTES.map((route) => (
             <RouteCard
@@ -151,7 +156,7 @@ export function App({ loadRates = fetchRates }: AppProps) {
           }
         }}
       />
-    </>
+    </TextsContext>
   );
 }
 

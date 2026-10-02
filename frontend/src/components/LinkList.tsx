@@ -1,3 +1,5 @@
+import { useTexts } from "../i18n/index.ts";
+
 export interface InPageLink {
   readonly key: string;
   readonly href: string;
@@ -27,13 +29,14 @@ export function InPageAnchor({ link }: { readonly link: InPageLink }) {
   );
 }
 
-/** Links joined as a Spanish list: "a", "a y b", "a, b y c". */
+/** Links joined as a list in the page's language: "a", "a y b", "a, b y c". */
 export function LinkList({ links }: { readonly links: readonly InPageLink[] }) {
+  const t = useTexts();
   return (
     <>
       {links.map((link, index) => (
         <span key={link.key}>
-          {index === 0 ? "" : index === links.length - 1 ? " y " : ", "}
+          {t.listSeparator(index, links.length)}
           <InPageAnchor link={link} />
         </span>
       ))}

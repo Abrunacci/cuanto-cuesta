@@ -1,6 +1,7 @@
 /**
- * The calculator bundles its own copy of the fee defaults. This test keeps that copy identical to
- * `backend/config/fees.yaml`, the researched source. The routes live only in the calculator.
+ * The calculator bundles its own copy of the fee defaults, with their Spanish labels and notes in
+ * `src/i18n/es.ts`. This test keeps that copy identical to `backend/config/fees.yaml`, the
+ * researched source. The routes live only in the calculator.
  *
  * It also keeps the rates the calculator asks for (their currencies and plausible ranges) equal to
  * `backend/config/rates.yaml`, which the backend checks ingested prices against.
@@ -17,6 +18,7 @@ import { parse } from "yaml";
 
 import { FEE_DEFAULTS } from "../src/calculator/data/fees.ts";
 import { RATE_FIELDS } from "../src/calculator/data/routes.ts";
+import { es } from "../src/i18n/es.ts";
 import { Decimal } from "../src/calculator/money.ts";
 import { PRICE_CHECKS } from "../src/form/plausible.ts";
 
@@ -90,8 +92,8 @@ function bundledFee(entry: (typeof FEE_DEFAULTS)[number]) {
   }
   return {
     id: fee.id,
-    label: entry.label,
-    note: entry.note,
+    label: es.fees[fee.id]?.label ?? null,
+    note: es.fees[fee.id]?.note ?? null,
     kind: fee.kind,
     value: (fee.kind === "fixed" ? fee.amount.amount : fee.rate).toString(),
     currency: fee.kind === "fixed" ? fee.amount.currency : null,
