@@ -68,7 +68,7 @@ export function Results({
         Resultado
       </h2>
       <p className="summary" aria-live="polite" aria-atomic="true">
-        {summaryText(comparison, amountHasProblem)}
+        {summaryText(comparison, amountHasProblem, estimated)}
       </p>
       {common.length > 0 && firstRoute !== undefined && (
         <p className="missing">

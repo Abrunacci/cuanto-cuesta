@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { compareRoutes, fixedFee, routesInOrder, type Route } from "../calculator/index.ts";
 import { validAmount, validPrice } from "../calculator/sample.fixture.ts";
+import { CARD_KEY } from "../quotes/quotes.ts";
 import { initialTexts, readForm, type FormTexts } from "./form.ts";
 import { commonMissing } from "./missing.ts";
 import { barText, hasAmountProblem, summaryText } from "./summary.ts";
@@ -13,6 +14,17 @@ const PRICES = {
   arq_usd_ars: "1.593,385",
 };
 const read = (overrides: Partial<FormTexts>) => readForm({ ...initialTexts(), ...overrides });
+/**
+ * The card route ahead of the MEP, with the card's price left empty and taken from its estimate
+ * (1000 USD x 0,99 USDT, after the card's fee, x 1.700 ARS, against 1000 x 1.500).
+ */
+const CARD_AHEAD = {
+  amount: "1000",
+  prices: { mep: "1.500", binance_p2p_usdt_usd: "", bitso_usdt_ars: "1.700", arq_usd_ars: "" },
+};
+const CARD_ESTIMATE = new Map([[CARD_KEY, validPrice("0.99")]]);
+const readEstimated = (overrides: Partial<FormTexts>) =>
+  readForm({ ...initialTexts(), ...overrides }, CARD_ESTIMATE);
 /** Fees the person typed: their values, marked as their own. */
 const typed = (fees: Readonly<Record<string, string>>) => ({
   fees: { ...initialTexts().fees, ...fees },
@@ -138,6 +150,7 @@ describe("barText", () => {
       amountWhole: "$\u00a01.524.869",
       // Two of ARQ's fees are estimates.
       review: true,
+      estimated: false,
       risk: null,
     });
   });
@@ -283,6 +296,45 @@ describe("barText", () => {
       text: "Todavía ninguna ruta se puede calcular: mirá qué le falta a cada una.",
       short: "Mirá qué le falta a cada ruta",
     });
+  });
+});
+
+describe("a lead computed with the card's estimated price", () => {
+  it("is marked in the summary and in the bar", () => {
+    const reading = readEstimated(CARD_AHEAD);
+    expect(summaryText(reading.comparison, false, reading.estimated)).toMatch(
+      /^Mejor ruta: Binance con tarjeta \+ Bitso, con precio estimado, llegan /,
+    );
+    expect(barText(reading, false)).toMatchObject({
+      kind: "best",
+      routeId: "binance_card_bitso",
+      estimated: true,
+    });
+  });
+
+  it("is not marked once the person types the card's price", () => {
+    const reading = readEstimated({
+      ...CARD_AHEAD,
+      prices: { ...CARD_AHEAD.prices, [CARD_KEY]: "0,99" },
+    });
+    expect(summaryText(reading.comparison, false, reading.estimated)).not.toContain("estimado");
+    expect(barText(reading, false)).toMatchObject({
+      routeId: "binance_card_bitso",
+      estimated: false,
+    });
+  });
+
+  it("is not marked when the best route does not use the estimate", () => {
+    // The MEP at 2.000 beats the card route, which still uses the estimate.
+    const reading = readEstimated({
+      ...CARD_AHEAD,
+      prices: { ...CARD_AHEAD.prices, mep: "2.000" },
+    });
+    expect(reading.estimated.has(CARD_KEY)).toBe(true);
+    expect(summaryText(reading.comparison, false, reading.estimated)).toMatch(
+      /^Mejor ruta: Dólar MEP, llegan /,
+    );
+    expect(barText(reading, false)).toMatchObject({ routeId: "mep", estimated: false });
   });
 });
 

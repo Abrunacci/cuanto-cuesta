@@ -13,7 +13,8 @@ interface ResultBarProps {
 /**
  * On a phone, the best route stays in view at the bottom while the person types (or, when only
  * risky routes can be computed, the one that delivers most, marked as risky); tapping it goes to
- * the full result, or straight to what that route has to review when it has something.
+ * the full result, or straight to what that route has to review when it has something (or, when
+ * it was computed with the card's estimated price, to that route, where the estimate is noted).
  * While the keyboard is open the bar shrinks to one line. Hidden on wide screens, where the
  * result sits in its own column.
  */
@@ -82,6 +83,31 @@ function RiskMark({
   );
 }
 
+/**
+ * After the route's name when it was computed with the card's estimated price: like the risk
+ * mark, outside the name in the one-line bar so a narrow phone never cuts it.
+ */
+function EstimateMark({
+  estimated,
+  compact,
+}: {
+  readonly estimated: boolean;
+  readonly compact: boolean;
+}) {
+  if (!estimated) {
+    return null;
+  }
+  return (
+    <>
+      {" "}
+      <span className="result-bar-estimate">
+        <span aria-hidden="true">{compact ? "\u00a0· estimado" : "· precio estimado"}</span>
+        <span className="visually-hidden">· precio estimado</span>
+      </span>
+    </>
+  );
+}
+
 function FullText({ text }: { readonly text: BarText }) {
   if (text.kind === "pending") {
     return <span className="result-bar-label">{text.text}</span>;
@@ -91,6 +117,7 @@ function FullText({ text }: { readonly text: BarText }) {
       <span className="result-bar-label">
         {LEADS[text.lead].full}: {text.route}
         <RiskMark risk={text.risk} compact={false} />
+        <EstimateMark estimated={text.estimated} compact={false} />
         <span className="visually-hidden">.</span>
       </span>{" "}
       <span className="result-bar-amount">
@@ -125,7 +152,8 @@ function CompactLine({ text }: { readonly text: BarText }) {
       <span className="result-bar-route">
         {LEADS[text.lead].short}: {text.route}
       </span>
-      <RiskMark risk={text.risk} compact />{" "}
+      <RiskMark risk={text.risk} compact />
+      <EstimateMark estimated={text.estimated} compact />{" "}
       <span className="result-bar-figure">
         &nbsp;· {text.amountWhole}
         {text.review ? (
