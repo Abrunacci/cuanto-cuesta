@@ -5,7 +5,7 @@ import { riskTexts, routeName, type Texts } from "../i18n/index.ts";
 import { fieldId, type FormReading } from "./form.ts";
 import { missingInputLabel, missingInputShortLabel } from "./messages.ts";
 import { commonMissing } from "./missing.ts";
-import { routeNeedsReview, routeUsesEstimate } from "./review.ts";
+import { resultChecks, resultChecksText, routeUsesEstimate } from "./review.ts";
 
 /** Whether the amount holds a value that cannot be used; every route needs it. */
 export function hasAmountProblem({ problems }: FormReading): boolean {
@@ -162,8 +162,11 @@ export type BarText =
       readonly amount: string;
       /** Whole units, for the one-line bar while the keyboard is open. */
       readonly amountWhole: string;
-      /** The result rests on an estimated fee, a value to set or an unusual price. */
-      readonly review: boolean;
+      /**
+       * What can change the result until the person looks at it, in words ("1 precio
+       * inusual"); null when nothing does. Estimated fees do not count.
+       */
+      readonly review: string | null;
       /** Computed with an estimated price (the card's, while its field is empty). */
       readonly estimated: boolean;
       /** What the route risks; only a risky route when no route without risk can be computed. */
@@ -191,7 +194,7 @@ export function barText(t: Texts, reading: FormReading, amountHasProblem: boolea
       routeId: entry.route.id,
       amount: numbers.money(final.amount, final.currency),
       amountWhole: numbers.moneyWhole(final.amount, final.currency),
-      review: routeNeedsReview(entry.route, reading.ownFees, reading.warnings),
+      review: resultChecksText(t, resultChecks(entry.route, reading.ownFees, reading.warnings)),
       estimated: lead.entries.some(({ route }) => routeUsesEstimate(route, reading.estimated)),
       risk: entry.route.risk,
     };

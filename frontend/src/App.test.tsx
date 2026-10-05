@@ -354,61 +354,51 @@ describe("the calculator page", () => {
     expect(arq).not.toContain("Diferencia");
   });
 
-  it("asks to review a difference that rests on another route's values, and goes there", async () => {
+  it("asks to review a value still to set, and opens the list where it is", async () => {
     const { type, user, results, ranking, reviewLine } = setup();
     await fillEverything(type);
-    // ARQ, the best route, has estimates: every difference with it rests on them.
-    const [binance] = ranking();
+    // The P2P premium is still at 0; the estimated fees of every route do not count.
+    const [binance, arq, mep] = ranking();
     expect(binance).toContain("Diferencia$ 9.136,25 más que ARQ (ex DolarApp) · revisá");
+    expect(arq).not.toContain("revisá");
+    expect(mep).not.toContain("revisá");
+    const link = within(results()).getByRole("link", {
+      name: "Revisá los valores de Binance P2P + Bitso",
+    });
+    const premium = within(results()).getByRole("link", {
+      name: "Recargo P2P por pagar con Payoneer",
+    });
+    expect(premium).not.toBeVisible();
+    await user.click(link);
+    // Straight to what to review: the route's folded list opens, its line focused.
+    expect(reviewLine("Binance P2P + Bitso")).toHaveFocus();
+    expect(scrolledToTop()).toEqual([
+      { element: reviewLine("Binance P2P + Bitso"), options: { block: "start" } },
+    ]);
+    expect(premium).toBeVisible();
+  });
+
+  it("points every difference at a route computed with an unusual price, and goes to it", async () => {
+    const { type, user, ranking, results } = setup();
+    await fillEverything(type);
+    // ARQ at 60,000 delivers most: every other difference rests on it, and so does its own.
+    await type(/^Cotización de ARQ/, "60.000");
+    const mep = ranking().find((item) => item.startsWith("Dólar MEP"));
+    expect(mep).toContain("menos que ARQ (ex DolarApp) · revisá");
     const links = within(results()).getAllByRole("link", {
       name: "Revisá los valores de ARQ (ex DolarApp)",
     });
-    // Binance P2P's, the MEP route's and Binance with a card's differences.
-    expect(links).toHaveLength(3);
+    expect(links).toHaveLength(4);
     const [first] = links;
     if (first === undefined) {
       throw new Error("expected a link");
     }
-    const estimate = within(results()).getByRole("link", {
-      name: "retiro de Payoneer a una cuenta de EE.UU.",
-    });
-    expect(estimate).not.toBeVisible();
     await user.click(first);
-    // Straight to what to review: the route's folded list opens, its line focused.
-    expect(reviewLine("ARQ (ex DolarApp)")).toHaveFocus();
-    expect(scrolledToTop()).toEqual([
-      { element: reviewLine("ARQ (ex DolarApp)"), options: { block: "start" } },
-    ]);
-    expect(estimate).toBeVisible();
+    // No value to set in ARQ, so no list to open: the unusual price is noted under the heading.
+    const heading = screen.getByRole("heading", { name: "ARQ (ex DolarApp)" });
+    expect(heading).toHaveFocus();
+    expect(scrolledToTop()).toEqual([{ element: heading, options: { block: "start" } }]);
   });
-
-  it("points at the route's own values once the other route has nothing to review", async () => {
-    const { type, user, openCard, ranking, results, reviewLine } = setup();
-    await fillEverything(type);
-    await openCard("ARQ (ex DolarApp)");
-    await type(/^Retiro de Payoneer a una cuenta de EE.UU.(?!: mínimo)/, "4");
-    await type(/^Conversión USD→USDc en ARQ/, "0");
-    const mep = ranking().find((item) => item.startsWith("Dólar MEP"));
-    expect(mep).toContain("menos que ARQ (ex DolarApp) · revisá");
-    // ARQ's difference, with the runner-up, and the MEP route's own.
-    const links = within(results()).getAllByRole("link", {
-      name: "Revisá los valores de Dólar MEP",
-    });
-    expect(links).toHaveLength(2);
-    const [, own] = links;
-    if (own === undefined) {
-      throw new Error("expected a link");
-    }
-    await user.click(own);
-    expect(reviewLine("Dólar MEP")).toHaveFocus();
-    expect(scrolledToTop()).toEqual([
-      { element: reviewLine("Dólar MEP"), options: { block: "start" } },
-    ]);
-    expect(
-      within(results()).queryByRole("link", { name: "Revisá los valores de ARQ (ex DolarApp)" }),
-    ).toBeNull();
-  });
-
   it("takes a difference's review to the heading when the route only has an unusual price", async () => {
     const { type, user, openCard, results, reviewLine } = setup();
     await fillEverything(type);
@@ -475,9 +465,11 @@ describe("the calculator page", () => {
       ),
     ).toBeVisible();
     const [, second, third] = ranking();
-    // Both tied routes have estimates, so each difference points at the other one.
-    expect(second).toContain("DiferenciaIgual que Dólar MEP · revisá");
-    expect(third).toContain("DiferenciaIgual que ARQ (ex DolarApp) · revisá");
+    // Both tied routes only have estimated fees: nothing to review in either difference.
+    expect(second).toContain("DiferenciaIgual que Dólar MEP");
+    expect(third).toContain("DiferenciaIgual que ARQ (ex DolarApp)");
+    expect(second).not.toContain("revisá");
+    expect(third).not.toContain("revisá");
     // Both tied routes are marked as a gain; the risky one above them is not.
     const differences = within(results()).getAllByText("Diferencia");
     expect(differences.map((dt) => dt.parentElement?.classList.contains("figure-gain"))).toEqual([
@@ -936,8 +928,9 @@ describe("the calculator page", () => {
     expect(bar()).toHaveTextContent("Falta completar: monto en USD.");
     await fillEverything(type);
     // Binance P2P + Bitso delivers more, but it is risky.
+    // ARQ's estimated fees do not mark it.
     expect(visible(bar())).toBe(
-      "Mejor ruta: ARQ (ex DolarApp) Llegan $ 1.524.869,44 · revisá Ver resultado",
+      "Mejor ruta: ARQ (ex DolarApp) Llegan $ 1.524.869,44 Ver resultado",
     );
     await type(/^Dólar MEP \(compra\)/, "1.600");
     expect(bar()).toHaveTextContent("Mejor ruta: Dólar MEP");
@@ -951,33 +944,30 @@ describe("the calculator page", () => {
     expect(scrolledToTop()).toEqual([{ element: title, options: { block: "start" } }]);
   });
 
-  it("takes the person to the best route's review list when it has values to review", async () => {
+  it("takes the person to the best route's review list when it has a value to set", async () => {
     const { user, type, reviewLine } = setup();
-    await fillEverything(type);
+    // Only Binance P2P + Bitso can be computed, with its premium still at 0.
+    await type(/^Monto en Payoneer/, "1500");
+    await type(/^Precio P2P en Binance/, "1");
+    await type(/^Precio de venta en Bitso/, "1600");
     const bar = screen.getByRole("link", { name: /Ver resultado$/ });
-    // Two of ARQ's fees are estimates.
     expect(bar).toHaveAccessibleName(
-      "Mejor ruta: ARQ (ex DolarApp). Llegan $\u00a01.524.869,44 · revisá los valores de esta " +
-        "ruta. Ver resultado",
+      "Única ruta calculada: Binance P2P + Bitso · Riesgo de bloqueo. Llegan " +
+        "$\u00a02.378.992,00 · 1 valor para poner. Ver resultado",
     );
-    expect(bar).toHaveAttribute("href", "#review-arq");
+    expect(bar).toHaveAttribute("href", "#review-binance_p2p_bitso");
     await user.click(bar);
-    expect(reviewLine("ARQ (ex DolarApp)")).toHaveFocus();
+    expect(reviewLine("Binance P2P + Bitso")).toHaveFocus();
     // At the top of the screen, so the list just opened is not left under the bar.
     expect(scrolledToTop()).toEqual([
-      { element: reviewLine("ARQ (ex DolarApp)"), options: { block: "start" } },
+      { element: reviewLine("Binance P2P + Bitso"), options: { block: "start" } },
     ]);
-    expect(
-      screen.getByRole("link", { name: "retiro de Payoneer a una cuenta de EE.UU." }),
-    ).toBeVisible();
+    expect(screen.getByRole("link", { name: "Recargo P2P por pagar con Payoneer" })).toBeVisible();
   });
 
-  it("drops the review mark once the best route's values are set", async () => {
-    const { user, type, openCard } = setup();
+  it("has no review mark when the best route only has estimated fees", async () => {
+    const { user, type } = setup();
     await fillEverything(type);
-    await openCard("ARQ (ex DolarApp)");
-    await type(/^Retiro de Payoneer a una cuenta de EE.UU.(?!: mínimo)/, "4");
-    await type(/^Conversión USD→USDc en ARQ/, "0");
     const bar = screen.getByRole("link", { name: /Ver resultado$/ });
     expect(bar).toHaveAccessibleName(
       "Mejor ruta: ARQ (ex DolarApp). Llegan $\u00a01.524.869,44. Ver resultado",
@@ -995,7 +985,7 @@ describe("the calculator page", () => {
     await type(/^Cotización de ARQ/, "60.000");
     const bar = screen.getByRole("link", { name: /Ver resultado$/ });
     expect(bar).toHaveTextContent("Mejor ruta: ARQ (ex DolarApp)");
-    expect(bar).toHaveTextContent("· revisá");
+    expect(bar).toHaveTextContent("· 1 precio inusual");
     // No fee left to review, so no list to open: the unusual price is noted under the heading.
     await user.click(bar);
     const heading = screen.getByRole("heading", { name: "ARQ (ex DolarApp)" });
@@ -1073,15 +1063,11 @@ describe("the calculator page", () => {
       await fillEverything(type);
       viewport.height = 470;
       resize(viewport);
-      expect(visible(bar())).toBe("Mejor: ARQ (ex DolarApp) · $ 1.524.869 \u26a0\ufe0e");
-      expect(bar()).toHaveAccessibleName(
-        "Mejor: ARQ (ex DolarApp) · $\u00a01.524.869, revisá los valores de esta ruta. " +
-          "Ver resultado",
-      );
+      expect(visible(bar())).toBe("Mejor: ARQ (ex DolarApp) · $ 1.524.869");
       viewport.height = 800;
       resize(viewport);
       expect(visible(bar())).toBe(
-        "Mejor ruta: ARQ (ex DolarApp) Llegan $ 1.524.869,44 · revisá Ver resultado",
+        "Mejor ruta: ARQ (ex DolarApp) Llegan $ 1.524.869,44 Ver resultado",
       );
     });
 
@@ -1115,8 +1101,8 @@ describe("the calculator page", () => {
       resize(viewport);
       expect(visible(bar())).toBe("Única: Binance P2P + Bitso · riesgo · $ 2.378.992 \u26a0\ufe0e");
       expect(bar()).toHaveAccessibleName(
-        "Única: Binance P2P + Bitso · Riesgo de bloqueo · $\u00a02.378.992, revisá los valores " +
-          "de esta ruta. Ver resultado",
+        "Única: Binance P2P + Bitso · Riesgo de bloqueo · $\u00a02.378.992, 1 valor para poner. " +
+          "Ver resultado",
       );
       const route = screen.getByText(/^Única: Binance P2P \+ Bitso$/);
       expect(route).toHaveClass("result-bar-route");

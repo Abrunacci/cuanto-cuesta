@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { FEE_DEFAULTS, ROUTES, routesInOrder, type CompleteRoute } from "../calculator/index.ts";
 import { es } from "../i18n/es.ts";
 import { initialTexts, readForm, type FormTexts } from "./form.ts";
-import { difference, feesToReview, reviewSummary } from "./review.ts";
+import { difference, feesToReview, resultChecksText, reviewSummary } from "./review.ts";
 
 const route = (id: string) => {
   const found = ROUTES.find((r) => r.id === id);
@@ -133,18 +133,29 @@ describe("difference", () => {
     ]);
   });
 
-  it("points every other route at the best one when only the best has something to review", () => {
-    // The risky route above it too: its difference is with the best route.
-    expect(toReview({ ownFees: settled("binance_p2p_bitso", "mep") })).toEqual([
-      ["binance_p2p_bitso", "arq"],
-      ["arq", "arq"],
-      ["mep", "arq"],
+  it("leaves estimated fees out: they move the result a little and are listed under the route", () => {
+    // Only the P2P premium is set: ARQ and the MEP keep their estimated fees.
+    expect(toReview({ ownFees: settled("binance_p2p_bitso") })).toEqual([
+      ["binance_p2p_bitso", null],
+      ["arq", null],
+      ["mep", null],
     ]);
   });
 
   it("points a route at itself when only it has something to review", () => {
-    // The MEP route is the runner-up without risk, so the best route's difference rests on it.
-    expect(toReview({ ownFees: settled("binance_p2p_bitso", "arq") })).toEqual([
+    // With the reference values only the P2P premium, still at 0, can change a result.
+    expect(toReview({})).toEqual([
+      ["binance_p2p_bitso", "binance_p2p_bitso"],
+      ["arq", null],
+      ["mep", null],
+    ]);
+  });
+
+  it("points every other route at the one compared with when it has an unusual price", () => {
+    // The MEP at 400 is last, and the runner-up without risk: ARQ's difference rests on it.
+    expect(
+      toReview({ ownFees: settled("binance_p2p_bitso"), prices: { ...PRICES, mep: "400" } }),
+    ).toEqual([
       ["binance_p2p_bitso", null],
       ["arq", "mep"],
       ["mep", "mep"],
@@ -152,10 +163,15 @@ describe("difference", () => {
   });
 
   it("prefers the other route when both have something to review", () => {
-    // With the reference values every route has estimates.
-    expect(toReview({})).toEqual([
-      ["binance_p2p_bitso", "arq"],
+    // ARQ at 60,000 delivers most and the MEP at 400 least: both prices are unusual.
+    expect(
+      toReview({
+        ownFees: settled("binance_p2p_bitso"),
+        prices: { ...PRICES, arq_usd_ars: "60.000", mep: "400" },
+      }),
+    ).toEqual([
       ["arq", "mep"],
+      ["binance_p2p_bitso", "arq"],
       ["mep", "arq"],
     ]);
   });
@@ -177,5 +193,19 @@ describe("difference", () => {
   it("has nothing to compare a lone route with", () => {
     const only = { ...PRICES, binance_p2p_usdt_usd: "", arq_usd_ars: "" };
     expect(toReview({ prices: only })).toEqual([["mep", "alone"]]);
+  });
+});
+
+describe("resultChecksText", () => {
+  it("counts what can change a result, in words", () => {
+    expect(resultChecksText(es, { toSet: 1, unusual: 0 })).toBe("1 valor para poner");
+    expect(resultChecksText(es, { toSet: 0, unusual: 2 })).toBe("2 precios inusuales");
+    expect(resultChecksText(es, { toSet: 1, unusual: 1 })).toBe(
+      "1 valor para poner y 1 precio inusual",
+    );
+  });
+
+  it("is nothing when there is nothing to check", () => {
+    expect(resultChecksText(es, { toSet: 0, unusual: 0 })).toBeNull();
   });
 });

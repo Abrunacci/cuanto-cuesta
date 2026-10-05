@@ -153,41 +153,24 @@ describe("barText", () => {
       routeId: "arq",
       amount: "$\u00a01.524.869,44",
       amountWhole: "$\u00a01.524.869",
-      // Two of ARQ's fees are estimates.
-      review: true,
+      // Two of ARQ's fees are estimates, which do not count.
+      review: null,
       estimated: false,
       risk: null,
     });
   });
 
-  it("has nothing to review once the best route's estimates are set", () => {
-    const reading = read({
-      amount: "1000",
-      prices: PRICES,
-      ...typed(ARQ_SET),
-    });
-    const text = barText(T, reading, false);
-    expect(text.kind === "best" && [text.routeId, text.review]).toEqual(["arq", false]);
-  });
-
-  it("asks to review the best route while a fee is still an estimate", () => {
-    const reading = read({
-      amount: "1000",
-      prices: PRICES,
-      ...typed({ payoneer_us_withdrawal: "4" }),
-    });
-    const text = barText(T, reading, false);
-    expect(text.kind === "best" && [text.routeId, text.review]).toEqual(["arq", true]);
-  });
-
-  it("asks to review a best route computed with an unusual price", () => {
+  it("says which unusual price the best route was computed with", () => {
     const reading = read({
       amount: "1000",
       prices: { ...PRICES, arq_usd_ars: "60.000" },
       ...typed(ARQ_SET),
     });
     const text = barText(T, reading, false);
-    expect(text.kind === "best" && [text.routeId, text.review]).toEqual(["arq", true]);
+    expect(text.kind === "best" && [text.routeId, text.review]).toEqual([
+      "arq",
+      "1 precio inusual",
+    ]);
   });
 
   it("marks a lone risky route as risky", () => {
@@ -207,7 +190,7 @@ describe("barText", () => {
     const text = barText(T, reading, false);
     expect(text.kind === "best" && [text.routeId, text.review]).toEqual([
       "binance_p2p_bitso",
-      true,
+      "1 valor para poner",
     ]);
   });
 
@@ -219,7 +202,7 @@ describe("barText", () => {
     const text = barText(T, reading, false);
     expect(text.kind === "best" && [text.routeId, text.review]).toEqual([
       "binance_p2p_bitso",
-      false,
+      null,
     ]);
   });
 

@@ -122,11 +122,12 @@ function FullText({ text }: { readonly text: BarText }) {
       </span>{" "}
       <span className="result-bar-amount">
         {bar.arrives(text.amount)}
-        {text.review ? (
+        {text.review !== null ? (
           <>
             {" "}
             <span className="result-bar-review">
-              · {bar.review} <span className="visually-hidden">{bar.reviewDetail}</span>
+              · {text.review}
+              <span className="visually-hidden">.</span>
             </span>
           </>
         ) : (
@@ -157,16 +158,14 @@ function CompactLine({ text }: { readonly text: BarText }) {
       <EstimateMark estimated={text.estimated} compact />{" "}
       <span className="result-bar-figure">
         &nbsp;· {text.amountWhole}
-        {text.review ? (
+        {text.review !== null ? (
           <>
             {/* The text presentation selector keeps iOS from drawing it as a color emoji. */}
             <span className="result-bar-icon" aria-hidden="true">
               {" "}
               {"\u26a0\ufe0e"}
             </span>
-            <span className="visually-hidden">
-              , {bar.review} {bar.reviewDetail}
-            </span>
+            <span className="visually-hidden">, {text.review}.</span>
           </>
         ) : (
           <span className="visually-hidden">.</span>

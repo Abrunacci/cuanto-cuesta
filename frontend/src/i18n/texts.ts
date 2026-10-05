@@ -140,9 +140,6 @@ export interface Texts {
     readonly name: string;
     readonly leads: Readonly<Record<BarLead, { readonly full: string; readonly short: string }>>;
     readonly arrives: (amount: string) => string;
-    readonly review: string;
-    /** Heard after "revisá". */
-    readonly reviewDetail: string;
     readonly estimated: string;
     readonly estimatedShort: string;
     readonly seeResult: string;
@@ -178,6 +175,7 @@ export interface Texts {
   readonly review: {
     readonly valuesToSet: (count: number) => string;
     readonly estimatedFees: (count: number) => string;
+    readonly unusualPrices: (count: number) => string;
     readonly whatToCheck: (parts: string) => string;
     readonly ownFees: (count: number) => string;
     /** After the fee's link: ": está en 0 %, poné tu valor." */
