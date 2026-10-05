@@ -2,6 +2,10 @@
 
 Each item is judged on its own: an invalid one is rejected with an error code and the others are
 still stored. The checks run in a fixed order, so an item gets the first code that applies.
+
+A valid reading that jumps too far from the current quote is not shown: it is held aside and
+answered as rejected (``jump``). It becomes the current quote only when the next
+``CONFIRMATIONS`` readings agree with it; a reading back near the current quote discards it.
 """
 
 from __future__ import annotations
@@ -16,10 +20,14 @@ from typing import Protocol
 from uuid import UUID
 
 from cuanto_cuesta.application.rates import RateCatalog, RateSpec
-from cuanto_cuesta.domain import Arrival, Quote, arrival
+from cuanto_cuesta.domain import Arrival, Held, Quote, arrival, jumps
 
 MAX_CLOCK_SKEW = timedelta(minutes=5)
 """How far in the future an observation may be dated: the two servers' clocks can drift."""
+
+CONFIRMATIONS = 2
+"""How many later readings must agree with a held jump before it replaces the current quote. A
+broken source tends to fail once; a market that really moved keeps reading the new price."""
 
 _PRICE = re.compile(r"^[0-9]+(\.[0-9]{1,10})?$")
 """A plain decimal with up to 10 places: no sign, exponent, spaces or thousands separators."""
@@ -41,6 +49,32 @@ class Rejection(StrEnum):
     OUT_OF_RANGE = "out_of_range"
     FUTURE_OBSERVED_AT = "future_observed_at"
     CONFLICT = "conflict"
+    JUMP = "jump"
+
+
+class JumpEvent(StrEnum):
+    HELD = "held"
+    """The reading jumped: it is held aside, replacing any reading held before."""
+    CONFIRMING = "confirming"
+    """The reading agrees with the held one, which still needs more confirmations."""
+    CONFIRMED = "confirmed"
+    """Enough readings agreed: the reading replaced the current quote."""
+    DISCARDED = "discarded"
+    """The reading is back near the current quote: it was stored and the held one dropped."""
+
+
+@dataclass(frozen=True, slots=True)
+class Jump:
+    """What a reading did to a held jump, with the prices that tell why."""
+
+    event: JumpEvent
+    current: Quote
+    """The current quote before this reading."""
+    held: Quote
+    """The held reading."""
+    observed: Quote
+    """This reading."""
+    confirmations: int = 0
 
 
 @dataclass(frozen=True, slots=True)
@@ -72,6 +106,7 @@ class ItemResult:
     key: str | None
     status: Status
     error: Rejection | None = None
+    jump: Jump | None = None
 
 
 class QuoteStore(Protocol):
@@ -83,10 +118,15 @@ class QuoteStore(Protocol):
 
     def current(self, key: str) -> Quote | None: ...
 
-    def save(self, quote: Quote, *, batch_id: UUID, received_at: datetime) -> None:
-        """Make ``quote`` the current one for its key."""
+    def held(self, key: str) -> Held | None: ...
 
-    def all(self) -> list[Quote]: ...
+    def save(self, quote: Quote, *, batch_id: UUID, received_at: datetime) -> None:
+        """Make ``quote`` the current one for its key, dropping any held reading."""
+
+    def hold(self, key: str, held: Held) -> None:
+        """Keep ``held`` aside for ``key``, which already has a current quote."""
+
+    def all(self) -> list[tuple[Quote, Held | None]]: ...
 
 
 def ingest(
@@ -108,10 +148,13 @@ def ingest(
     return results
 
 
-def current_quotes(catalog: RateCatalog, store: QuoteStore) -> list[tuple[RateSpec, Quote]]:
-    """The current quote of every rate that has one, in the catalog's order."""
-    stored = {q.key: q for q in store.all()}
-    return [(spec, stored[spec.key]) for spec in catalog.rates if spec.key in stored]
+def current_quotes(
+    catalog: RateCatalog, store: QuoteStore
+) -> list[tuple[RateSpec, Quote, Held | None]]:
+    """The current quote of every rate that has one, with its held reading if there is one, in
+    the catalog's order."""
+    stored = {quote.key: (quote, held) for quote, held in store.all()}
+    return [(spec, *stored[spec.key]) for spec in catalog.rates if spec.key in stored]
 
 
 def _ingest_one(
@@ -125,13 +168,23 @@ def _ingest_one(
     def rejected(error: Rejection) -> ItemResult:
         return ItemResult(index, item.key, Status.REJECTED, error)
 
-    checked = _check(catalog, item, now)
+    spec = catalog.get(item.key)
+    if spec is None:
+        return rejected(Rejection.UNKNOWN_KEY)
+    checked = _check(spec, item, now)
     if isinstance(checked, Rejection):
         return rejected(checked)
-    match arrival(store.current(item.key), checked):
+    current = store.current(item.key)
+    match arrival(current, checked):
+        case Arrival.NEWER if current is not None and jumps(current, checked, spec.max_jump):
+            return _jumped(store, index, current, checked, batch_id=batch_id, now=now, spec=spec)
         case Arrival.NEWER:
+            held = None if current is None else store.held(item.key)
             store.save(checked, batch_id=batch_id, received_at=now)
-            return ItemResult(index, item.key, Status.STORED)
+            if current is None or held is None:
+                return ItemResult(index, item.key, Status.STORED)
+            discarded = Jump(JumpEvent.DISCARDED, current, held.quote, checked)
+            return ItemResult(index, item.key, Status.STORED, jump=discarded)
         case Arrival.SAME:
             return ItemResult(index, item.key, Status.UNCHANGED)
         case Arrival.OLDER:
@@ -140,10 +193,40 @@ def _ingest_one(
             return rejected(Rejection.CONFLICT)
 
 
-def _check(catalog: RateCatalog, item: Submission, now: datetime) -> Quote | Rejection:
-    spec = catalog.get(item.key)
-    if spec is None:
-        return Rejection.UNKNOWN_KEY
+def _jumped(
+    store: QuoteStore,
+    index: int,
+    current: Quote,
+    observed: Quote,
+    *,
+    batch_id: UUID,
+    now: datetime,
+    spec: RateSpec,
+) -> ItemResult:
+    """A newer reading that jumped from ``current``: hold it, count it towards the held one, or,
+    with enough confirmations, make it the current quote."""
+    key = observed.key
+    held = store.held(key)
+
+    def result(status: Status, event: JumpEvent | None, reference: Quote, n: int) -> ItemResult:
+        error = None if status is Status.STORED else Rejection.JUMP
+        jump = None if event is None else Jump(event, current, reference, observed, n)
+        return ItemResult(index, key, status, error, jump)
+
+    if held is not None and not jumps(held.quote, observed, spec.max_jump):
+        if observed.observed_at <= held.last_seen:  # sent again: it already counted
+            return result(Status.REJECTED, None, held.quote, held.confirmations)
+        confirmations = held.confirmations + 1
+        if confirmations >= CONFIRMATIONS:
+            store.save(observed, batch_id=batch_id, received_at=now)
+            return result(Status.STORED, JumpEvent.CONFIRMED, held.quote, confirmations)
+        store.hold(key, Held(held.quote, confirmations, observed.observed_at))
+        return result(Status.REJECTED, JumpEvent.CONFIRMING, held.quote, confirmations)
+    store.hold(key, Held(observed, 0, observed.observed_at))
+    return result(Status.REJECTED, JumpEvent.HELD, observed, 0)
+
+
+def _check(spec: RateSpec, item: Submission, now: datetime) -> Quote | Rejection:
     if (item.base, item.quote) != (spec.base, spec.quote):
         return Rejection.CURRENCY_MISMATCH
     if item.sent_estimated_final and not spec.estimated_final:

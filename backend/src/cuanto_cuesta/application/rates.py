@@ -1,6 +1,7 @@
-"""The rates the calculator asks for: which currencies each one quotes and the range its price
-can plausibly be in. Loaded from ``config/rates.yaml``; the calculator keeps the same ranges in
-``frontend/src/form/plausible.ts`` (a parity test keeps them equal).
+"""The rates the calculator asks for: which currencies each one quotes, the range its price can
+plausibly be in and how far it may move from one reading to the next. Loaded from
+``config/rates.yaml``; the calculator keeps the same ranges in ``frontend/src/form/plausible.ts``
+(a parity test keeps them equal).
 """
 
 from __future__ import annotations
@@ -8,7 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from decimal import Decimal
 
-from cuanto_cuesta.domain import Currency
+from cuanto_cuesta.domain import Currency, Percentage
 
 
 class InvalidRateCatalogError(Exception):
@@ -24,6 +25,8 @@ class RateSpec:
     maximum: Decimal
     estimated_final: bool
     """The rate also carries the price its final payment screen is expected to show."""
+    max_jump: Percentage
+    """How far a reading may move from the current quote before it is held aside."""
 
     def in_range(self, price: Decimal) -> bool:
         return self.minimum <= price <= self.maximum
@@ -34,6 +37,8 @@ class RateSpec:
             problems.append("base and quote must differ")
         if not 0 < self.minimum < self.maximum:
             problems.append(f"invalid range {self.minimum}..{self.maximum}")
+        if self.max_jump.value == 0:
+            problems.append("max_jump must be more than 0")
         return problems
 
 
