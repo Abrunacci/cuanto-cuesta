@@ -205,7 +205,11 @@ export function compareRoutes(input: ComparisonInput): Comparison {
   return { ranking: rank(complete), incomplete, failed };
 }
 
-/** Every route in the order it is shown: the ranking, the routes still incomplete, the failed. */
+/**
+ * Every route in the order it is shown: the ranking, the routes still incomplete, the failed. In
+ * the ranking, the best route comes first and the risky ones after every route without risk, so
+ * the first one listed is never a route the page does not recommend; among each group, most first.
+ */
 export function routesInOrder({ ranking, incomplete, failed }: Comparison): RouteComparison[] {
   switch (ranking.kind) {
     case "none":
@@ -213,8 +217,11 @@ export function routesInOrder({ ranking, incomplete, failed }: Comparison): Rout
     case "alone":
       return [ranking.only, ...incomplete, ...failed];
     case "ranked":
-    case "unrivaled":
-      return [...ranking.above, ranking.best, ...ranking.rest, ...incomplete, ...failed];
+    case "unrivaled": {
+      const safe = ranking.rest.filter((entry) => entry.route.risk === null);
+      const risky = ranking.rest.filter((entry) => entry.route.risk !== null);
+      return [ranking.best, ...safe, ...ranking.above, ...risky, ...incomplete, ...failed];
+    }
     case "risky":
       return [ranking.leader, ...ranking.rest, ...incomplete, ...failed];
   }

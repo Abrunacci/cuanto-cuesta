@@ -64,10 +64,10 @@ describe("readForm", () => {
   it("computes the four routes with the researched fees", () => {
     // Same values as the calculator's end-to-end test for 1000 USD.
     expect(finals(readForm(es, filled()).comparison)).toEqual([
-      ["binance_p2p_bitso", "1534005.69"],
       ["arq", "1524869.44"],
       ["mep", "1503624.13"],
       ["binance_card_bitso", "1483996.43"],
+      ["binance_p2p_bitso", "1534005.69"],
     ]);
   });
 

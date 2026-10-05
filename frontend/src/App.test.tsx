@@ -218,18 +218,20 @@ describe("the calculator page", () => {
           "Binance P2P + Bitso deja $ 9.136,25 más, con riesgo de bloqueo de tu cuenta de Binance.",
       ),
     ).toBeVisible();
-    // Listed by what they deliver.
-    const [first, second, third] = ranking();
-    expect(first).toContain("Binance P2P + Bitso");
-    expect(first).toContain("Llegan al banco$ 1.534.005,69");
-    expect(first).toContain("Comisiones$ 15.706,71");
-    expect(first).toContain("Diferencia$ 9.136,25 más que ARQ (ex DolarApp)");
-    expect(second).toContain("ARQ (ex DolarApp)");
-    expect(second).toContain("$ 1.524.869,44");
-    expect(second).toContain("Diferencia$ 21.245,31 más que Dólar MEP");
-    expect(third).toContain("Dólar MEP");
-    expect(third).toContain("$ 1.503.624,13");
-    expect(third).toContain("Diferencia$ 21.245,31 menos que ARQ (ex DolarApp)");
+    // The best route first, then by what they deliver, the risky one after every route without
+    // risk though it delivers most.
+    const [first, second, third, fourth] = ranking();
+    expect(first).toContain("ARQ (ex DolarApp)");
+    expect(first).toContain("$ 1.524.869,44");
+    expect(first).toContain("Diferencia$ 21.245,31 más que Dólar MEP");
+    expect(second).toContain("Dólar MEP");
+    expect(second).toContain("$ 1.503.624,13");
+    expect(second).toContain("Diferencia$ 21.245,31 menos que ARQ (ex DolarApp)");
+    expect(third).toContain("Binance con tarjeta + Bitso");
+    expect(fourth).toContain("Binance P2P + Bitso");
+    expect(fourth).toContain("Llegan al banco$ 1.534.005,69");
+    expect(fourth).toContain("Comisiones$ 15.706,71");
+    expect(fourth).toContain("Diferencia$ 9.136,25 más que ARQ (ex DolarApp)");
     expect(results()).not.toHaveTextContent(/vs\. dólar MEP|Al dólar MEP/);
   });
 
@@ -267,7 +269,7 @@ describe("the calculator page", () => {
     await openCard("ARQ (ex DolarApp)");
     await type(/^Recepción de ACH en ARQ/, "0");
     // Without ARQ's 3 USD: 960.00 x 1593.385 = 1529649.60
-    expect(ranking()[1]).toContain("$ 1.529.649,60");
+    expect(ranking()[0]).toContain("$ 1.529.649,60");
   });
 
   it("takes the person to a missing field at the top", async () => {
@@ -340,8 +342,8 @@ describe("the calculator page", () => {
           "Binance P2P + Bitso deja $ 176.662,00 más, con riesgo de bloqueo de tu cuenta de Binance.",
       ),
     ).toBeVisible();
-    // The two routes computed, then the two still missing their prices.
-    const [binance, mep, card, arq] = ranking();
+    // The two routes computed, the best one first, then the two still missing their prices.
+    const [mep, binance, card, arq] = ranking();
     expect(card).toContain("Binance con tarjeta + BitsoFalta completar o corregir:");
     expect(binance).toContain("Llegan al banco$ 2.378.992,00");
     expect(binance).toContain("Comisiones$ 21.008,00");
@@ -358,7 +360,7 @@ describe("the calculator page", () => {
     const { type, user, results, ranking, reviewLine } = setup();
     await fillEverything(type);
     // The P2P premium is still at 0; the estimated fees of every route do not count.
-    const [binance, arq, mep] = ranking();
+    const [arq, mep, , binance] = ranking();
     expect(binance).toContain("Diferencia$ 9.136,25 más que ARQ (ex DolarApp) · revisá");
     expect(arq).not.toContain("revisá");
     expect(mep).not.toContain("revisá");
@@ -464,18 +466,18 @@ describe("the calculator page", () => {
           "Binance P2P + Bitso deja $ 9.136,25 más, con riesgo de bloqueo de tu cuenta de Binance.",
       ),
     ).toBeVisible();
-    const [, second, third] = ranking();
+    const [first, second] = ranking();
     // Both tied routes only have estimated fees: nothing to review in either difference.
-    expect(second).toContain("DiferenciaIgual que Dólar MEP");
-    expect(third).toContain("DiferenciaIgual que ARQ (ex DolarApp)");
+    expect(first).toContain("DiferenciaIgual que Dólar MEP");
+    expect(second).toContain("DiferenciaIgual que ARQ (ex DolarApp)");
+    expect(first).not.toContain("revisá");
     expect(second).not.toContain("revisá");
-    expect(third).not.toContain("revisá");
-    // Both tied routes are marked as a gain; the risky one above them is not.
+    // Both tied routes are marked as a gain; the risky one, listed last, is not.
     const differences = within(results()).getAllByText("Diferencia");
     expect(differences.map((dt) => dt.parentElement?.classList.contains("figure-gain"))).toEqual([
+      true,
+      true,
       false,
-      true,
-      true,
       false,
     ]);
     expect(screen.getByRole("link", { name: /Ver resultado$/ })).toHaveTextContent(
@@ -494,9 +496,9 @@ describe("the calculator page", () => {
         "Mejor ruta: ARQ (ex DolarApp), llegan $ 1.534.005,69: $ 30.381,56 más que Dólar MEP.",
       ),
     ).toBeVisible();
-    const [first, second] = ranking();
+    const [first, , , fourth] = ranking();
     expect(first).toContain("Diferencia$ 30.381,56 más que Dólar MEP");
-    expect(second).toContain("DiferenciaIgual que ARQ (ex DolarApp)");
+    expect(fourth).toContain("DiferenciaIgual que ARQ (ex DolarApp)");
     // Only the recommended route's difference is marked as a gain.
     const differences = within(results()).getAllByText("Diferencia");
     expect(differences.map((dt) => dt.parentElement?.classList.contains("figure-gain"))).toEqual([
@@ -820,7 +822,7 @@ describe("the calculator page", () => {
     const { type, user, field, ranking, results, reviewLine } = setup();
     await fillEverything(type);
     await user.click(reviewLine("Binance P2P + Bitso"));
-    const binance = ranking().find((item) => item.includes("Binance"));
+    const binance = ranking().find((item) => item.startsWith("Binance P2P + Bitso"));
     expect(binance).toContain("Recargo P2P por pagar con Payoneer: está en 0 %, poné tu valor.");
     expect(binance).toContain(
       "Incluye comisiones estimadas: transferencia de Payoneer al comprador P2P y comisión taker de Binance P2P.",
@@ -866,7 +868,7 @@ describe("the calculator page", () => {
     await openCard("Binance P2P + Bitso");
     await type(/^Recargo P2P por pagar con Payoneer/, "0,5");
     await type(/^Comisión taker de Binance P2P/, "0,06");
-    const binance = ranking().find((item) => item.includes("Binance"));
+    const binance = ranking().find((item) => item.startsWith("Binance P2P + Bitso"));
     expect(binance).not.toContain("Recargo P2P");
     expect(binance).toContain(
       "Incluye una comisión estimada: transferencia de Payoneer al comprador P2P. Revisala si sabés la tuya.",
@@ -1264,7 +1266,7 @@ describe("the calculator page", () => {
           normalizer: getDefaultNormalizer({ collapseWhitespace: true }),
         }),
       ).toBeInTheDocument();
-      const binance = ranking().find((item) => item.includes("Binance"));
+      const binance = ranking().find((item) => item.startsWith("Binance P2P + Bitso"));
       expect(binance).not.toContain("poné tu valor");
       expect(binance).toContain("Con tu valor: recargo P2P por pagar con Payoneer.");
       expect(
@@ -1381,7 +1383,7 @@ describe("the calculator page", () => {
       expect(field(PREMIUM)).toHaveValue("0");
       expect(field(PREMIUM)).toHaveFocus();
       expect(premiumDetails("Lo definís vos")).toBeInTheDocument();
-      const binance = ranking().find((item) => item.includes("Binance"));
+      const binance = ranking().find((item) => item.startsWith("Binance P2P + Bitso"));
       expect(binance).toContain("Recargo P2P por pagar con Payoneer: está en 0 %, poné tu valor.");
       // The other fee stays the person's own, on screen and in storage.
       expect(binance).toContain("Con tu valor: comisión taker de Binance P2P.");
@@ -1485,7 +1487,7 @@ describe("the calculator page", () => {
       try {
         const { type, ranking } = setup();
         await fillEverything(type);
-        expect(ranking()[0]).toContain("Binance P2P + Bitso");
+        expect(ranking()[0]).toContain("ARQ (ex DolarApp)");
       } finally {
         if (original === undefined) {
           Reflect.deleteProperty(window, "localStorage");

@@ -18,6 +18,8 @@ and how much more or less it leaves than the other routes. A risky route is neve
 the best route is the best one without risk, compared with the runner-up without risk, and every
 other route is compared with it; a risky route that leaves more says how much more. When every
 route computed is risky, none is recommended and they are compared with the one that leaves most.
+The list starts with the best route and puts the risky routes after every route without risk, so
+its first route is always the one recommended.
 Each route needs only the prices it converts with, so the MEP price is needed only for the MEP
 route. The screen is in Spanish, or in English when the browser is (or with `?lang=en`); an ES/EN
 selector changes it and is remembered, and numbers are read and written in each language's format.

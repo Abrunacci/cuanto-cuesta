@@ -123,31 +123,31 @@ describe("difference", () => {
       });
   };
 
-  // Ranking with these prices: Binance P2P + Bitso, which is risky and delivers more than ARQ; ARQ,
-  // the best route without risk, compared with Dólar MEP; and Dólar MEP.
+  // Listed with these prices: ARQ, the best route without risk, compared with Dólar MEP; Dólar MEP;
+  // and Binance P2P + Bitso, which is risky and listed last though it delivers more than ARQ.
   it("is nothing when neither route compared has anything to review", () => {
     expect(toReview({ ownFees: settled("binance_p2p_bitso", "arq", "mep") })).toEqual([
-      ["binance_p2p_bitso", null],
       ["arq", null],
       ["mep", null],
+      ["binance_p2p_bitso", null],
     ]);
   });
 
   it("leaves estimated fees out: they move the result a little and are listed under the route", () => {
     // Only the P2P premium is set: ARQ and the MEP keep their estimated fees.
     expect(toReview({ ownFees: settled("binance_p2p_bitso") })).toEqual([
-      ["binance_p2p_bitso", null],
       ["arq", null],
       ["mep", null],
+      ["binance_p2p_bitso", null],
     ]);
   });
 
   it("points a route at itself when only it has something to review", () => {
     // With the reference values only the P2P premium, still at 0, can change a result.
     expect(toReview({})).toEqual([
-      ["binance_p2p_bitso", "binance_p2p_bitso"],
       ["arq", null],
       ["mep", null],
+      ["binance_p2p_bitso", "binance_p2p_bitso"],
     ]);
   });
 
@@ -156,9 +156,9 @@ describe("difference", () => {
     expect(
       toReview({ ownFees: settled("binance_p2p_bitso"), prices: { ...PRICES, mep: "400" } }),
     ).toEqual([
-      ["binance_p2p_bitso", null],
       ["arq", "mep"],
       ["mep", "mep"],
+      ["binance_p2p_bitso", null],
     ]);
   });
 
@@ -171,8 +171,8 @@ describe("difference", () => {
       }),
     ).toEqual([
       ["arq", "mep"],
-      ["binance_p2p_bitso", "arq"],
       ["mep", "arq"],
+      ["binance_p2p_bitso", "arq"],
     ]);
   });
 
@@ -185,8 +185,8 @@ describe("difference", () => {
       }),
     ).toEqual([
       ["arq", "arq"],
-      ["binance_p2p_bitso", "arq"],
       ["mep", "arq"],
+      ["binance_p2p_bitso", "arq"],
     ]);
   });
 
