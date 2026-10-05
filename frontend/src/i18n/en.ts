@@ -285,8 +285,6 @@ export const en: Texts = {
       risky: { full: "Only with risk", short: "Only with risk" },
     },
     arrives: (amount) => `You get ${amount}`,
-    review: "check",
-    reviewDetail: "this route's values.",
     estimated: "estimated price",
     estimatedShort: "estimated",
     seeResult: "See result",
@@ -322,6 +320,7 @@ export const en: Texts = {
   review: {
     valuesToSet: (n) => count(n, "value to set", "values to set"),
     estimatedFees: (n) => count(n, "estimated fee", "estimated fees"),
+    unusualPrices: (n) => count(n, "unusual price", "unusual prices"),
     whatToCheck: (parts) => `To check: ${parts}`,
     ownFees: (n) => `With your value: ${count(n, "fee", "fees")}`,
     toSet: (value) => `: it is at ${value}, enter your value.`,

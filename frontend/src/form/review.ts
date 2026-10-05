@@ -63,11 +63,11 @@ function hasFeesToCheck({ toSet, estimated }: FeesToReview): boolean {
 }
 
 /**
- * Whether "revisá" for a route opens its review list: only when it has fees to check. Otherwise
+ * Whether "revisá" for a route opens its review list: only when it has a value to set. Otherwise
  * it goes to the route's heading, under which the unusual prices it was computed with are noted.
  */
 export function reviewOpensList(route: Route, ownFees: ReadonlySet<string>): boolean {
-  return hasFeesToCheck(feesToReview(route, ownFees));
+  return feesToReview(route, ownFees).toSet.length > 0;
 }
 
 /** Keys of the unusual prices a route's result depends on: the rates it converts with. */
@@ -99,15 +99,44 @@ export function routeUsesEstimate(route: Route, estimated: ReadonlySet<string>):
   return [...routeRateKeys(route)].some((key) => estimated.has(key));
 }
 
-/** Whether a route's result rests on something to check: an estimate, a 0 to set, an odd price. */
+/**
+ * What can change a route's result until the person looks at it: fees still holding a value they
+ * must set (the P2P premium at 0) and unusual prices. Estimated fees are left out: they are
+ * researched values that move the result a little, counted in the route's review list instead.
+ */
+export interface ResultChecks {
+  readonly toSet: number;
+  readonly unusual: number;
+}
+
+export function resultChecks(
+  route: Route,
+  ownFees: ReadonlySet<string>,
+  warnings: ReadonlyMap<string, string>,
+): ResultChecks {
+  return {
+    toSet: feesToReview(route, ownFees).toSet.length,
+    unusual: unusualPriceKeys(route, warnings).length,
+  };
+}
+
+/** Whether a route's result rests on something that can change it: a value to set, an odd price. */
 export function routeNeedsReview(
   route: Route,
   ownFees: ReadonlySet<string>,
   warnings: ReadonlyMap<string, string>,
 ): boolean {
-  return (
-    hasFeesToCheck(feesToReview(route, ownFees)) || unusualPriceKeys(route, warnings).length > 0
-  );
+  const { toSet, unusual } = resultChecks(route, ownFees, warnings);
+  return toSet > 0 || unusual > 0;
+}
+
+/** The checks, counted in words ("1 valor para poner y 1 precio inusual"); null when none. */
+export function resultChecksText(t: Texts, { toSet, unusual }: ResultChecks): string | null {
+  const parts = [
+    ...(toSet > 0 ? [t.review.valuesToSet(toSet)] : []),
+    ...(unusual > 0 ? [t.review.unusualPrices(unusual)] : []),
+  ];
+  return parts.length === 0 ? null : t.list(parts);
 }
 
 /**

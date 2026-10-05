@@ -44,7 +44,7 @@ export function App({ loadRates = fetchRates }: AppProps) {
   const amountHasProblem = hasAmountProblem(reading);
   const bar = barText(t, reading, amountHasProblem);
   const barRoute =
-    bar.kind === "best" && (bar.review || bar.estimated)
+    bar.kind === "best" && (bar.review !== null || bar.estimated)
       ? ROUTES.find((r) => r.id === bar.routeId)
       : undefined;
   const barTarget =
