@@ -23,6 +23,17 @@ export interface Quote {
   readonly estimatedFinal: PositivePrice | null;
   /** When the price was read at its source, in milliseconds since the epoch. */
   readonly observedAt: number;
+  /**
+   * The latest reading that jumped too far from this price, which the backend holds until the
+   * next readings confirm it; null when there is none.
+   */
+  readonly held: HeldReading | null;
+}
+
+export interface HeldReading {
+  readonly price: PositivePrice;
+  readonly estimatedFinal: PositivePrice | null;
+  readonly observedAt: number;
 }
 
 export interface RatesSnapshot {
@@ -67,7 +78,21 @@ function parseQuote(item: unknown): Quote | null {
     return null;
   }
   const estimatedFinal = key === CARD_KEY ? parsePrice(key, item.estimated_final) : null;
-  return { key, price, estimatedFinal, observedAt };
+  return { key, price, estimatedFinal, observedAt, held: parseHeld(key, item.held) };
+}
+
+/** A held reading, or null when there is none or it does not parse: then there is nothing to say. */
+function parseHeld(key: string, held: unknown): HeldReading | null {
+  if (!isRecord(held)) {
+    return null;
+  }
+  const price = parsePrice(key, held.price);
+  const observedAt = parseTimestamp(held.observed_at);
+  if (price === null || observedAt === null) {
+    return null;
+  }
+  const estimatedFinal = key === CARD_KEY ? parsePrice(key, held.estimated_final) : null;
+  return { price, estimatedFinal, observedAt };
 }
 
 /** The prices the comparison takes while their field is empty: the card's estimate. */

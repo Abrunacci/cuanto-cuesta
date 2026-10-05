@@ -16,7 +16,7 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from cuanto_cuesta.application import Malformed, RateSpec, Submission
-from cuanto_cuesta.domain import Quote
+from cuanto_cuesta.domain import Held, Quote
 
 MAX_ITEMS = 20
 """Five rates fit with room to spare; a bigger envelope is a bug on the sending side."""
@@ -84,22 +84,34 @@ def parse_item(data: object) -> Submission | Malformed:
     )
 
 
-def quote_json(spec: RateSpec, quote: Quote) -> dict[str, object]:
+def quote_json(spec: RateSpec, quote: Quote, held: Held | None) -> dict[str, object]:
     data: dict[str, object] = {
         "key": spec.key,
         "base": str(spec.base),
         "quote": str(spec.quote),
-        "price": decimal_text(quote.price),
-    }
-    if spec.estimated_final:
-        estimated = quote.estimated_final
-        data["estimated_final"] = None if estimated is None else decimal_text(estimated)
-    data |= {
+        **_prices_json(spec, quote),
         "source": quote.source,
         "source_url": quote.source_url,
         "observed_at": timestamp_text(quote.observed_at),
+        # The latest reading that jumped too far from this quote, not used until confirmed, so
+        # the calculator can say so next to the price it prefills.
+        "held": None
+        if held is None
+        else {
+            **_prices_json(spec, held.quote),
+            "observed_at": timestamp_text(held.quote.observed_at),
+        },
     }
     return data
+
+
+def _prices_json(spec: RateSpec, quote: Quote) -> dict[str, str | None]:
+    """The price, and the estimate on the rate that has one (null when it was not estimated)."""
+    prices: dict[str, str | None] = {"price": decimal_text(quote.price)}
+    if spec.estimated_final:
+        estimated = quote.estimated_final
+        prices["estimated_final"] = None if estimated is None else decimal_text(estimated)
+    return prices
 
 
 def decimal_text(value: Decimal) -> str:

@@ -119,7 +119,8 @@ const FEE_KEYS = [
   "note",
 ];
 
-const RATE_KEYS = ["key", "base", "quote", "min", "max", "estimated_final"];
+// max_jump is the backend's alone: it judges readings as they arrive, the calculator never does.
+const RATE_KEYS = ["key", "base", "quote", "min", "max", "max_jump", "estimated_final"];
 
 function yamlRate(entry: Record<string, Yaml>) {
   return {

@@ -3,7 +3,7 @@ from decimal import Decimal
 
 import pytest
 
-from cuanto_cuesta.domain import Arrival, Quote, arrival
+from cuanto_cuesta.domain import Arrival, Held, Percentage, Quote, arrival, jumps
 
 AT = datetime(2026, 10, 1, 15, 0, tzinfo=UTC)
 
@@ -64,3 +64,30 @@ class TestArrival:
     def test_times_in_different_zones_are_compared_as_instants(self) -> None:
         same_instant = AT.astimezone(timezone(timedelta(hours=-3)))
         assert arrival(quote(), quote(at=same_instant)) is Arrival.SAME
+
+
+class TestJumps:
+    LIMIT = Percentage(Decimal(10))
+
+    def test_the_limit_is_relative_to_the_previous_price(self) -> None:
+        before = quote("1000")
+        assert not jumps(before, quote("1100"), self.LIMIT)
+        assert not jumps(before, quote("900"), self.LIMIT)
+        assert jumps(before, quote("1100.01"), self.LIMIT)
+        assert jumps(before, quote("899.99"), self.LIMIT)
+
+    def test_the_estimate_counts_when_both_have_one(self) -> None:
+        before = quote("1", estimated="1")
+        assert jumps(before, quote("1", estimated="1.2"), self.LIMIT)
+        assert not jumps(before, quote("1", estimated=None), self.LIMIT)
+        assert not jumps(quote("1"), quote("1", estimated="5"), self.LIMIT)
+
+
+class TestHeld:
+    def test_refuses_negative_confirmations(self) -> None:
+        with pytest.raises(ValueError, match="confirmations"):
+            Held(quote("1000"), -1, AT)
+
+    def test_refuses_a_last_reading_before_the_held_one(self) -> None:
+        with pytest.raises(ValueError, match="last_seen"):
+            Held(quote("1000"), 0, AT - timedelta(seconds=1))

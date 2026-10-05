@@ -229,11 +229,16 @@ export interface Texts {
     readonly age: (milliseconds: number) => string;
     /** Under a price that may be old; `key` says where to check it. */
     readonly stale: (age: string, key: string) => string;
+    /** Under a price whose latest reading (`value`) jumped far from it and is not used yet. */
+    readonly held: (value: string, key: string) => string;
     /** Under the MEP outside market hours. */
     readonly closed: (note: ClosedNote) => string;
-    /** Under the card's empty field, while the comparison uses its estimate. */
-    readonly cardField: (value: string, age: string | null) => string;
+    /**
+     * Under the card's empty field, while the comparison uses its estimate; `held` is the latest
+     * estimate when it jumped far from this one and is not used yet.
+     */
+    readonly cardField: (value: string, age: string | null, held: string | null) => string;
     /** Next to the "Precio estimado" mark, in the route's result. */
-    readonly cardResult: (value: string, age: string | null) => string;
+    readonly cardResult: (value: string, age: string | null, held: string | null) => string;
   };
 }

@@ -11,7 +11,10 @@ from cuanto_cuesta.application.catalog import (
     Verified,
 )
 from cuanto_cuesta.application.ingest import (
+    CONFIRMATIONS,
     ItemResult,
+    Jump,
+    JumpEvent,
     Malformed,
     QuoteStore,
     Rejection,
@@ -24,6 +27,7 @@ from cuanto_cuesta.application.limits import MAX_PERCENT, max_fixed
 from cuanto_cuesta.application.rates import InvalidRateCatalogError, RateCatalog, RateSpec
 
 __all__ = [
+    "CONFIRMATIONS",
     "MAX_PERCENT",
     "Catalog",
     "Estimate",
@@ -31,6 +35,8 @@ __all__ = [
     "InvalidCatalogError",
     "InvalidRateCatalogError",
     "ItemResult",
+    "Jump",
+    "JumpEvent",
     "Malformed",
     "Provenance",
     "QuoteStore",
