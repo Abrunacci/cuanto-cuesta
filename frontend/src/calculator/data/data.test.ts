@@ -156,10 +156,10 @@ describe("the bundled data, calculated end to end", () => {
     // 935.32; 0.6 % = 5.61192 -> 5.62; 929.70 x 1596.21 = 1483996.437. Without fees:
     // 954.48 x 1596.21 = 1523550.52, 39554.09 more.
     expect(summarize("1000.00")).toEqual([
-      ["binance_p2p_bitso", "1534005.69", "15706.71"],
       ["arq", "1524869.44", "68515.56"],
       ["mep", "1503624.13", "32535.87"],
       ["binance_card_bitso", "1483996.43", "39554.09"],
+      ["binance_p2p_bitso", "1534005.69", "15706.71"],
     ]);
   });
 
@@ -177,8 +177,8 @@ describe("the bundled data, calculated end to end", () => {
     expect(summarize("100.00")).toEqual([
       ["mep", "150359.34", "3256.66"],
       ["binance_card_bitso", "148271.94", "4070.34"],
-      ["binance_p2p_bitso", "147633.46", "7326.60"],
       ["arq", "122690.64", "36647.86"],
+      ["binance_p2p_bitso", "147633.46", "7326.60"],
     ]);
   });
 
@@ -197,7 +197,7 @@ describe("the bundled data, calculated end to end", () => {
       ]),
       fees,
     });
-    const [binance, mep, ...incomplete] = routesInOrder(comparison);
+    const [mep, binance, ...incomplete] = routesInOrder(comparison);
     // Binance P2P + Bitso delivers more, but it is risky: the MEP route is the best one, with no
     // other route without risk to compare it with.
     expect(binance?.status === "complete" && binance.standing).toMatchObject({

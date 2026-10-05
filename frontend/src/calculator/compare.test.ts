@@ -339,12 +339,12 @@ describe("routes with a risk", () => {
     expect(comparison.ranking.kind === "ranked" && comparison.ranking.best.route.id).toBe(
       "binance_p2p_bitso",
     );
-    // Still listed by what they deliver. 1524869.44 - 1518602.26 = 6267.18;
+    // Listed after every route without risk. 1524869.44 - 1518602.26 = 6267.18;
     // 1518602.26 - 1503624.13 = 14978.13
     expect(standings(comparison)).toEqual([
-      ["arq", "over", "6267.18", "binance_p2p_bitso"],
       ["binance_p2p_bitso", "ahead", "14978.13", "mep"],
       ["mep", "behind", "14978.13", "binance_p2p_bitso"],
+      ["arq", "over", "6267.18", "binance_p2p_bitso"],
     ]);
   });
 
@@ -352,8 +352,8 @@ describe("routes with a risk", () => {
     // 1524869.44 - 1503624.13 = 21245.31
     expect(standings(compareRoutes(input({ routes: risky("binance_p2p_bitso") })))).toEqual([
       ["arq", "ahead", "21245.31", "mep"],
-      ["binance_p2p_bitso", "behind", "6267.18", "arq"],
       ["mep", "behind", "21245.31", "arq"],
+      ["binance_p2p_bitso", "behind", "6267.18", "arq"],
     ]);
   });
 
@@ -362,9 +362,9 @@ describe("routes with a risk", () => {
     const comparison = compareRoutes(input({ routes: risky("arq", "binance_p2p_bitso") }));
     expect(comparison.ranking.kind).toBe("unrivaled");
     expect(standings(comparison)).toEqual([
+      ["mep", "unrivaled"],
       ["arq", "over", "21245.31", "mep"],
       ["binance_p2p_bitso", "over", "14978.13", "mep"],
-      ["mep", "unrivaled"],
     ]);
   });
 
@@ -457,10 +457,10 @@ describe("routes with a risk", () => {
       }),
     );
     expect(standings(withRisky)).toEqual([
-      ["a", "tied", "b"],
       ["b", "tied", "c"],
       ["c", "tied", "b"],
       ["d", "behind", "1536.16", "b"],
+      ["a", "tied", "b"],
     ]);
   });
 
@@ -505,8 +505,8 @@ describe("routes with a risk", () => {
       }),
     );
     expect(standings(comparison)).toEqual([
-      ["a", "tied", "b"],
       ["b", "unrivaled"],
+      ["a", "tied", "b"],
       ["c", "tied", "b"],
     ]);
   });
