@@ -24,7 +24,16 @@ from fastapi.responses import JSONResponse
 from starlette.concurrency import run_in_threadpool
 
 from cuanto_cuesta.api.wire import parse_envelope, parse_item, quote_json, timestamp_text
-from cuanto_cuesta.application import ItemResult, RateCatalog, Status, current_quotes, ingest
+from cuanto_cuesta.application import (
+    CONFIRMATIONS,
+    ItemResult,
+    JumpEvent,
+    RateCatalog,
+    Status,
+    current_quotes,
+    ingest,
+)
+from cuanto_cuesta.domain import Quote
 from cuanto_cuesta.infrastructure.config import load_rate_catalog
 from cuanto_cuesta.infrastructure.db import SqlQuoteStore, create_engine
 from cuanto_cuesta.infrastructure.settings import Settings
@@ -139,7 +148,7 @@ def rates(engine: Engine, catalog: Catalog, now: Now) -> JSONResponse:
     return JSONResponse(
         {
             "server_time": timestamp_text(now()),
-            "rates": [quote_json(spec, quote) for spec, quote in quotes],
+            "rates": [quote_json(spec, quote, held) for spec, quote, held in quotes],
         },
         headers={"Cache-Control": "no-store"},
     )
@@ -207,3 +216,38 @@ def _log(batch_id: object, results: list[ItemResult]) -> None:
     for r in results:
         if r.status is Status.REJECTED:
             log.warning("batch %s: item %d (%s) rejected: %s", batch_id, r.index, r.key, r.error)
+        _log_jump(batch_id, r)
+
+
+_JUMP_LINES = {
+    JumpEvent.HELD: "jump_held: current {current}, got {observed}; held until {needed} agree",
+    JumpEvent.CONFIRMING: "jump_confirming: current {current}, held {held}, got {observed}"
+    " ({confirmations} of {needed})",
+    JumpEvent.CONFIRMED: "jump_confirmed: {current} replaced by {observed} after {confirmations}"
+    " readings agreed with {held}",
+    JumpEvent.DISCARDED: "jump_discarded: held {held} dropped, got {observed} near {current}",
+}
+
+
+def _log_jump(batch_id: object, r: ItemResult) -> None:
+    """What a reading did to a held jump. ``jump_confirmed`` is the line infra alerts on: a jump
+    that the next readings confirmed and that the calculator now shows."""
+    if r.jump is None:
+        return
+    jump = r.jump
+    line = _JUMP_LINES[jump.event].format(
+        current=_prices(jump.current),
+        held=_prices(jump.held),
+        observed=_prices(jump.observed),
+        confirmations=jump.confirmations,
+        needed=CONFIRMATIONS,
+    )
+    level = logging.INFO if jump.event is JumpEvent.DISCARDED else logging.WARNING
+    log.log(level, "batch %s: item %d (%s) %s", batch_id, r.index, r.key, line)
+
+
+def _prices(quote: Quote) -> str:
+    """``1452.30``, or ``0.9850 (estimate 0.9712)`` on the card, where the estimate may jump."""
+    if quote.estimated_final is None:
+        return str(quote.price)
+    return f"{quote.price} (estimate {quote.estimated_final})"

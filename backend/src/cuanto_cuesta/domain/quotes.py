@@ -2,8 +2,9 @@
 one relates to it.
 
 There is no history. Each rate has one current quote, replaced by a newer observation; an older
-one is ignored. Which rates exist, their currencies and plausible ranges are data
-(``config/rates.yaml``), not domain rules.
+one is ignored. A newer one that jumps too far from the current one is held aside instead, until
+the next readings confirm it (``Held``). Which rates exist, their currencies, plausible ranges and
+how far each may jump are data (``config/rates.yaml``), not domain rules.
 """
 
 from __future__ import annotations
@@ -12,6 +13,8 @@ from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
 from enum import StrEnum
+
+from cuanto_cuesta.domain.percentage import HUNDRED, Percentage
 
 
 @dataclass(frozen=True, slots=True)
@@ -48,6 +51,38 @@ class Arrival(StrEnum):
     """Observed before the current one; ignored."""
     CONFLICT = "conflict"
     """Same time as the current one, different values: one of the two is wrong."""
+
+
+@dataclass(frozen=True, slots=True)
+class Held:
+    """A reading that jumped too far from the current quote, kept aside instead of shown.
+
+    There is still no history: a rate holds at most one, the latest that jumped. It becomes the
+    current quote only when later readings agree with it.
+    """
+
+    quote: Quote
+    """The reading that jumped: later ones are compared with it."""
+    confirmations: int
+    """How many later readings have agreed with it so far."""
+    last_seen: datetime
+    """When the latest reading that counted was observed: a reading sent again counts once."""
+
+    def __post_init__(self) -> None:
+        if self.confirmations < 0:
+            raise ValueError(f"confirmations must not be negative, got {self.confirmations}")
+        if self.last_seen < self.quote.observed_at:
+            raise ValueError("last_seen must not be before the held reading was observed")
+
+
+def jumps(previous: Quote, observed: Quote, limit: Percentage) -> bool:
+    """Whether a price of ``observed`` moved more than ``limit`` from the same price of
+    ``previous``, relative to it. The card's estimate counts only when both readings carry one."""
+    pairs = [(previous.price, observed.price)]
+    if previous.estimated_final is not None and observed.estimated_final is not None:
+        pairs.append((previous.estimated_final, observed.estimated_final))
+    # Multiplied out instead of divided, so the comparison stays exact.
+    return any(abs(new - old) * HUNDRED > limit.value * old for old, new in pairs)
 
 
 def arrival(current: Quote | None, observed: Quote) -> Arrival:

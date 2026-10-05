@@ -7,6 +7,10 @@
 #                    catch a number read a thousand times off. The calculator checks typed prices
 #                    against the same ranges (frontend/src/form/plausible.ts); a parity test keeps
 #                    them equal, so change both together
+#   max_jump         how far, in percent, a reading may move from the current quote. One that moves
+#                    more is held aside, not shown, and replaces the current quote only when the
+#                    next two readings agree with it (backend/README.md, "Jumps"). A broken
+#                    source moves much more than this; a real market rarely does between readings
 #   estimated_final  the item also carries the price the operation's final payment screen is
 #                    expected to show (null when it could not be estimated)
 
@@ -16,28 +20,33 @@ rates:
     quote: ARS
     min: 500
     max: 50000
+    max_jump: 10
 
   - key: binance_p2p_usdt_usd
     base: USDT
     quote: USD
     min: 0.5
     max: 2
+    max_jump: 5
 
   - key: bitso_usdt_ars
     base: USDT
     quote: ARS
     min: 500
     max: 50000
+    max_jump: 10
 
   - key: arq_usd_ars
     base: USD
     quote: ARS
     min: 500
     max: 50000
+    max_jump: 10
 
   - key: binance_card_usd_usdt
     base: USD
     quote: USDT
     min: 0.5
     max: 2
+    max_jump: 5
     estimated_final: true

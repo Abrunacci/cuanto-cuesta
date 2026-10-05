@@ -46,6 +46,15 @@ def send(client: TestClient, *items: object, **headers: str) -> Any:
     return response.json()
 
 
+def held(owner: sa.Engine) -> tuple[str, str | None, int | None]:
+    """Bitso's current price, its held price and the held one's confirmations."""
+    with owner.connect() as connection:
+        price, held_price, confirmations = connection.execute(
+            sa.text("SELECT price, held_price, held_confirmations FROM rate_quote")
+        ).one()
+    return str(price), None if held_price is None else str(held_price), confirmations
+
+
 class TestIngest:
     def test_stores_each_item_and_says_how_it_went(self, client: TestClient) -> None:
         assert send(client, BITSO, CARD | {"price": "9"}) == {
@@ -163,6 +172,36 @@ class TestIngest:
         response = client.post("/api/ingest", content=chunks(), headers=AUTH)
         assert response.status_code == 413
 
+    def test_a_jump_is_held_until_the_next_two_readings_confirm_it(
+        self, client: TestClient, owner: sa.Engine, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        send(client, BITSO)  # 1452.30 at 14:58; Bitso may move 10 %
+
+        def at(time: str, price: str) -> Any:
+            item = BITSO | {"price": price, "observed_at": f"2026-10-01T{time}:00Z"}
+            [result] = send(client, item)["results"]
+            return result
+
+        jump = {"index": 0, "key": "bitso_usdt_ars", "status": "rejected", "error": "jump"}
+        assert at("14:59", "1700") == jump
+        assert at("14:59", "1700") == jump  # sent again: it counts once
+        assert at("15:00", "1710") == jump
+        assert held(owner) == ("1452.30", "1700", 1)
+        assert "jump_confirmed" not in caplog.text
+
+        assert at("15:01", "1690") == {"index": 0, "key": "bitso_usdt_ars", "status": "stored"}
+        assert held(owner) == ("1690", None, None)
+        assert "(bitso_usdt_ars) jump_confirmed: 1452.30 replaced by 1690" in caplog.text
+
+    def test_a_jump_that_is_not_confirmed_is_discarded(
+        self, client: TestClient, owner: sa.Engine
+    ) -> None:
+        send(client, BITSO)
+        send(client, BITSO | {"price": "14523", "observed_at": "2026-10-01T14:59:00Z"})
+        assert held(owner) == ("1452.30", "14523", 0)
+        send(client, BITSO | {"price": "1453", "observed_at": "2026-10-01T15:00:00Z"})
+        assert held(owner) == ("1453", None, None)
+
     def test_reading_is_not_ingesting(self, client: TestClient) -> None:
         assert client.get("/api/ingest", headers=AUTH).status_code == 405
 
@@ -184,6 +223,7 @@ class TestRates:
                 "source": "bitso_api",
                 "source_url": "https://bitso.com/ar",
                 "observed_at": "2026-10-01T14:58:00Z",
+                "held": None,
             },
             {
                 "key": "binance_card_usd_usdt",
@@ -194,8 +234,20 @@ class TestRates:
                 "source": "binance_web",
                 "source_url": None,
                 "observed_at": "2026-10-01T14:58:00Z",
+                "held": None,
             },
         ]
+
+    def test_a_held_reading_is_shown_next_to_the_current_price(self, client: TestClient) -> None:
+        send(client, CARD)
+        send(client, CARD | {"estimated_final": "0.5", "observed_at": "2026-10-01T14:59:00Z"})
+        [card] = client.get("/api/rates").json()["rates"]
+        assert (card["price"], card["estimated_final"]) == ("0.9850", "0.9712")
+        assert card["held"] == {
+            "price": "0.9850",
+            "estimated_final": "0.5",
+            "observed_at": "2026-10-01T14:59:00Z",
+        }
 
     def test_a_null_card_estimate_is_returned_as_null(self, client: TestClient) -> None:
         send(client, CARD | {"estimated_final": None})

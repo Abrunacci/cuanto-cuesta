@@ -1,6 +1,7 @@
 /**
  * What the screen says about the prices that come from the backend. Under a fresh price, nothing:
- * something shows only when the price needs a second look, or when the MEP is the last close.
+ * something shows only when the price needs a second look (it may be old, or the latest reading
+ * jumped far from it), or when the MEP is the last close.
  */
 
 import { type PositivePrice } from "../calculator/index.ts";
@@ -43,6 +44,10 @@ export function prefillTexts(
 }
 
 export function fieldNotice(t: Texts, quote: Quote, now: number): FieldNotice | null {
+  // Before its age: a price the latest reading contradicts needs a look whatever its age.
+  if (quote.held !== null) {
+    return { kind: "warning", text: t.quotes.held(t.numbers.exact(quote.held.price), quote.key) };
+  }
   const state = freshness(quote.key, quote.observedAt, now);
   switch (state.kind) {
     case "fresh":
@@ -64,11 +69,15 @@ export function cardEstimate(t: Texts, snapshot: RatesSnapshot, now: number): Ca
   }
   const state = freshness(CARD_KEY, quote.observedAt, now);
   const age = state.kind === "stale" ? t.quotes.age(state.age) : null;
-  const value = `${t.numbers.exact(quote.estimatedFinal)} ${rateTexts(t, CARD_KEY).unit}`;
+  const { unit } = rateTexts(t, CARD_KEY);
+  const value = `${t.numbers.exact(quote.estimatedFinal)} ${unit}`;
+  // Only the estimate is used, so only a held estimate is worth a word.
+  const heldEstimate = quote.held?.estimatedFinal ?? null;
+  const held = heldEstimate === null ? null : `${t.numbers.exact(heldEstimate)} ${unit}`;
   return {
     key: CARD_KEY,
     price: quote.estimatedFinal,
-    fieldNote: t.quotes.cardField(value, age),
-    resultNote: t.quotes.cardResult(value, age),
+    fieldNote: t.quotes.cardField(value, age, held),
+    resultNote: t.quotes.cardResult(value, age, held),
   };
 }

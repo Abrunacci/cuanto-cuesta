@@ -92,6 +92,22 @@ describe("prices from the backend", () => {
     expect(notice(BITSO)).toBeNull();
   });
 
+  it("keep the current price when the latest reading jumped, and say so", async () => {
+    const body = rates(FRESH);
+    const held = { price: "1700", observed_at: iso(SERVER_TIME) };
+    await renderWith({
+      ...body,
+      rates: body.rates.map((rate) => (rate.key === "bitso_usdt_ars" ? { ...rate, held } : rate)),
+    });
+    expect(field(BITSO).value).toBe("1.452,3");
+    expect(notice(BITSO)).toBe(
+      "La última lectura dio 1.700, muy distinta de este precio, y todavía no la usamos. Revisalo en Bitso antes de decidir.",
+    );
+    expect(field(BITSO)).toHaveAccessibleDescription(
+      expect.stringContaining("La última lectura dio 1.700") as string,
+    );
+  });
+
   it("compare the card with its estimate while its field is empty, and mark it", async () => {
     const user = await renderWith(rates(STALE));
     expect(notice(CARD)).toBe(

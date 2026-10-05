@@ -176,11 +176,13 @@ module-level instances or singletons: the DB engine and the rate catalog live in
 ## Rates
 
 - The five rates the calculator asks for live in `backend/config/rates.yaml`: each key's currency
-  pair, the range its price can plausibly be in and whether it carries `estimated_final`. The
+  pair, the range its price can plausibly be in, how far it may jump between readings
+  (`max_jump`) and whether it carries `estimated_final`. The
   backend rejects an ingested price outside that range; the calculator warns about a typed one
   with the same ranges (`src/form/plausible.ts`), and `tests/config-parity.test.ts` keeps the two
   equal.
-- The backend never computes with a quote: it validates and stores it. The API returns quotes as
+- The backend never computes with a quote: it validates it, compares it with the current one to
+  hold a jump until later readings confirm it (`backend/README.md`, "Jumps"), and stores it. The API returns quotes as
   decimal strings with their `observed_at`; deciding whether one is fresh is the calculator's.
 
 ## Deploy

@@ -50,6 +50,11 @@ const WHERE: Readonly<Record<string, string>> = {
   arq_usd_ars: "on ARQ",
 };
 
+const heldCard = (held: string | null) =>
+  held === null
+    ? ""
+    : ` The latest reading was ${held}, very different from this estimate, and is not used yet.`;
+
 export const en: Texts = {
   language: "en",
   numbers: numbersIn(ENGLISH_NUMBERS),
@@ -373,6 +378,8 @@ export const en: Texts = {
     age: (milliseconds) => age(ageParts(milliseconds)).replace(/(\d) /g, `$1${NBSP}`),
     stale: (age, key) =>
       `It may be out of date: it is ${age} old. Check it ${WHERE[key] ?? ""} before deciding.`,
+    held: (value, key) =>
+      `The latest reading was ${value}, very different from this price, and is not used yet. Check it ${WHERE[key] ?? ""} before deciding.`,
     closed: ({ read, readToday, opens, opensOn }) => {
       const day = readToday ? "today" : `on ${weekday(read)}, ${monthDay(read)}`;
       const openDay = { today: "today", tomorrow: "tomorrow", later: `on ${weekday(opens)}` }[
@@ -380,9 +387,9 @@ export const en: Texts = {
       ];
       return `Close ${day} at ${clock(read)} (Buenos Aires time). The market opens ${openDay} at ${clock(opens)}.`;
     },
-    cardField: (value, age) =>
-      `Until you enter it, the comparison uses the estimate: ${value}${age === null ? "" : `, from ${age} ago`}.`,
-    cardResult: (value, age) =>
-      `Computed with the card's estimated price (${value}${age === null ? "" : `, from ${age} ago: it may be out of date`}). Enter the one on your Binance payment screen for the exact value.`,
+    cardField: (value, age, held) =>
+      `Until you enter it, the comparison uses the estimate: ${value}${age === null ? "" : `, from ${age} ago`}.${heldCard(held)}`,
+    cardResult: (value, age, held) =>
+      `Computed with the card's estimated price (${value}${age === null ? "" : `, from ${age} ago: it may be out of date`}).${heldCard(held)} Enter the one on your Binance payment screen for the exact value.`,
   },
 };

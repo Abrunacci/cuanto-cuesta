@@ -192,6 +192,7 @@ class _RateSpec(_Schema):
     min: Annotated[Decimal, Field(gt=0, allow_inf_nan=False)]
     max: Annotated[Decimal, Field(gt=0, allow_inf_nan=False)]
     estimated_final: StrictBool = False
+    max_jump: Annotated[Decimal, Field(gt=0, le=100, allow_inf_nan=False)]
 
     def to_spec(self) -> RateSpec:
         return RateSpec(
@@ -201,6 +202,7 @@ class _RateSpec(_Schema):
             minimum=self.min,
             maximum=self.max,
             estimated_final=self.estimated_final,
+            max_jump=Percentage(self.max_jump),
         )
 
 

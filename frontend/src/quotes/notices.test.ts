@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { es } from "../i18n/es.ts";
 import { SPANISH_NUMBERS, numbersIn } from "../text/numbers.ts";
-import { cardEstimate, prefillTexts } from "./notices.ts";
+import { cardEstimate, fieldNotice, prefillTexts } from "./notices.ts";
 import { parseRates } from "./quotes.ts";
 
 const { parse: parseNumber } = numbersIn(SPANISH_NUMBERS);
@@ -71,6 +71,31 @@ describe("cardEstimate", () => {
     );
   });
 
+  it("mentions a held estimate, which is not used", () => {
+    const estimate = cardEstimate(
+      es,
+      snapshot([
+        {
+          ...price("binance_card_usd_usdt", "USD", "USDT", "0.985"),
+          estimated_final: "0.9712",
+          held: {
+            price: "0.985",
+            estimated_final: "0.8",
+            observed_at: new Date(NOW).toISOString(),
+          },
+        },
+      ]),
+      NOW,
+    );
+    expect(estimate?.price.toFixed()).toBe("0.9712");
+    expect(estimate?.fieldNote).toBe(
+      "Mientras no lo cargues, la comparación usa el estimado: 0,9712 USDT por USD. La última lectura dio 0,8 USDT por USD, muy distinta de este estimado, y todavía no la usamos.",
+    );
+    expect(estimate?.resultNote).toContain(
+      "(0,9712 USDT por USD). La última lectura dio 0,8 USDT por USD, muy distinta de este estimado, y todavía no la usamos. Cargá",
+    );
+  });
+
   it("is absent without an estimate", () => {
     expect(
       cardEstimate(
@@ -81,5 +106,23 @@ describe("cardEstimate", () => {
         NOW,
       ),
     ).toBeNull();
+  });
+});
+
+describe("fieldNotice", () => {
+  it("warns about a held reading before anything else, even under a fresh price", () => {
+    const bitso = snapshot([
+      {
+        ...price("bitso_usdt_ars", "USDT", "ARS", "1452.30"),
+        held: { price: "1700", observed_at: new Date(NOW).toISOString() },
+      },
+    ]).quotes.get("bitso_usdt_ars");
+    if (bitso === undefined) {
+      throw new Error("no quote");
+    }
+    expect(fieldNotice(es, bitso, NOW)).toEqual({
+      kind: "warning",
+      text: "La última lectura dio 1.700, muy distinta de este precio, y todavía no la usamos. Revisalo en Bitso antes de decidir.",
+    });
   });
 });

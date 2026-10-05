@@ -63,6 +63,29 @@ describe("parseRates", () => {
     expect(snapshot?.quotes.has("binance_card_usd_usdt")).toBe(true);
   });
 
+  it("reads the held reading, if any", () => {
+    const held = { price: "1700", observed_at: "2026-10-01T15:01:00Z" };
+    const bitso = parseRates(body(item({ held })))?.quotes.get("bitso_usdt_ars");
+    expect(bitso?.held?.price.toFixed()).toBe("1700");
+    expect(bitso?.held?.observedAt).toBe(Date.UTC(2026, 9, 1, 15, 1));
+    const cardHeld = { ...held, price: "0.985", estimated_final: "0.8" };
+    const cardQuote = parseRates(body(card({ held: cardHeld })))?.quotes.get(
+      "binance_card_usd_usdt",
+    );
+    expect(cardQuote?.held?.estimatedFinal?.toFixed()).toBe("0.8");
+  });
+
+  it.each([
+    ["none", null],
+    ["no field", undefined],
+    ["a price that does not parse", { price: "x", observed_at: "2026-10-01T15:01:00Z" }],
+    ["no time", { price: "1700" }],
+  ])("keeps the price with no held reading when there is %s", (_, held) => {
+    const bitso = parseRates(body(item({ held })))?.quotes.get("bitso_usdt_ars");
+    expect(bitso?.price.toFixed()).toBe("1452.3");
+    expect(bitso?.held).toBeNull();
+  });
+
   it("ignores trailing zeros when counting decimals", () => {
     const snapshot = parseRates(
       body(
