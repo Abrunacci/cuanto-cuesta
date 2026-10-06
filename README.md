@@ -144,7 +144,7 @@ GitHub create it without any protection.
    redeploy `main` without a merge.
 2. **Build the site** runs `npm run build` (CI already ran every check on that commit), and
    **Publish the backend image** builds `backend/Dockerfile` and pushes it, tagged with the commit,
-   keeping the 6 newest versions. If either fails, nothing is deployed.
+   and every version stays in GHCR. If either fails, nothing is deployed.
 3. **Deploy to production** waits for approval: the `production` environment requires a reviewer.
    The run shows **Review deployments**; approve it there, or reject it to skip this deploy. Only
    `main` can use the environment and its secrets. Deploys run one at a time, and a run waiting
