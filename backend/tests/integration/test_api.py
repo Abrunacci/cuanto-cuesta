@@ -12,7 +12,7 @@ from fastapi.testclient import TestClient
 
 from cuanto_cuesta.api.app import MAX_BODY_BYTES
 
-from .conftest import NEXT_TOKEN, TOKEN, Clock
+from .conftest import TOKEN, Clock
 
 BATCH = "0b8e6a3c-5d1f-4c1e-9a77-2f0c8f3e1b20"
 AUTH = {"Authorization": f"Bearer {TOKEN}"}
@@ -110,9 +110,6 @@ class TestIngest:
         ahead = (clock.now + timedelta(minutes=6)).isoformat()
         result = send(client, BITSO | {"observed_at": ahead})["results"][0]
         assert result["error"] == "future_observed_at"
-
-    def test_accepts_the_next_token(self, client: TestClient) -> None:
-        send(client, BITSO, Authorization=f"Bearer {NEXT_TOKEN}")
 
     @pytest.mark.parametrize(
         "authorization",

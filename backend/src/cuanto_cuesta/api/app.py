@@ -110,20 +110,16 @@ Now = Annotated[Clock, Depends(_clock)]
 
 
 def require_token(request: Request) -> None:
-    """``Authorization: Bearer <token>``, with the current token or, while rotating, the next."""
+    """``Authorization: Bearer <token>``, with ``INGEST_TOKEN``."""
     settings: Settings = request.app.state.settings
     scheme, _, token = request.headers.get("authorization", "").partition(" ")
-    if scheme.lower() != "bearer" or not token_matches(token.strip(), settings.ingest_tokens):
+    if scheme.lower() != "bearer" or not token_matches(token.strip(), settings.ingest_token):
         raise ApiError(401, "unauthorized", headers={"WWW-Authenticate": "Bearer"})
 
 
-def token_matches(given: str, accepted: tuple[str, ...]) -> bool:
-    """Compared in constant time, and against every accepted token, so neither how long the
-    comparison takes nor which token matched says anything about the tokens."""
-    matched = False
-    for token in accepted:
-        matched |= hmac.compare_digest(given.encode(), token.encode())
-    return matched
+def token_matches(given: str, accepted: str) -> bool:
+    """Compared in constant time, so how long the comparison takes says nothing about the token."""
+    return hmac.compare_digest(given.encode(), accepted.encode())
 
 
 # --- Routes ------------------------------------------------------------------------------------

@@ -1,8 +1,8 @@
 """Settings from the environment, checked once at startup.
 
 The server's values come from infra: ``DATABASE_URL`` and ``INGEST_TOKEN`` are secrets it
-generates, ``INGEST_TOKEN_NEXT`` is set only while rotating the token. A missing or unusable value
-stops the app from starting, with a message that names the variable and never its value.
+generates. A missing or unusable value stops the app from starting, with a message that names the
+variable and never its value.
 """
 
 from __future__ import annotations
@@ -25,18 +25,15 @@ class SettingsError(Exception):
 @dataclass(frozen=True, slots=True)
 class Settings:
     database_url: str
-    ingest_tokens: tuple[str, ...] = field(repr=False)
-    """The current token and, while rotating, the next one. Either is accepted."""
+    ingest_token: str = field(repr=False)
+    """The only token ``/api/ingest`` accepts. Infra rotates it by restarting the app."""
     config_dir: Path = DEFAULT_CONFIG_DIR
 
     @classmethod
     def from_env(cls, env: Mapping[str, str]) -> Settings:
-        tokens = [_token(env, "INGEST_TOKEN", required=True)]
-        if next_token := _token(env, "INGEST_TOKEN_NEXT", required=False):
-            tokens.append(next_token)
         return cls(
             database_url=sqlalchemy_url(_required(env, "DATABASE_URL")),
-            ingest_tokens=tuple(t for t in tokens if t),
+            ingest_token=_token(env, "INGEST_TOKEN"),
             config_dir=Path(env.get("CONFIG_DIR") or DEFAULT_CONFIG_DIR),
         )
 
@@ -60,8 +57,8 @@ def _required(env: Mapping[str, str], name: str) -> str:
     return value
 
 
-def _token(env: Mapping[str, str], name: str, *, required: bool) -> str:
-    value = _required(env, name) if required else env.get(name, "").strip()
-    if value and len(value) < MIN_TOKEN_LENGTH:
+def _token(env: Mapping[str, str], name: str) -> str:
+    value = _required(env, name)
+    if len(value) < MIN_TOKEN_LENGTH:
         raise SettingsError(f"{name} must be at least {MIN_TOKEN_LENGTH} characters long")
     return value
