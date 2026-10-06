@@ -189,9 +189,9 @@ module-level instances or singletons: the DB engine and the rate catalog live in
 
 - `.github/workflows/deploy.yml` runs after CI passes on `main`: it publishes the backend image
   (`backend/Dockerfile`) to GHCR, deploys it by digest, then ships the static files that
-  `npm run build` writes to `frontend/dist/` to https://cuanto-cuesta.abrunacci.dev (see README →
-  Deploying). The site is served from the root of its own subdomain, so asset paths are absolute
-  (`base: "/"`).
+  `npm run build` writes to `frontend/dist/` to https://cuanto-cuesta.abrunacci.dev (see
+  `docs/deploy.md`). The site is served from the root of its own subdomain, so asset paths are
+  absolute (`base: "/"`).
 - The image runs one uvicorn process on port 8000, as a non-root user; infra's proxy sends
   `/api/*` to it, except `/api/ingest`, which is only reachable on the internal network.
 
