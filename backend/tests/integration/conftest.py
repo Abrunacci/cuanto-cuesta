@@ -27,7 +27,6 @@ from cuanto_cuesta.infrastructure.settings import Settings, sqlalchemy_url
 
 BACKEND_DIR = Path(__file__).parents[2]
 TOKEN = "current-token-" + "c" * 32
-NEXT_TOKEN = "next-token-" + "n" * 32
 
 
 @dataclass(frozen=True)
@@ -92,7 +91,7 @@ def clock() -> Clock:
 def client(database: Database, owner: sa.Engine, clock: Clock) -> Iterator[TestClient]:
     settings = Settings(
         database_url=database.app_url.render_as_string(hide_password=False),
-        ingest_tokens=(TOKEN, NEXT_TOKEN),
+        ingest_token=TOKEN,
         config_dir=BACKEND_DIR / "config",
     )
     with TestClient(create_app(settings, clock)) as test_client:

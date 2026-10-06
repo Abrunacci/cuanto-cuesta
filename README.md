@@ -144,7 +144,7 @@ GitHub create it without any protection.
    redeploy `main` without a merge.
 2. **Build the site** runs `npm run build` (CI already ran every check on that commit), and
    **Publish the backend image** builds `backend/Dockerfile` and pushes it, tagged with the commit,
-   keeping the 6 newest versions. If either fails, nothing is deployed.
+   and every version stays in GHCR. If either fails, nothing is deployed.
 3. **Deploy to production** waits for approval: the `production` environment requires a reviewer.
    The run shows **Review deployments**; approve it there, or reject it to skip this deploy. Only
    `main` can use the environment and its secrets. Deploys run one at a time, and a run waiting
@@ -163,9 +163,8 @@ GitHub create it without any protection.
    files: its `index.html` and the assets it loads. With the backend deployed, it also checks that
    `/api/health` answers and that `/api/ingest` does not answer from the public proxy.
 
-The backend reads `DATABASE_URL` and `INGEST_TOKEN` (and `INGEST_TOKEN_NEXT` while rotating the
-token); the migrations read `MIGRATION_DATABASE_URL` and `APP_DB_USER`. Infra generates them all
-on the server; none of them is in this repository.
+The backend reads `DATABASE_URL` and `INGEST_TOKEN`; the migrations read `MIGRATION_DATABASE_URL`
+and `APP_DB_USER`. Infra generates them all on the server; none of them is in this repository.
 
 Each release on the server is named after its UTC time and commit
 (`20260925T141500Z-3f9c2ab1d4e0`), and the job's log shows it
