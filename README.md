@@ -81,7 +81,7 @@ npm run preview   # serves the build at http://localhost:4173
 ```
 
 The build uses absolute paths from the site root (`base: "/"` in `frontend/vite.config.ts`),
-because the site is served from the root of its own subdomain: see [Deploying](#deploying).
+because the site is served from the root of its own subdomain: see [docs/deploy.md](docs/deploy.md).
 
 ### The backend
 
@@ -128,63 +128,10 @@ curl -s http://localhost:8000/api/rates
 
 ## Deploying
 
-The [Deploy workflow](.github/workflows/deploy.yml) publishes the backend image to
-`ghcr.io/abrunacci/cuanto-cuesta-backend` and deploys it, then the site, to
-<https://cuanto-cuesta.abrunacci.dev>. The server side (the restricted deploy key, `deploy.sh`
-and `deploy-backend`, releases and rollback) lives in the infra repository: see "Deploying a
-project" and "Deploying a backend" in its `ansible/README.md`.
-
-**Before the workflow first reaches `main`**, the repository needs the `production` environment
-exactly as that section describes: required reviewers, deployments from `main` only, and the
-`DEPLOY_SSH_KEY` and `DEPLOY_KNOWN_HOSTS` secrets. A job that names a missing environment makes
-GitHub create it without any protection.
-
-1. **CI passes on `main`** (a merged pull request) and the workflow starts, for the commit CI
-   tested. It can also be started by hand: **Actions → Deploy → Run workflow**, on `main`, to
-   redeploy `main` without a merge.
-2. **Build the site** runs `npm run build` (CI already ran every check on that commit), and
-   **Publish the backend image** builds `backend/Dockerfile` and pushes it, tagged with the commit,
-   keeping the 6 newest versions. If either fails, nothing is deployed.
-3. **Deploy to production** waits for approval: the `production` environment requires a reviewer.
-   The run shows **Review deployments**; approve it there, or reject it to skip this deploy. Only
-   `main` can use the environment and its secrets. Deploys run one at a time, and a run waiting
-   for approval holds the queue: reject the ones you will not approve. The build is kept for 7
-   days, so an approval can come later than the push; within those days, **Re-run failed jobs**
-   can retry just the deploy.
-4. **The backend** is deployed by digest, only while the repository variable `DEPLOY_BACKEND` is
-   `true` (**Settings → Secrets and variables → Actions → Variables**); until infra runs the
-   backend, leave it unset and the site deploys alone. The server dumps the database, runs
-   `alembic upgrade head` as the database owner, switches the container and puts the previous one
-   back if `/api/health` does not answer; a failed backend deploy stops the job before the site.
-5. **The site** goes to the server over SSH, checking the server's host key against the pinned
-   `known_hosts` line. The server checks the archive and switches to the new release atomically;
-   if it rejects the upload, the job fails and what was published stays published.
-6. **The published site is checked**: the job fails unless the site serves exactly this build's
-   files: its `index.html` and the assets it loads. With the backend deployed, it also checks that
-   `/api/health` answers and that `/api/ingest` does not answer from the public proxy.
-
-The backend reads `DATABASE_URL` and `INGEST_TOKEN` (and `INGEST_TOKEN_NEXT` while rotating the
-token); the migrations read `MIGRATION_DATABASE_URL` and `APP_DB_USER`. Infra generates them all
-on the server; none of them is in this repository.
-
-Each release on the server is named after its UTC time and commit
-(`20260925T141500Z-3f9c2ab1d4e0`), and the job's log shows it
-(`Deployed cuanto-cuesta release …`).
-
-### Going back
-
-- **Redeploy an earlier commit from GitHub.** Open that commit's run under **Actions → Deploy**,
-  choose **Re-run all jobs**, and approve the deploy. It rebuilds that commit and publishes it as
-  a new release. Migrations are never undone: an earlier backend runs on the migrated schema.
-  GitHub keeps runs re-runnable for 30 days; for an older commit, revert to it in a pull request
-  instead.
-- **Switch back on the server, without rebuilding.** The server keeps the last releases, and the
-  admin can publish an earlier one with `site-rollback`, instantly and without a CI run. See the
-  deploy notes in the
-  [infra repository's README](https://github.com/Abrunacci/infra/blob/main/ansible/README.md#design-notes).
-  The backend's equivalent is `backend-rollback`, also for the admin. The next deploy publishes
-  its own release as usual, so fix `main` (or reject that deploy) before the next push if the
-  problem is in the code.
+Every merge to `main` that passes CI publishes the backend image and deploys it, then the site, to
+<https://cuanto-cuesta.abrunacci.dev>, after a manual approval. [docs/deploy.md](docs/deploy.md)
+has the whole picture: the workflow, what the server expects from the container, the variables,
+what to do when a deploy fails, and how to go back.
 
 ## Contributing
 
