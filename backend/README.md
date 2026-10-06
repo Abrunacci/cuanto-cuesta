@@ -49,8 +49,7 @@ calculator keeps the current price and says that the latest reading was very dif
 ### `POST /api/ingest`
 
 What data-pipeline calls, on the server's internal network only (the public proxy does not
-expose it). `Authorization: Bearer <token>`: `INGEST_TOKEN`, or `INGEST_TOKEN_NEXT` while the
-token is being rotated, compared in constant time.
+expose it). `Authorization: Bearer <INGEST_TOKEN>`, compared in constant time.
 
 ```json
 {
